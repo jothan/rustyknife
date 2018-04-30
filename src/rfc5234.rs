@@ -1,6 +1,3 @@
-#[macro_use]
-use nom;
-
 named!(sp,
        tag!(b" ")
 );
