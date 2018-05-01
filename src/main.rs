@@ -55,7 +55,7 @@ fn _concat_comment(comments: &Vec<CommentContent>) -> Vec<CommentContent> {
                     continue;
                 }
                 if prev_text {
-                    if let CommentContent::Text(mut pt) = out.pop().unwrap() {
+                    if let Some(CommentContent::Text(mut pt)) = out.pop() {
                         pt.extend(text);
                         (true, CommentContent::Text(pt))
                     } else {
@@ -66,7 +66,7 @@ fn _concat_comment(comments: &Vec<CommentContent>) -> Vec<CommentContent> {
                 }
             }
             CommentContent::Comment(cmt) => {
-                (false, CommentContent::Comment(_concat_comment(cmt)))
+                (false, CommentContent::Comment(cmt.clone()))
             },
         };
         prev_text = is_text;
@@ -76,10 +76,10 @@ fn _concat_comment(comments: &Vec<CommentContent>) -> Vec<CommentContent> {
     out
 }
 
-named!(pub comment<&[u8], Vec<CommentContent>>,
+named!(pub comment<Vec<CommentContent>>,
     do_parse!(
         tag!(b"(") >>
-        a: fold_many0!(tuple!(ofws, ccontent), Vec::new(), |mut acc: Vec<_>, (fws, cc): (Vec<u8>, CommentContent)| {
+        a: fold_many0!(tuple!(ofws, ccontent), Vec::new(), |mut acc: Vec<_>, (fws, cc)| {
             acc.push(CommentContent::Text(fws));
             acc.push(cc);
             acc
