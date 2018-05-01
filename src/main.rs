@@ -8,14 +8,17 @@ extern crate nom;
 mod rfc5234;
 use rfc5234::*;
 
-named!(quoted_pair,
+pub mod util;
+use util::*;
+
+named!(quoted_pair<CBS, CBS>,
        do_parse!(
-           tag!(b"\\") >>
+           tag!("\\") >>
            v: alt!(vchar | wsp) >> (v)
        )
 );
 
-named!(ctext,
+named!(ctext<CBS, CBS>,
        take_while1!(|c: u8| (33..=39).contains(&c) || (42..=91).contains(&c) || (93..=126).contains(&c))
 );
 
@@ -25,22 +28,22 @@ pub enum CommentContent {
     Comment(Vec<CommentContent>),
 }
 
-named!(ccontent<&[u8], CommentContent>,
-       alt!(map!(alt!(ctext | quoted_pair), |x| CommentContent::Text(x.to_vec())) | map!(comment, |y| CommentContent::Comment(y)))
+named!(ccontent<CBS, CommentContent>,
+       alt!(map!(alt!(ctext | quoted_pair), |x| CommentContent::Text(x.0.to_vec())) | map!(comment, |y| CommentContent::Comment(y)))
 );
 
-named!(fws<Vec<u8>>,
+named!(fws<CBS, Vec<u8>>,
     map!(pair!(opt!(do_parse!(
         a: many0!(wsp) >>
             crlf >> //CRLF is "semantically invisible"
         (a)
     )), many1!(wsp)), |(a, b)| {
-        a.unwrap_or(vec![]).iter().chain(b.iter()).flat_map(|i| i.iter().cloned()).collect()
+        a.unwrap_or(vec![]).iter().chain(b.iter()).flat_map(|i| i.0.iter().cloned()).collect()
     })
 );
 
 
-named!(ofws<Vec<u8>>,
+named!(ofws<CBS, Vec<u8>>,
        map!(opt!(fws), |i| i.unwrap_or(Vec::new()))
 );
 
@@ -76,24 +79,24 @@ fn _concat_comment(comments: &Vec<CommentContent>) -> Vec<CommentContent> {
     out
 }
 
-named!(pub comment<Vec<CommentContent>>,
+named!(pub comment<CBS, Vec<CommentContent>>,
     do_parse!(
-        tag!(b"(") >>
+        tag!("(") >>
         a: fold_many0!(tuple!(ofws, ccontent), Vec::new(), |mut acc: Vec<_>, (fws, cc)| {
             acc.push(CommentContent::Text(fws));
             acc.push(cc);
             acc
         }) >>
         b: ofws >>
-        tag!(b")") >>
+        tag!(")") >>
         ({let mut out = a.clone(); out.push(CommentContent::Text(b)); _concat_comment(&out)})
     )
 );
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let (rem, parsed) = vchar(&args[1].as_bytes()).unwrap();
+    let (rem, parsed) = comment(CBS(&args[1].as_bytes())).unwrap();
     
     println!("'{:?}'", parsed);
-    println!("'{}'", String::from_utf8_lossy(rem));
+    println!("'{}'", String::from_utf8_lossy(rem.0));
 }

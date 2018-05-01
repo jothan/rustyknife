@@ -1,19 +1,21 @@
-named!(sp,
-       tag!(b" ")
+use util::*;
+
+named!(sp<CBS, CBS>,
+       tag!(" ")
 );
 
-named!(htab,
-       tag!(b"\t")
+named!(htab<CBS, CBS>,
+       tag!("\t")
 );
 
-named!(pub wsp,
+named!(pub wsp<CBS, CBS>,
        alt!(sp | htab)
 );
 
-named!(pub vchar,
-       verify!(take!(1), |c: &[u8]| !c.is_empty() && (0x21..=0x7e).contains(&c[0]))
+named!(pub vchar<CBS, CBS>,
+       verify!(take!(1), |c: CBS| !c.0.is_empty() && (0x21..=0x7e).contains(&c.0[0]))
 );
 
-named!(pub crlf,
+named!(pub crlf<CBS, CBS>,
        tag!("\r\n")
 );
