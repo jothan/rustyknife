@@ -1,6 +1,7 @@
 #![feature(range_contains)]
 
 use std::env;
+use std::os::unix::ffi::OsStringExt;
 
 #[macro_use]
 extern crate nom;
@@ -94,8 +95,8 @@ named!(pub comment<CBS, Vec<CommentContent>>,
 );
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    let (rem, parsed) = comment(CBS(&args[1].as_bytes())).unwrap();
+    let args : Vec<_> = env::args_os().skip(1).map(|x| x.into_vec()).collect();
+    let (rem, parsed) = comment(CBS(&args[0])).unwrap();
     
     println!("'{:?}'", parsed);
     println!("'{}'", String::from_utf8_lossy(rem.0));
