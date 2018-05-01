@@ -4,5 +4,6 @@ version = "0.1.0"
 authors = ["Jonathan Bastien-Filiatrault <jonathan@zerospam.ca>"]
 
 [dependencies.nom]
-version = "^3.2"
-features = ["nightly", "verbose-errors"]
+git = "https://github.com/Geal/nom"
+tag = "4.0.0-beta2"
+features = ["verbose-errors"]
