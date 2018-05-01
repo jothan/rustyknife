@@ -9,7 +9,7 @@ extern crate nom;
 mod rfc5234;
 use rfc5234::*;
 
-pub mod util;
+mod util;
 use util::*;
 
 named!(quoted_pair<CBS, CBS>,
@@ -118,10 +118,192 @@ named!(pub quoted_string<CBS, Vec<u8>>,
     )
 );
 
+#[derive(Clone, Debug)]
+pub struct Mailbox {
+    pub dname: Option<Vec<u8>>,
+    pub address: Vec<u8>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Group {
+    pub dname: Vec<u8>,
+    pub members: Vec<Mailbox>,
+}
+
+#[derive(Clone, Debug)]
+pub enum Address {
+    Mailbox(Mailbox),
+    Group(Group),
+}
+
+enum Word {
+    Atom(Vec<u8>),
+    QS(Vec<u8>),
+}
+
+impl Word {
+    fn get(&self) -> &Vec<u8> {
+        match self {
+            Word::Atom(x) => x,
+            Word::QS(x) => x,
+        }
+    }
+}
+
+named!(atext<CBS, CBS>,
+    take_while1!(|c: u8| b"!#$%&'*+-/=?^_`{|}~".contains(&c) || (b'0'..=b'9').contains(&c) || (b'A'..=b'Z').contains(&c) || (b'a'..=b'z').contains(&c))
+);
+
+named!(dot_atom<CBS, CBS>,
+    do_parse!(
+        opt!(cfws) >>
+        a: recognize!(pair!(atext, many0!(pair!(tag!("."), atext)))) >>
+        opt!(cfws) >>
+        (a)
+    )
+);
+
+named!(atom<CBS, CBS>,
+    do_parse!(
+        opt!(cfws) >>
+        a: atext >>
+        opt!(cfws) >>
+        (a)
+    )
+);
+
+named!(word<CBS, Word>,
+    alt!(map!(atom, |x| Word::Atom(x.0.to_vec())) | map!(quoted_string, |x| Word::QS(x)))
+);
+
+fn _concat_atom_and_qs(input: &Vec<Word>) -> Vec<u8> {
+    let mut out = Vec::new();
+
+    for (i, t1) in input.iter().enumerate() {
+        let t2 = match input.get(i+1) {
+            Some(x) => x,
+            None => {out.extend(t1.get()); continue},
+        };
+
+        match (t1, t2) {
+            (Word::QS(v), Word::QS(_)) => out.extend(v),
+            (_, _) => {out.extend(t1.get()); out.push(b' ')},
+        };
+    }
+    out
+}
+
+named!(display_name<CBS, Vec<u8>>,
+    map!(many1!(word), |x| _concat_atom_and_qs(&x))
+);
+
+named!(local_part<CBS, Vec<u8>>,
+    alt!(map!(dot_atom, |x| x.0.to_vec()) | quoted_string)
+);
+
+named!(dtext<CBS, CBS>,
+    take_while1!(|c: u8| (33..=90).contains(&c) || (94..=126).contains(&c))
+);
+
+named!(domain_literal<CBS, Vec<u8>>,
+    do_parse!(
+        opt!(cfws) >>
+        tag!("[") >>
+        a: many0!(tuple!(ofws, dtext)) >>
+        b: ofws >>
+        tag!("]") >>
+        opt!(cfws) >>
+        ({let mut out : Vec<u8> = vec![b'[']; out.extend(a.iter().flat_map(|(x, y)| x.iter().chain(y.0.iter()))); out.extend(b); out.push(b']'); out})
+    )
+);
+
+named!(domain<CBS, Vec<u8>>,
+    alt!(map!(dot_atom, |x| x.0.to_vec()) | domain_literal)
+);
+
+named!(addr_spec<CBS, Vec<u8>>,
+    do_parse!(
+        lp: local_part >>
+        tag!("@") >>
+        domain: domain >>
+        ([&lp[..], b"@", &domain[..]].iter().flat_map(|x| x.iter()).cloned().collect())
+    )
+);
+
+named!(angle_addr<CBS, Vec<u8>>,
+    do_parse!(
+        opt!(cfws) >>
+        tag!("<") >>
+        address: addr_spec >>
+        tag!(">") >>
+        opt!(cfws) >>
+        (address)
+    )
+);
+
+named!(name_addr<CBS, Mailbox>,
+    do_parse!(
+        dname: opt!(display_name) >>
+        address: angle_addr >>
+        (Mailbox{dname, address})
+    )
+);
+
+named!(pub mailbox<CBS, Mailbox>,
+    alt!(name_addr | map!(addr_spec, |a| Mailbox{dname: None, address: a}))
+);
+
+named!(mailbox_list<CBS, Vec<Mailbox>>,
+    do_parse!(
+        a: mailbox >>
+        b: many0!(pair!(tag!(","), mailbox)) >>
+        ({let mut out = vec![a]; out.extend(b.iter().map(|(_, m)| m.clone())); out})
+    )
+);
+
+named!(group_list<CBS, Vec<Mailbox>>,
+    alt!(mailbox_list | map!(cfws, |_| vec![]))
+);
+
+named!(group<CBS, Group>,
+    do_parse!(
+        dname: display_name >>
+        tag!(":") >>
+        members: opt!(group_list) >>
+        tag!(";") >>
+        opt!(cfws) >>
+        (Group{dname, members: members.unwrap_or(vec![])})
+    )
+);
+
+named!(address<CBS, Address>,
+    alt!(map!(mailbox, |x| Address::Mailbox(x)) | map!(group, |x| Address::Group(x)))
+);
+
+named!(address_list<CBS, Vec<Address>>,
+    do_parse!(
+        a: address >>
+        b: many0!(pair!(tag!(","), address)) >>
+        ({let mut out = vec![a]; out.extend(b.iter().map(|(_, m)| m.clone())); out})
+    )
+);
+
+named!(pub from<CBS, Vec<Address>>,
+    call!(address_list)
+);
+
+named!(pub sender<CBS, Address>,
+    call!(address)
+);
+
+named!(pub reply_to<CBS, Vec<Address>>,
+    call!(address_list)
+);
+
 fn main() {
     let args : Vec<_> = env::args_os().skip(1).map(|x| x.into_vec()).collect();
-    let (rem, parsed) = comment(CBS(&args[0])).unwrap();
-    
+    let (rem, parsed) = from(CBS(&args[0])).unwrap();
+
     println!("'{:?}'", parsed);
     println!("'{}'", String::from_utf8_lossy(rem.0));
 }
