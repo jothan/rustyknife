@@ -94,6 +94,30 @@ named!(pub comment<CBS, Vec<CommentContent>>,
     )
 );
 
+named!(cfws<CBS, CBS>,
+    alt!(recognize!(pair!(many1!(pair!(opt!(fws), comment)), opt!(fws))) | recognize!(fws))
+);
+
+named!(qtext<CBS, CBS>,
+    take_while1!(|c: u8| c == 33 || (35..=91).contains(&c) || (93..=126).contains(&c))
+);
+
+named!(qcontent<CBS, CBS>,
+    alt!(qtext | quoted_pair)
+);
+
+named!(pub quoted_string<CBS, Vec<u8>>,
+    do_parse!(
+        opt!(cfws) >>
+        tag!("\"") >>
+        a: many0!(tuple!(ofws, qcontent)) >>
+        b: ofws >>
+        tag!("\"") >>
+        opt!(cfws) >>
+        (a.iter().flat_map(|(fws, cont)| fws.iter().chain(cont.0.iter())).cloned().chain(b.iter().cloned()).collect())
+    )
+);
+
 fn main() {
     let args : Vec<_> = env::args_os().skip(1).map(|x| x.into_vec()).collect();
     let (rem, parsed) = comment(CBS(&args[0])).unwrap();
