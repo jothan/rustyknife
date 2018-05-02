@@ -3,6 +3,10 @@ name = "rustyknife"
 version = "0.1.0"
 authors = ["Jonathan Bastien-Filiatrault <jonathan@zerospam.ca>"]
 
+[lib]
+name = "rustyknife"
+crate-type = ["cdylib", "rlib"]
+
 [dependencies.nom]
 git = "https://github.com/Geal/nom"
 tag = "4.0.0-beta2"

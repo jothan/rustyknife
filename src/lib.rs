@@ -1,16 +1,15 @@
 #![feature(range_contains)]
 
-use std::env;
-use std::os::unix::ffi::OsStringExt;
-
 #[macro_use]
 extern crate nom;
+
+use nom::{IResult, Err, Context};
 
 mod rfc5234;
 use rfc5234::*;
 
 mod util;
-use util::*;
+use util::{CBS};
 
 named!(quoted_pair<CBS, CBS>,
        do_parse!(
@@ -24,7 +23,7 @@ named!(ctext<CBS, CBS>,
 );
 
 #[derive(Clone, Debug)]
-pub enum CommentContent {
+enum CommentContent {
     Text(Vec<u8>),
     Comment(Vec<CommentContent>),
 }
@@ -80,7 +79,7 @@ fn _concat_comment(comments: &Vec<CommentContent>) -> Vec<CommentContent> {
     out
 }
 
-named!(pub comment<CBS, Vec<CommentContent>>,
+named!(comment<CBS, Vec<CommentContent>>,
     do_parse!(
         tag!("(") >>
         a: fold_many0!(tuple!(ofws, ccontent), Vec::new(), |mut acc: Vec<_>, (fws, cc)| {
@@ -106,7 +105,7 @@ named!(qcontent<CBS, CBS>,
     alt!(qtext | quoted_pair)
 );
 
-named!(pub quoted_string<CBS, Vec<u8>>,
+named!(quoted_string<CBS, Vec<u8>>,
     do_parse!(
         opt!(cfws) >>
         tag!("\"") >>
@@ -249,7 +248,7 @@ named!(name_addr<CBS, Mailbox>,
     )
 );
 
-named!(pub mailbox<CBS, Mailbox>,
+named!(mailbox<CBS, Mailbox>,
     alt!(name_addr | map!(addr_spec, |a| Mailbox{dname: None, address: a}))
 );
 
@@ -288,22 +287,31 @@ named!(address_list<CBS, Vec<Address>>,
     )
 );
 
-named!(pub from<CBS, Vec<Address>>,
-    call!(address_list)
-);
+fn wrap_cbs_result<T> (r: IResult<CBS, T, u32>) -> IResult<&[u8], T, u32> {
+    r.map(|(r, o)| (r.0, o)).map_err(|e| match e {
+        Err::Incomplete(needed) => Err::Incomplete(needed),
+        Err::Error(c) => Err::Error(convert_context(c)),
+        Err::Failure(c) => Err::Failure(convert_context(c)),
+    })
+}
 
-named!(pub sender<CBS, Address>,
-    call!(address)
-);
+fn convert_context(c: Context<CBS>) -> Context<&[u8]> {
+    match c {
+        Context::Code(r, e) => Context::Code(r.0, e),
+        Context::List(mut v) => Context::List(v.drain(..).map(|(r, e)| (r.0, e)).collect()),
+    }
+}
 
-named!(pub reply_to<CBS, Vec<Address>>,
-    call!(address_list)
-);
+type KResult<'a, O, E = u32> = Result<(&'a[u8], O), Err<&'a[u8], E>>;
 
-fn main() {
-    let args : Vec<_> = env::args_os().skip(1).map(|x| x.into_vec()).collect();
-    let (rem, parsed) = from(CBS(&args[0])).unwrap();
+pub fn from(i: &[u8]) -> KResult<Vec<Address>> {
+    wrap_cbs_result(address_list(CBS(i)))
+}
 
-    println!("'{:?}'", parsed);
-    println!("'{}'", String::from_utf8_lossy(rem.0));
+pub fn sender(i: &[u8]) -> KResult<Address> {
+    wrap_cbs_result(address(CBS(i)))
+}
+
+pub fn reply_to(i: &[u8]) -> KResult<Vec<Address>> {
+    wrap_cbs_result(address_list(CBS(i)))
 }
