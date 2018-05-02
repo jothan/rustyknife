@@ -302,16 +302,16 @@ fn convert_context(c: Context<CBS>) -> Context<&[u8]> {
     }
 }
 
-type KResult<'a, O, E = u32> = Result<(&'a[u8], O), Err<&'a[u8], E>>;
+type KResult<I, O, E = u32> = Result<(I, O), Err<I, E>>;
 
-pub fn from(i: &[u8]) -> KResult<Vec<Address>> {
+pub fn from(i: &[u8]) -> KResult<&[u8], Vec<Address>> {
     wrap_cbs_result(address_list(CBS(i)))
 }
 
-pub fn sender(i: &[u8]) -> KResult<Address> {
+pub fn sender(i: &[u8]) -> KResult<&[u8], Address> {
     wrap_cbs_result(address(CBS(i)))
 }
 
-pub fn reply_to(i: &[u8]) -> KResult<Vec<Address>> {
+pub fn reply_to(i: &[u8]) -> KResult<&[u8], Vec<Address>> {
     wrap_cbs_result(address_list(CBS(i)))
 }
