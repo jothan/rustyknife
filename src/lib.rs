@@ -304,14 +304,30 @@ fn convert_context(c: Context<CBS>) -> Context<&[u8]> {
 
 type KResult<I, O, E = u32> = Result<(I, O), Err<I, E>>;
 
+named!(address_list_crlf<CBS, Vec<Address>>,
+    do_parse!(
+        a: address_list >>
+        opt!(crlf) >>
+        (a)
+    )
+);
+
+named!(address_crlf<CBS, Address>,
+    do_parse!(
+        a: address >>
+        opt!(crlf) >>
+        (a)
+    )
+);
+
 pub fn from(i: &[u8]) -> KResult<&[u8], Vec<Address>> {
-    wrap_cbs_result(address_list(CBS(i)))
+    wrap_cbs_result(address_list_crlf(CBS(i)))
 }
 
 pub fn sender(i: &[u8]) -> KResult<&[u8], Address> {
-    wrap_cbs_result(address(CBS(i)))
+    wrap_cbs_result(address_crlf(CBS(i)))
 }
 
 pub fn reply_to(i: &[u8]) -> KResult<&[u8], Vec<Address>> {
-    wrap_cbs_result(address_list(CBS(i)))
+    wrap_cbs_result(address_list_crlf(CBS(i)))
 }
