@@ -7,6 +7,11 @@ authors = ["Jonathan Bastien-Filiatrault <jonathan@zerospam.ca>"]
 name = "rustyknife"
 crate-type = ["cdylib", "rlib"]
 
+[dependencies.pyo3]
+git = "https://github.com/PyO3/pyo3"
+branch = "master"
+features = ["python3", "extension-module"]
+
 [dependencies.nom]
 git = "https://github.com/Geal/nom"
 tag = "4.0.0-beta2"

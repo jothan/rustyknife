@@ -1,7 +1,8 @@
-#![feature(range_contains)]
+#![feature(proc_macro, specialization, range_contains)]
 
 #[macro_use]
 extern crate nom;
+extern crate pyo3;
 
 use nom::{IResult, Err, Context};
 
@@ -10,6 +11,9 @@ use rfc5234::*;
 
 mod util;
 use util::{CBS};
+
+mod pymod;
+pub use pymod::PyInit_rustyknife;
 
 named!(quoted_pair<CBS, CBS>,
        do_parse!(
