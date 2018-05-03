@@ -1,7 +1,7 @@
 use nom::{IResult, Err, Context};
 
 use rfc5234::*;
-use util::CBS;
+use util::*;
 
 named!(quoted_pair<CBS, CBS>,
        do_parse!(
@@ -111,13 +111,13 @@ named!(quoted_string<CBS, Vec<u8>>,
 
 #[derive(Clone, Debug)]
 pub struct Mailbox {
-    pub dname: Option<Vec<u8>>,
-    pub address: Vec<u8>,
+    pub dname: Option<String>,
+    pub address: String,
 }
 
 #[derive(Clone, Debug)]
 pub struct Group {
-    pub dname: Vec<u8>,
+    pub dname: String,
     pub members: Vec<Mailbox>,
 }
 
@@ -167,7 +167,7 @@ named!(word<CBS, Word>,
     alt!(map!(atom, |x| Word::Atom(x.0.to_vec())) | map!(quoted_string, |x| Word::QS(x)))
 );
 
-fn _concat_atom_and_qs(input: &Vec<Word>) -> Vec<u8> {
+fn _concat_atom_and_qs(input: &Vec<Word>) -> String {
     let mut out = Vec::new();
 
     for (i, t1) in input.iter().enumerate() {
@@ -181,10 +181,10 @@ fn _concat_atom_and_qs(input: &Vec<Word>) -> Vec<u8> {
             (_, _) => {out.extend(t1.get()); out.push(b' ')},
         };
     }
-    out
+    ascii_to_string(&out)
 }
 
-named!(display_name<CBS, Vec<u8>>,
+named!(display_name<CBS, String>,
     map!(many1!(word), |x| _concat_atom_and_qs(&x))
 );
 
@@ -236,12 +236,12 @@ named!(name_addr<CBS, Mailbox>,
     do_parse!(
         dname: opt!(display_name) >>
         address: angle_addr >>
-        (Mailbox{dname, address})
+        (Mailbox{dname, address: ascii_to_string(&address)})
     )
 );
 
 named!(mailbox<CBS, Mailbox>,
-    alt!(name_addr | map!(addr_spec, |a| Mailbox{dname: None, address: a}))
+    alt!(name_addr | map!(addr_spec, |a| Mailbox{dname: None, address: ascii_to_string(&a)}))
 );
 
 named!(mailbox_list<CBS, Vec<Mailbox>>,
@@ -312,6 +312,7 @@ named!(address_crlf<CBS, Address>,
     )
 );
 
+// Updated from RFC6854
 pub fn from(i: &[u8]) -> KResult<&[u8], Vec<Address>> {
     wrap_cbs_result(address_list_crlf(CBS(i)))
 }
