@@ -294,7 +294,7 @@ fn convert_context(c: Context<CBS>) -> Context<&[u8]> {
     }
 }
 
-type KResult<I, O, E = u32> = Result<(I, O), Err<I, E>>;
+pub type KResult<I, O, E = u32> = Result<(I, O), Err<I, E>>;
 
 named!(address_list_crlf<CBS, Vec<Address>>,
     do_parse!(

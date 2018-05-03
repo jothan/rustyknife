@@ -1,5 +1,5 @@
 use nom::types::CompleteByteSlice;
-use encoding::{Encoding, EncoderTrap, DecoderTrap};
+use encoding::{Encoding, DecoderTrap};
 use encoding::all::ASCII;
 
 pub type CBS<'a> = CompleteByteSlice<'a>;
