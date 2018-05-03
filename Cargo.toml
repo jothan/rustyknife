@@ -19,3 +19,6 @@ features = ["verbose-errors"]
 git = "https://github.com/PyO3/pyo3"
 branch = "master"
 features = ["python3", "extension-module"]
+
+[profile.release]
+panic = "abort"
