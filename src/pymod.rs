@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
-use rfc5322::{Address, Mailbox, Group, from, sender, reply_to, KResult};
+use rfc5322::{Address, Mailbox, Group, from, sender, reply_to};
+use util::KResult;
 
 use pyo3::{self, Python, PyResult, PyModule, PyObject, PyBytes, PyTuple, IntoPyObject, ToPyObject, PyErr};
 use pyo3::exc;

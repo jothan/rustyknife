@@ -1,5 +1,3 @@
-use nom::{IResult, Err, Context};
-
 use rfc5234::*;
 use util::*;
 
@@ -278,23 +276,6 @@ named!(address_list<CBS, Vec<Address>>,
         ({let mut out = vec![a]; out.extend(b.iter().map(|(_, m)| m.clone())); out})
     )
 );
-
-fn wrap_cbs_result<T> (r: IResult<CBS, T, u32>) -> IResult<&[u8], T, u32> {
-    r.map(|(r, o)| (r.0, o)).map_err(|e| match e {
-        Err::Incomplete(needed) => Err::Incomplete(needed),
-        Err::Error(c) => Err::Error(convert_context(c)),
-        Err::Failure(c) => Err::Failure(convert_context(c)),
-    })
-}
-
-fn convert_context(c: Context<CBS>) -> Context<&[u8]> {
-    match c {
-        Context::Code(r, e) => Context::Code(r.0, e),
-        Context::List(mut v) => Context::List(v.drain(..).map(|(r, e)| (r.0, e)).collect()),
-    }
-}
-
-pub type KResult<I, O, E = u32> = Result<(I, O), Err<I, E>>;
 
 named!(address_list_crlf<CBS, Vec<Address>>,
     do_parse!(

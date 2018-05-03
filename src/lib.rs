@@ -7,8 +7,7 @@ extern crate encoding;
 
 mod util;
 mod rfc5234;
-mod rfc5322;
-pub use rfc5322::*;
+pub mod rfc5322;
 
 mod pymod;
 pub use pymod::PyInit_rustyknife;
