@@ -1,3 +1,5 @@
+//! Fast email parsing library with a Python interface.
+
 #![feature(proc_macro, specialization, range_contains)]
 
 #[macro_use]

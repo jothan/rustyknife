@@ -1,3 +1,7 @@
+//! Parsers for Internet Message Format messages.
+//!
+//! Comments are ignored. RFC2047 decoding is applied where appropriate.
+
 use rfc5234::*;
 use util::*;
 

@@ -17,10 +17,6 @@ named!(field_name<CBS, CBS>,
        take_while1!(|c: u8| (33..=57).contains(&c) || (59..=126).contains(&c))
 );
 
-named!(_8bitchar<CBS, CBS>,
-    take_while1!(|c: u8| (128..=255).contains(&c))
-);
-
 named!(unstructured<CBS, CBS>,
     recognize!(pair!(
         many0!(pair!(ofws, alt!(vchar | take_until1!("\r\n")))),
