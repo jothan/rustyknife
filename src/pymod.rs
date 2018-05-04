@@ -3,6 +3,7 @@ use std::fs::File;
 
 use rfc5322::{Address, Mailbox, Group, from, sender, reply_to};
 use headersection::{HeaderField, header_section};
+use xforward::{XforwardParam, xforward_params};
 use util::KResult;
 
 use memmap::Mmap;
@@ -54,6 +55,19 @@ impl<'a> ToPyObject for HeaderField<'a> {
     }
 }
 
+impl ToPyObject for XforwardParam {
+    fn to_object(&self, py: Python) -> PyObject {
+        PyTuple::new(py, &[self.0.to_object(py),
+                           self.1.to_object(py)]).into_object(py)
+    }
+}
+
+impl IntoPyObject for XforwardParam {
+    fn into_object(self, py: Python) -> PyObject {
+        self.to_object(py)
+    }
+}
+
 fn convert_result<O, E: Debug>  (input: KResult<&[u8], O, E>, match_all: bool) -> PyResult<O> {
     match input {
         Ok((rem, out)) => {
@@ -102,6 +116,11 @@ fn init_module(py: Python, m: &PyModule) -> PyResult<()> {
         let fmap = unsafe { Mmap::map(&file)? };
 
         header_section_slice(py2, &fmap)
+    }
+
+    #[pyfn(m, "xforward_params")]
+    fn py_xforward_params(input: &PyBytes) -> PyResult<Vec<XforwardParam>> {
+        convert_result(xforward_params(input.data()), true)
     }
 
     Ok(())
