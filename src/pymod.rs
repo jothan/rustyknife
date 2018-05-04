@@ -1,9 +1,12 @@
 use std::fmt::Debug;
+use std::fs::File;
 
-use rfc5322::{Address, Mailbox, Group, from, sender, reply_to};
+use rfc5322::{Address, Mailbox, Group, HeaderField, from, sender, reply_to, header_section};
 use util::KResult;
 
-use pyo3::{self, Python, PyResult, PyModule, PyObject, PyBytes, PyTuple, IntoPyObject, ToPyObject, PyErr};
+use memmap::Mmap;
+
+use pyo3::{self, Python, PyResult, PyModule, PyObject, PyString, PyBytes, PyTuple, IntoPyObject, ToPyObject, PyErr};
 use pyo3::exc;
 use pyo3::py::modinit as pymodinit;
 
@@ -33,6 +36,23 @@ impl IntoPyObject for Address {
     }
 }
 
+impl<'a> IntoPyObject for HeaderField<'a> {
+    fn into_object(self, py: Python) -> PyObject {
+        self.to_object(py)
+    }
+}
+
+impl<'a> ToPyObject for HeaderField<'a> {
+    fn to_object(&self, py: Python) -> PyObject {
+        match self {
+            HeaderField::Valid(name, value) => PyTuple::new(py, &[PyBytes::new(py, name).into_object(py),
+                                                                  PyBytes::new(py, value).into_object(py)]).into_object(py),
+            HeaderField::Invalid(value) => PyTuple::new(py, &[None::<&[u8]>.to_object(py),
+                                                              PyBytes::new(py, value).into_object(py)]).into_object(py),
+        }
+    }
+}
+
 fn convert_result<O, E: Debug>  (input: KResult<&[u8], O, E>, match_all: bool) -> PyResult<O> {
     match input {
         Ok((rem, out)) => {
@@ -44,6 +64,13 @@ fn convert_result<O, E: Debug>  (input: KResult<&[u8], O, E>, match_all: bool) -
         }
         Err(err) => Err(PyErr::new::<exc::ValueError, _>(format!("{:?}.", err))),
     }
+}
+
+fn header_section_slice(py: Python, input: &[u8]) -> PyResult<PyObject> {
+    let res = header_section(input)
+        .map(|(rem, out)| (rem, (out, input.len().checked_sub(rem.len()).unwrap()).into_object(py)));
+
+    convert_result(res, false)
 }
 
 #[pymodinit(rustyknife)]
@@ -61,6 +88,19 @@ fn init_module(py: Python, m: &PyModule) -> PyResult<()> {
     #[pyfn(m, "reply_to")]
     fn py_reply_to(input: &PyBytes) -> PyResult<Vec<Address>> {
         convert_result(reply_to(input.data()), true)
+    }
+
+    #[pyfn(m, "header_section")]
+    fn py_header_section(py2: Python, input: &PyBytes) -> PyResult<PyObject> {
+        header_section_slice(py2, input.data())
+    }
+
+    #[pyfn(m, "header_section_file")]
+    fn py_header_section_file(py2: Python, fname: &str) -> PyResult<PyObject> {
+        let file = File::open(fname)?;
+        let fmap = unsafe { Mmap::map(&file)? };
+
+        header_section_slice(py2, &fmap)
     }
 
     Ok(())

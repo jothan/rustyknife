@@ -9,6 +9,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 encoding = "0.2"
+memmap = "0.6.2"
 
 [dependencies.nom]
 git = "https://github.com/Geal/nom"

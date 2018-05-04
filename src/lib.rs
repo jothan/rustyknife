@@ -4,6 +4,7 @@
 extern crate nom;
 extern crate pyo3;
 extern crate encoding;
+extern crate memmap;
 
 mod util;
 mod rfc5234;
