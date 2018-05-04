@@ -1,12 +1,13 @@
 use std::fmt::Debug;
 use std::fs::File;
 
-use rfc5322::{Address, Mailbox, Group, HeaderField, from, sender, reply_to, header_section};
+use rfc5322::{Address, Mailbox, Group, from, sender, reply_to};
+use headersection::{HeaderField, header_section};
 use util::KResult;
 
 use memmap::Mmap;
 
-use pyo3::{self, Python, PyResult, PyModule, PyObject, PyString, PyBytes, PyTuple, IntoPyObject, ToPyObject, PyErr};
+use pyo3::{self, Python, PyResult, PyModule, PyObject, PyBytes, PyTuple, IntoPyObject, ToPyObject, PyErr};
 use pyo3::exc;
 use pyo3::py::modinit as pymodinit;
 

@@ -9,6 +9,7 @@ extern crate memmap;
 mod util;
 mod rfc5234;
 pub mod rfc5322;
+pub mod headersection;
 
 mod pymod;
 pub use pymod::PyInit_rustyknife;
