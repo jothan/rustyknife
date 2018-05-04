@@ -9,7 +9,11 @@ use rfc5234::*;
 use rfc5322::ofws;
 
 pub enum HeaderField<'a> {
+    /// Header name and value of a valid header.
     Valid(&'a[u8], &'a[u8]),
+
+    /// Header part that does not contain a colon or contains 8bit
+    /// bytes on the left hand side of the colon.
     Invalid(&'a[u8])
 }
 
