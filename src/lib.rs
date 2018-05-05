@@ -11,6 +11,7 @@ extern crate memmap;
 mod util;
 mod rfc5234;
 pub mod rfc5322;
+pub mod rfc3461;
 pub mod headersection;
 pub mod xforward;
 

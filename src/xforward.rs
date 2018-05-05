@@ -1,7 +1,9 @@
-use std::str;
+//! Postfix XFORWARD SMTP extension
+
 use nom::*;
 
 use rfc5234::wsp;
+use rfc3461::xtext;
 use util::*;
 
 pub struct XforwardParam(pub &'static str, pub Option<String>);
@@ -17,29 +19,6 @@ named!(command<CBS, &'static str>,
          map!(tag_no_case!("proto"), |_| "proto") |
          map!(tag_no_case!("source"), |_| "source")
      )
-);
-
-named!(hexpair<CBS, u8>,
-    map_res!(take_while_m_n!(2, 2, is_hex_digit),
-             |x: CBS| u8::from_str_radix(str::from_utf8(x.0).unwrap(), 16))
-);
-
-named!(hexchar<CBS, u8>,
-    do_parse!(
-        tag!("+") >>
-        a: hexpair >>
-        (a)
-    )
-);
-
-named!(xchar<CBS, CBS>,
-       take_while1!(|c: u8| (33..=42).contains(&c) || (44..=60).contains(&c) || (62..=126).contains(&c))
-);
-
-named!(xtext<CBS, Vec<u8>>,
-    fold_many0!(alt!(
-        map!(xchar, |x| x.0.to_vec()) |
-        map!(hexchar, |x| vec![x])), Vec::new(), |mut acc: Vec<_>, x| {acc.extend(x); acc} )
 );
 
 named!(unavailable<CBS, Option<String>>,
