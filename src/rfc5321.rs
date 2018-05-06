@@ -37,11 +37,11 @@ named!(esmtp_param<CBS, EsmtpParam>,
 );
 
 named!(_esmtp_params<CBS, Vec<EsmtpParam>>,
-    do_parse!(
+    map!(opt!(do_parse!(
         a: esmtp_param >>
         b: many0!(do_parse!(many1!(wsp) >> c: esmtp_param >> (c))) >>
         ({ let mut out = Vec::with_capacity(b.len()+1); out.push(a); out.extend(b); out })
-    )
+    )), |x| x.unwrap_or(vec![]))
 );
 
 pub fn esmtp_params(i: &[u8]) -> KResult<&[u8], Vec<EsmtpParam>> {
