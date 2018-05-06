@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 use std::fs::File;
 
+use rfc5321::{EsmtpParam, esmtp_params};
 use rfc5322::{Address, Mailbox, Group, from, sender, reply_to};
 use headersection::{HeaderField, header_section};
 use xforward::{XforwardParam, xforward_params};
@@ -68,6 +69,19 @@ impl IntoPyObject for XforwardParam {
     }
 }
 
+impl ToPyObject for EsmtpParam {
+    fn to_object(&self, py: Python) -> PyObject {
+        PyTuple::new(py, &[self.0.to_object(py),
+                           self.1.to_object(py)]).into_object(py)
+    }
+}
+
+impl IntoPyObject for EsmtpParam {
+    fn into_object(self, py: Python) -> PyObject {
+        self.to_object(py)
+    }
+}
+
 fn convert_result<O, E: Debug>  (input: KResult<&[u8], O, E>, match_all: bool) -> PyResult<O> {
     match input {
         Ok((rem, out)) => {
@@ -121,6 +135,11 @@ fn init_module(py: Python, m: &PyModule) -> PyResult<()> {
     #[pyfn(m, "xforward_params")]
     fn py_xforward_params(input: &PyBytes) -> PyResult<Vec<XforwardParam>> {
         convert_result(xforward_params(input.data()), true)
+    }
+
+    #[pyfn(m, "esmtp_params")]
+    fn py_esmtp_params(input: &PyBytes) -> PyResult<Vec<EsmtpParam>> {
+        convert_result(esmtp_params(input.data()), true)
     }
 
     Ok(())
