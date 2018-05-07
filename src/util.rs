@@ -1,6 +1,6 @@
 use nom;
 use nom::types::CompleteByteSlice;
-use encoding::{Encoding, DecoderTrap};
+use encoding::{Encoding, EncoderTrap, DecoderTrap};
 use encoding::all::ASCII;
 
 pub(crate) type KResult<I, O, E = u32> = Result<(I, O), nom::Err<I, E>>;
@@ -13,6 +13,10 @@ pub fn CBS<'a>(input: &'a[u8]) -> CBS<'a> {
 
 pub fn ascii_to_string(i: &[u8]) -> String {
     ASCII.decode(&i, DecoderTrap::Replace).unwrap()
+}
+
+pub fn string_to_ascii(i: &str) -> Vec<u8> {
+    ASCII.encode(&i, EncoderTrap::Replace).unwrap()
 }
 
 pub fn wrap_cbs_result<T> (r: nom::IResult<CBS, T, u32>) -> nom::IResult<&[u8], T, u32> {

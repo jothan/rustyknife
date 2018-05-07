@@ -156,7 +156,7 @@ named!(dot_atom<CBS, CBS>,
     )
 );
 
-named!(atom<CBS, CBS>,
+named!(pub atom<CBS, CBS>,
     do_parse!(
         opt!(cfws) >>
         a: atext >>

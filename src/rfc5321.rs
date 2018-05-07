@@ -3,7 +3,6 @@
 use nom::is_alphanumeric;
 
 use util::*;
-use rfc3461::xtext;
 use rfc5234::wsp;
 
 pub struct EsmtpParam(pub String, pub Option<String>);
@@ -20,12 +19,9 @@ named!(esmtp_keyword<CBS, String>,
     map!(recognize!(do_parse!(_alphanum >> many0!(_alphanum) >> ())), |x| ascii_to_string(x.0))
 );
 
-named!(_vtext<CBS, CBS>,
-    verify!(take!(1), (|c: CBS| (33..=60).contains(&c.0[0]) || (62..=126).contains(&c.0[0])))
-);
-
 named!(esmtp_value<CBS, String>,
-    map!(alt!(xtext | map!(_vtext, |x| x.0.to_vec())), |x| ascii_to_string(&x))
+    map!(take_while1!(|c| (33..=60).contains(&c) || (62..=126).contains(&c)),
+         |x| ascii_to_string(&x.0))
 );
 
 named!(esmtp_param<CBS, EsmtpParam>,

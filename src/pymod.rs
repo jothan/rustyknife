@@ -1,11 +1,12 @@
 use std::fmt::Debug;
 use std::fs::File;
 
+use rfc3461::{orcpt_address};
 use rfc5321::{EsmtpParam, esmtp_params};
 use rfc5322::{Address, Mailbox, Group, from, sender, reply_to};
 use headersection::{HeaderField, header_section};
 use xforward::{XforwardParam, xforward_params};
-use util::KResult;
+use util::{KResult, string_to_ascii};
 
 use memmap::Mmap;
 
@@ -140,6 +141,12 @@ fn init_module(py: Python, m: &PyModule) -> PyResult<()> {
     #[pyfn(m, "esmtp_params")]
     fn py_esmtp_params(input: &PyBytes) -> PyResult<Vec<EsmtpParam>> {
         convert_result(esmtp_params(input.data()), true)
+    }
+
+    #[pyfn(m, "orcpt_address")]
+    fn py_orcpt_address(input: &str) -> PyResult<(String, String)> {
+        let inascii = string_to_ascii(&input);
+        convert_result(orcpt_address(&inascii), true)
     }
 
     Ok(())
