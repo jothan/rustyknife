@@ -30,6 +30,7 @@ pub fn wrap_cbs_result<T> (r: nom::IResult<CBS, T, u32>) -> nom::IResult<&[u8], 
 pub fn convert_context(c: nom::Context<CBS>) -> nom::Context<&[u8]> {
     match c {
         nom::Context::Code(r, e) => nom::Context::Code(r.0, e),
+        #[cfg(feature = "nom-verbose-errors")]
         nom::Context::List(mut v) => nom::Context::List(v.drain(..).map(|(r, e)| (r.0, e)).collect()),
     }
 }
