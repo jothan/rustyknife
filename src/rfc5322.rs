@@ -2,6 +2,7 @@
 //!
 //! Comments are ignored. RFC2047 decoding is applied where appropriate.
 
+use rfc2047::encoded_word;
 use rfc5234::*;
 use util::*;
 
@@ -129,14 +130,17 @@ pub enum Address {
     Group(Group),
 }
 
+#[derive(Clone, Debug)]
 enum Word {
-    Atom(Vec<u8>),
-    QS(Vec<u8>),
+    EncodedWord(String),
+    Atom(String),
+    QS(String),
 }
 
 impl Word {
-    fn get(&self) -> &Vec<u8> {
+    fn get(&self) -> &str {
         match self {
+            Word::EncodedWord(x) => x,
             Word::Atom(x) => x,
             Word::QS(x) => x,
         }
@@ -165,25 +169,34 @@ named!(pub atom<CBS, CBS>,
     )
 );
 
+named!(_padded_encoded_word<CBS, String>,
+    do_parse!(opt!(cfws) >> e: encoded_word >> opt!(cfws) >> (e))
+);
+
 named!(word<CBS, Word>,
-    alt!(map!(atom, |x| Word::Atom(x.0.to_vec())) | map!(quoted_string, |x| Word::QS(x)))
+    alt!(
+        map!(_padded_encoded_word, |x| Word::EncodedWord(x)) |
+        map!(atom, |x| Word::Atom(ascii_to_string(x.0))) |
+        map!(quoted_string, |x| Word::QS(ascii_to_string(&x)))
+    )
 );
 
 fn _concat_atom_and_qs(input: &Vec<Word>) -> String {
-    let mut out = Vec::new();
+    let mut out = String::new();
 
     for (i, t1) in input.iter().enumerate() {
         let t2 = match input.get(i+1) {
             Some(x) => x,
-            None => {out.extend(t1.get()); continue},
+            None => {out.extend(t1.get().chars()); continue},
         };
 
         match (t1, t2) {
-            (Word::QS(v), Word::QS(_)) => out.extend(v),
-            (_, _) => {out.extend(t1.get()); out.push(b' ')},
+            (Word::QS(v), Word::QS(_)) => out.extend(v.chars()),
+            (Word::EncodedWord(v), Word::EncodedWord(_)) => out.extend(v.chars()),
+            (_, _) => {out.extend(t1.get().chars()); out.push(' ')},
         };
     }
-    ascii_to_string(&out)
+    out
 }
 
 named!(display_name<CBS, String>,

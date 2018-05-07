@@ -7,7 +7,7 @@ use util::*;
 use nom::is_hex_digit;
 use rfc5322::atom;
 
-named!(hexpair<CBS, u8>,
+named!(pub hexpair<CBS, u8>,
     map_res!(take_while_m_n!(2, 2, is_hex_digit),
              |x: CBS| u8::from_str_radix(str::from_utf8(x.0).unwrap(), 16))
 );
