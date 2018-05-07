@@ -1,4 +1,6 @@
-//! Fast email parsing library with a Python interface.
+//! Pick apart evil emails with a rusty knife.
+//!
+//! Collection of nom parsers for email with a Python interface.
 
 #![feature(proc_macro, specialization, range_contains)]
 
