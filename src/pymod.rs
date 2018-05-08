@@ -51,7 +51,7 @@ impl<'a> ToPyObject for HeaderField<'a> {
         match self {
             HeaderField::Valid(name, value) => PyTuple::new(py, &[PyBytes::new(py, name).into_object(py),
                                                                   PyBytes::new(py, value).into_object(py)]).into_object(py),
-            HeaderField::Invalid(value) => PyTuple::new(py, &[None::<&[u8]>.to_object(py),
+            HeaderField::Invalid(value) => PyTuple::new(py, &[py.None(),
                                                               PyBytes::new(py, value).into_object(py)]).into_object(py),
         }
     }

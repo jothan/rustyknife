@@ -21,7 +21,7 @@ named!(hexchar<CBS, u8>,
 );
 
 named!(xchar<CBS, CBS>,
-       take_while1!(|c: u8| (33..=42).contains(&c) || (44..=60).contains(&c) || (62..=126).contains(&c))
+    take_while1!(|c: u8| (33..=42).contains(&c) || (44..=60).contains(&c) || (62..=126).contains(&c))
 );
 
 named!(pub xtext<CBS, Vec<u8>>,
