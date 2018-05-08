@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::fs::File;
 
-use rfc3461::{orcpt_address};
+use rfc3461::{orcpt_address, dsn_mail_params, DSNMailParams, DSNRet};
 use rfc5321::{EsmtpParam, esmtp_params};
 use rfc5322::{Address, Mailbox, Group, from, sender, reply_to};
 use headersection::{HeaderField, header_section};
@@ -10,7 +10,7 @@ use util::{KResult, string_to_ascii};
 
 use memmap::Mmap;
 
-use pyo3::{self, Python, PyResult, PyModule, PyObject, PyBytes, PyTuple, IntoPyObject, ToPyObject, PyErr};
+use pyo3::{self, Python, PyResult, PyModule, PyObject, PyBytes, PyTuple, IntoPyObject, ToPyObject, PyErr, PyDict};
 use pyo3::exc;
 use pyo3::py::modinit as pymodinit;
 
@@ -83,6 +83,20 @@ impl IntoPyObject for EsmtpParam {
     }
 }
 
+impl ToPyObject for DSNMailParams {
+    fn to_object(&self, py: Python) -> PyObject {
+        let out = PyDict::new(py);
+
+        out.set_item("envid", self.envid.clone()).unwrap();
+        out.set_item("ret", match self.ret {
+            Some(DSNRet::Hdrs) => Some("HDRS"),
+            Some(DSNRet::Full) => Some("FULL"),
+            None => None,
+        }).unwrap();
+        out.to_object(py)
+    }
+}
+
 fn convert_result<O, E: Debug>  (input: KResult<&[u8], O, E>, match_all: bool) -> PyResult<O> {
     match input {
         Ok((rem, out)) => {
@@ -147,6 +161,11 @@ fn init_module(py: Python, m: &PyModule) -> PyResult<()> {
     fn py_orcpt_address(input: &str) -> PyResult<(String, String)> {
         let inascii = string_to_ascii(&input);
         convert_result(orcpt_address(&inascii), true)
+    }
+
+    #[pyfn(m, "dsn_mail_params")]
+    fn py_dsn_mail_params(py2: Python, input: Vec<(&str, Option<&str>)>) -> PyResult<(PyObject, PyObject)> {
+        dsn_mail_params(input).map(|(parsed, rem)| (parsed.to_object(py2), rem.to_object(py2))).map_err(|e| PyErr::new::<exc::ValueError, _>(e))
     }
 
     Ok(())
