@@ -46,7 +46,7 @@ named!(params<CBS, Vec<XforwardParam>>,
             p: param >>
             (p)
         ),
-        many1!(do_parse!(
+        many0!(do_parse!(
             many1!(wsp) >>
                 p: param >>
                 (p)
