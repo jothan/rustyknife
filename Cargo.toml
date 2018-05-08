@@ -4,7 +4,8 @@ version = "0.1.0"
 authors = ["Jonathan Bastien-Filiatrault <jonathan@zerospam.ca>"]
 
 [features]
-default = ["nom-verbose-errors"]
+default = ["quoted-string-rfc2047", "nom-verbose-errors"]
+quoted-string-rfc2047 = []
 nom-verbose-errors = ["nom/verbose-errors"]
 
 [lib]
