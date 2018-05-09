@@ -111,31 +111,13 @@ named!(qcontent<CBS, QContent>,
     )
 );
 
-fn _concat_qcontent(input: &Vec<QContent>) -> String
-{
-    let mut out = String::new();
-    for (i, t1) in input.iter().enumerate() {
-        match (t1, input.get(i+1)) {
-            (QContent::Literal(v), Some(QContent::Literal(_))) => out.extend(v.chars()),
-            #[cfg(feature = "quoted-string-rfc2047")]
-            (QContent::EncodedWord(v), Some(QContent::EncodedWord(_))) => out.extend(v.chars()),
-            #[cfg(feature = "quoted-string-rfc2047")]
-            (_, Some(_)) => { out.extend(t1.get().chars()); out.push(' ') },
-            (_, None) => { out.extend(t1.get().chars()) },
-        }
-    }
-
-    out
-}
-
-named!(quoted_string<CBS, Vec<QContent>>,
+/// quoted-string not surrounded by CFWS
+named!(_inner_quoted_string<CBS, Vec<QContent>>,
     do_parse!(
-        opt!(cfws) >>
         tag!("\"") >>
         a: many0!(tuple!(opt!(fws), qcontent)) >>
         b: opt!(fws) >>
         tag!("\"") >>
-        opt!(cfws) >>
         ({
             let mut out = Vec::with_capacity(a.len()*2+1);
             for (ws, cont) in a {
@@ -145,6 +127,25 @@ named!(quoted_string<CBS, Vec<QContent>>,
             b.map(|x| out.push(QContent::Literal(ascii_to_string(&x))));
             out
         })
+    )
+);
+
+/// Undecoded quoted-string
+named!(_raw_quoted_string<CBS, CBS>,
+    do_parse!(
+        opt!(cfws) >>
+        qc: recognize!(_inner_quoted_string) >>
+        opt!(cfws) >>
+        (qc)
+    )
+);
+
+named!(quoted_string<CBS, Vec<QContent>>,
+    do_parse!(
+        opt!(cfws) >>
+        qc: _inner_quoted_string >>
+        opt!(cfws) >>
+        (qc)
     )
 );
 
@@ -180,15 +181,6 @@ enum QContent {
     EncodedWord(String),
 }
 
-impl QContent {
-    fn get(&self) -> &str {
-        match self {
-            QContent::Literal(s) => s,
-            #[cfg(feature = "quoted-string-rfc2047")]
-            QContent::EncodedWord(s) => s,
-        }
-    }
-}
 #[derive(Clone, Debug)]
 enum Text {
     EncodedWord(String),
@@ -285,9 +277,8 @@ named!(display_name<CBS, String>,
     map!(many1!(word), |x| _concat_atom_and_qs(&x))
 );
 
-named!(local_part<CBS, String>,
-    alt!(map!(dot_atom, |x| ascii_to_string(x.0)) |
-         map!(quoted_string, |x| _concat_qcontent(&x)))
+named!(local_part<CBS, CBS>,
+    alt!(dot_atom | _raw_quoted_string)
 );
 
 named!(dtext<CBS, CBS>,
@@ -315,7 +306,7 @@ named!(addr_spec<CBS, String>,
         lp: local_part >>
         tag!("@") >>
         domain: domain >>
-        ([&lp, "@", &ascii_to_string(&domain)].iter().flat_map(|x| x.chars()).collect())
+        (ascii_to_string(&lp.iter().chain(b"@".iter()).chain(domain.iter()).cloned().collect::<Vec<_>>()))
     )
 );
 
