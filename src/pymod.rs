@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use std::fs::File;
 
 use rfc3461::{orcpt_address, dsn_mail_params, DSNMailParams, DSNRet};
-use rfc5321::{EsmtpParam, esmtp_params};
+use rfc5321::{EsmtpParam, esmtp_params, mail_command, rcpt_command, validate_address};
 use rfc5322::{Address, Mailbox, Group, from, sender, reply_to};
 use headersection::{HeaderField, header_section};
 use xforward::{XforwardParam, xforward_params};
@@ -166,6 +166,24 @@ fn init_module(py: Python, m: &PyModule) -> PyResult<()> {
     #[pyfn(m, "dsn_mail_params")]
     fn py_dsn_mail_params(py2: Python, input: Vec<(&str, Option<&str>)>) -> PyResult<(PyObject, PyObject)> {
         dsn_mail_params(input).map(|(parsed, rem)| (parsed.to_object(py2), rem.to_object(py2))).map_err(|e| PyErr::new::<exc::ValueError, _>(e))
+    }
+
+    #[pyfn(m, "mail_command")]
+    pub fn py_mail_command(input: &PyBytes) -> PyResult<(String, Vec<EsmtpParam>)>
+    {
+        convert_result(mail_command(input.data()), true)
+    }
+
+    #[pyfn(m, "rcpt_command")]
+    pub fn py_rcpt_command(input: &PyBytes) -> PyResult<(String, Vec<EsmtpParam>)>
+    {
+        convert_result(rcpt_command(input.data()), true)
+    }
+
+    #[pyfn(m, "validate_address")]
+    pub fn py_validate_address(input: &str) -> PyResult<bool>
+    {
+        Ok(validate_address(&string_to_ascii(input)))
     }
 
     Ok(())

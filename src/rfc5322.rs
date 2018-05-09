@@ -230,7 +230,7 @@ impl ToTextVec for Word {
     }
 
 }
-named!(atext<CBS, CBS>,
+named!(pub atext<CBS, CBS>,
     take_while1!(|c: u8| b"!#$%&'*+-/=?^_`{|}~".contains(&c) || (b'0'..=b'9').contains(&c) || (b'A'..=b'Z').contains(&c) || (b'a'..=b'z').contains(&c))
 );
 
