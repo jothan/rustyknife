@@ -113,10 +113,6 @@ named!(qcontent_smtp<CBS, u8>,
     alt!(qtext_smtp | quoted_pair_smtp)
 );
 
-pub fn esmtp_params(i: &[u8]) -> KResult<&[u8], Vec<EsmtpParam>> {
-    wrap_cbs_result(_esmtp_params(CBS(i)))
-}
-
 named!(quoted_string<CBS, Vec<u8>>,
     do_parse!(
         tag!("\"") >>
