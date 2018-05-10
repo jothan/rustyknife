@@ -400,6 +400,10 @@ named!(address_crlf<CBS, Address>,
     )
 );
 
+named!(_8bit_char<CBS, u8>,
+       map!(verify!(take!(1), |c: CBS| (0x80..=0xff).contains(&c.0[0])), |x| x.0[0])
+);
+
 named!(_unstructured<CBS, String>,
     do_parse!(
         a: many0!(alt!(
@@ -417,7 +421,7 @@ named!(_unstructured<CBS, String>,
             ) |
             do_parse!(
                 ws: opt!(fws) >>
-                vc: many1!(vchar) >>
+                vc: many1!(alt!(vchar | _8bit_char)) >>
                 ({let mut out = Vec::new(); ws.map(|x| out.extend(x)); out.extend(vc); vec![Text::Literal(ascii_to_string(&out))]})
             )
 
