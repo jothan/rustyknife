@@ -3,7 +3,7 @@ use std::fs::File;
 
 use rfc3461::{orcpt_address, dsn_mail_params, DSNMailParams, DSNRet};
 use rfc5321::{EsmtpParam, mail_command, rcpt_command, validate_address};
-use rfc5322::{Address, Mailbox, Group, from, sender, reply_to};
+use rfc5322::{Address, Mailbox, Group, from, sender, reply_to, unstructured};
 use headersection::{HeaderField, header_section};
 use xforward::{XforwardParam, xforward_params};
 use util::{KResult, string_to_ascii};
@@ -179,6 +179,11 @@ fn init_module(py: Python, m: &PyModule) -> PyResult<()> {
     pub fn py_validate_address(input: &str) -> PyResult<bool>
     {
         Ok(validate_address(&string_to_ascii(input)))
+    }
+
+    #[pyfn(m, "unstructured")]
+    fn py_unstructured(input: &PyBytes) -> PyResult<String> {
+        convert_result(unstructured(input.data()), true)
     }
 
     Ok(())

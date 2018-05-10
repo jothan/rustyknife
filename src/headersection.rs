@@ -23,7 +23,7 @@ named!(field_name<CBS, CBS>,
 
 named!(unstructured<CBS, CBS>,
     recognize!(pair!(
-        many0!(pair!(ofws, alt!(vchar | take_until1!("\r\n")))),
+        many0!(pair!(ofws, alt!(recognize!(many1!(vchar)) | take_until1!("\r\n")))),
         many0!(wsp)
     ))
 );
@@ -39,7 +39,6 @@ named!(optional_field<CBS, HeaderField>,
 );
 
 // Extension to be able to walk through crap.
-#[allow(unused_imports)]
 named!(invalid_field<CBS, HeaderField>,
     do_parse!(
         i: take_until1!("\r\n") >>
