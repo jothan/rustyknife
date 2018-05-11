@@ -43,7 +43,7 @@ named!(_printable_xtext<CBS, Vec<u8>>,
 named!(_original_recipient_address<CBS, (String, String)>,
     do_parse!(
         a: atom >> tag!(";") >> b: _printable_xtext >>
-        ((ascii_to_string(a.0), ascii_to_string(&b)))
+        (ascii_to_string(a.0), ascii_to_string(&b))
     )
 );
 
@@ -99,7 +99,7 @@ pub fn dsn_mail_params<'a>(input: Vec<(&'a str, Option<&'a str>)>) -> Result<(DS
     Ok((DSNMailParams{envid: envid_val, ret: ret_val}, out))
 }
 
-pub fn orcpt_address(input: &Vec<u8>) -> KResult<&[u8], (String, String)>
+pub fn orcpt_address(input: &[u8]) -> KResult<&[u8], (String, String)>
 {
     wrap_cbs_result(_original_recipient_address(CBS(input)))
 }

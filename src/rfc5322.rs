@@ -24,7 +24,7 @@ enum CommentContent {
 }
 
 named!(ccontent<CBS, CommentContent>,
-       alt!(map!(alt!(ctext | quoted_pair), |x| CommentContent::Text(x.0.to_vec())) | map!(comment, |y| CommentContent::Comment(y)))
+       alt!(map!(alt!(ctext | quoted_pair), |x| CommentContent::Text(x.0.to_vec())) | map!(comment, CommentContent::Comment))
 );
 
 named!(fws<CBS, Vec<u8>>,
@@ -46,10 +46,10 @@ named!(fws<CBS, Vec<u8>>,
 
 
 named!(pub ofws<CBS, Vec<u8>>,
-       map!(opt!(fws), |i| i.unwrap_or(Vec::new()))
+       map!(opt!(fws), |i| i.unwrap_or_default())
 );
 
-fn _concat_comment(comments: &Vec<CommentContent>) -> Vec<CommentContent> {
+fn _concat_comment(comments: &[CommentContent]) -> Vec<CommentContent> {
     let mut out = Vec::new();
     let mut prev_text = false;
 
@@ -105,7 +105,7 @@ named!(qtext<CBS, CBS>,
 
 #[cfg(feature = "quoted-string-rfc2047")]
 named!(qcontent<CBS, QContent>,
-    alt!(map!(encoded_word, |x| QContent::EncodedWord(x)) |
+    alt!(map!(encoded_word, QContent::EncodedWord) |
          map!(qtext, |x| QContent::Literal(ascii_to_string(x.0))) |
          map!(quoted_pair, |x| QContent::Literal(ascii_to_string(x.0)))
     )
@@ -268,9 +268,9 @@ named!(_padded_encoded_word<CBS, String>,
 
 named!(word<CBS, Word>,
     alt!(
-        map!(_padded_encoded_word, |x| Word::EncodedWord(x)) |
+        map!(_padded_encoded_word, Word::EncodedWord) |
         map!(atom, |x| Word::Atom(ascii_to_string(x.0))) |
-        map!(quoted_string, |x| Word::QS(x))
+        map!(quoted_string, Word::QS)
     )
 );
 
@@ -280,9 +280,9 @@ fn _concat_atom_and_qs<T: ToTextVec>(input: &T) -> String {
 
     for (i, t1) in flat.iter().enumerate() {
         match (t1, flat.get(i+1)) {
-            (Text::Atom(v), Some(_)) => {out.extend(v.chars()); out.push(' ')},
-            (_, Some(Text::Atom(_))) => {out.extend(t1.get().chars()); out.push(' ')},
-            (_, _) => out.extend(t1.get().chars()),
+            (Text::Atom(v), Some(_)) => {out.push_str(v); out.push(' ')},
+            (_, Some(Text::Atom(_))) => {out.push_str(t1.get()); out.push(' ')},
+            (_, _) => out.push_str(t1.get()),
         };
     }
     out
@@ -340,7 +340,7 @@ named!(name_addr<CBS, Mailbox>,
     do_parse!(
         dname: opt!(display_name) >>
         address: angle_addr >>
-        (Mailbox{dname, address: address})
+        (Mailbox{dname, address})
     )
 );
 
@@ -368,12 +368,12 @@ named!(group<CBS, Group>,
         members: opt!(group_list) >>
         tag!(";") >>
         opt!(cfws) >>
-        (Group{dname, members: members.unwrap_or(vec![])})
+        (Group{dname, members: members.unwrap_or_default()})
     )
 );
 
 named!(address<CBS, Address>,
-    alt!(map!(mailbox, |x| Address::Mailbox(x)) | map!(group, |x| Address::Group(x)))
+    alt!(map!(mailbox, Address::Mailbox) | map!(group, Address::Group))
 );
 
 named!(address_list<CBS, Vec<Address>>,

@@ -7,7 +7,7 @@ pub(crate) type KResult<I, O, E = u32> = Result<(I, O), nom::Err<I, E>>;
 pub type CBS<'a> = CompleteByteSlice<'a>;
 
 #[allow(non_snake_case)]
-pub fn CBS<'a>(input: &'a[u8]) -> CBS<'a> {
+pub fn CBS(input: &[u8]) -> CBS {
     CompleteByteSlice(input)
 }
 

@@ -55,15 +55,15 @@ named!(sub_domain<CBS, CBS>,
     recognize!(do_parse!(
         let_dig >>
         opt!(ldh_str) >>
-        (())
+        ()
     ))
 );
 
 named!(domain<CBS, CBS>,
     recognize!(do_parse!(
         sub_domain >>
-        many0!(do_parse!(tag!(".") >> sub_domain >> (()))) >>
-        (())
+        many0!(do_parse!(tag!(".") >> sub_domain >> ())) >>
+        ()
     ))
 );
 
@@ -71,23 +71,23 @@ named!(at_domain<CBS, ()>,
     do_parse!(
         tag!("@") >>
         domain >>
-        (())
+        ()
     )
 );
 
 named!(a_d_l<CBS, ()>,
     do_parse!(
         at_domain >>
-        many0!(do_parse!(tag!(",") >> at_domain >> (()))) >>
-        (())
+        many0!(do_parse!(tag!(",") >> at_domain >> ())) >>
+        ()
     )
 );
 
 named!(dot_string<CBS, CBS>,
     recognize!(do_parse!(
         atom >>
-        many0!(do_parse!(tag!(".") >> atom >> (()))) >>
-        (())
+        many0!(do_parse!(tag!(".") >> atom >> ())) >>
+        ()
     ))
 );
 
@@ -132,7 +132,7 @@ named!(address_literal<CBS, CBS>,
         tag!("[") >>
         take_until1!("]") >>
         tag!("]") >>
-        (())
+        ()
     ))
 );
 
@@ -141,14 +141,14 @@ named!(mailbox<CBS, String>,
         local_part >>
         tag!("@") >>
         alt!(domain | address_literal) >>
-        (())
+        ()
     )), |x| ascii_to_string(x.0))
 );
 
 named!(path<CBS, String>,
     do_parse!(
         tag!("<") >>
-        opt!(do_parse!(a_d_l >> tag!(":") >> (()))) >>
+        opt!(do_parse!(a_d_l >> tag!(":") >> ())) >>
         m: mailbox >>
         tag!(">") >>
         (m)
@@ -164,7 +164,7 @@ named!(_mail_command<CBS, (String, Vec<EsmtpParam>)>,
         tag_no_case!("MAIL FROM:") >>
         addr: reverse_path >>
         params: opt!(do_parse!(tag!(" ") >> p: _esmtp_params >> (p))) >>
-        ((addr, params.unwrap_or_else(|| vec![])))
+        (addr, params.unwrap_or_default())
     )
 );
 
@@ -177,7 +177,7 @@ named!(_rcpt_command<CBS, (String, Vec<EsmtpParam>)>,
             path
         ) >>
         params: opt!(do_parse!(tag!(" ") >> p: _esmtp_params >> (p))) >>
-        ((addr, params.unwrap_or_else(|| vec![])))
+        (addr, params.unwrap_or_default())
     )
 );
 

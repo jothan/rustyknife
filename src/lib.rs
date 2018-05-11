@@ -2,7 +2,7 @@
 //!
 //! Collection of nom parsers for email with a Python interface.
 
-#![feature(proc_macro, specialization, range_contains)]
+#![feature(proc_macro, range_contains)]
 
 #[macro_use]
 extern crate nom;
