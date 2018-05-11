@@ -37,7 +37,7 @@ named!(fws<CBS, Vec<u8>>,
         b: many1!(wsp) >>
         ({
             let mut out = Vec::new();
-            a.map(|x| out.extend(x));
+            if let Some(x) = a { out.extend(x) };
             out.extend(b);
             out
         })
@@ -128,10 +128,10 @@ named!(_inner_quoted_string<CBS, Vec<QContent>>,
         ({
             let mut out = Vec::with_capacity(a.len()*2+1);
             for (ws, cont) in a {
-                ws.map(|x| out.push(QContent::Literal(ascii_to_string(&x))));
+                if let Some(x) = ws { out.push(QContent::Literal(ascii_to_string(&x))) };
                 out.push(cont);
             }
-            b.map(|x| out.push(QContent::Literal(ascii_to_string(&x))));
+            if let Some(x) = b { out.push(QContent::Literal(ascii_to_string(&x))) }
             out
         })
     )
@@ -414,7 +414,7 @@ named!(_unstructured<CBS, String>,
                 ewcont: many0!(do_parse!(fws >> e: encoded_word >> (Text::Literal(e)))) >>
                 ({
                     let mut out = Vec::with_capacity(ewcont.len()+2);
-                    ws.map(|x| out.push(Text::Literal(ascii_to_string(&x))));
+                    if let Some(x) = ws { out.push(Text::Literal(ascii_to_string(&x))) };
                     out.push(Text::Literal(ew));
                     out.extend(ewcont);
                     out
@@ -423,7 +423,7 @@ named!(_unstructured<CBS, String>,
             do_parse!(
                 ws: opt!(fws) >>
                 vc: many1!(alt!(vchar | _8bit_char)) >>
-                ({let mut out = Vec::new(); ws.map(|x| out.extend(x)); out.extend(vc); vec![Text::Literal(ascii_to_string(&out))]})
+                ({let mut out = Vec::new(); if let Some(x) = ws { out.extend(x) }; out.extend(vc); vec![Text::Literal(ascii_to_string(&out))]})
             )
 
         )) >>
