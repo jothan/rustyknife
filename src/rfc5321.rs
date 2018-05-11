@@ -28,8 +28,8 @@ named!(esmtp_value<CBS, String>,
 named!(esmtp_param<CBS, EsmtpParam>,
     do_parse!(
         name: esmtp_keyword >>
-        value: opt!(pair!(tag!("="), esmtp_value)) >>
-        (EsmtpParam(name, value.map(|x| x.1)))
+        value: opt!(do_parse!(tag!("=") >>  v: esmtp_value >> (v))) >>
+        (EsmtpParam(name, value))
     )
 );
 

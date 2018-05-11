@@ -351,8 +351,9 @@ named!(mailbox<CBS, Mailbox>,
 named!(mailbox_list<CBS, Vec<Mailbox>>,
     do_parse!(
         a: mailbox >>
-        b: many0!(pair!(tag!(","), mailbox)) >>
-        ({let mut out = vec![a]; out.extend(b.iter().map(|(_, m)| m.clone())); out})
+        b: fold_many0!(do_parse!(tag!(",") >> mbox: mailbox >> (mbox)), vec![a],
+                       |mut acc: Vec<_>, item| {acc.push(item); acc}) >>
+        (b)
     )
 );
 
@@ -378,8 +379,9 @@ named!(address<CBS, Address>,
 named!(address_list<CBS, Vec<Address>>,
     do_parse!(
         a: address >>
-        b: many0!(pair!(tag!(","), address)) >>
-        ({let mut out = vec![a]; out.extend(b.iter().map(|(_, m)| m.clone())); out})
+        b: fold_many0!(do_parse!(tag!(",") >> addr: address >> (addr)), vec![a],
+                       |mut acc: Vec<_>, item| {acc.push(item); acc}) >>
+        (b)
     )
 );
 

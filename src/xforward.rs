@@ -22,7 +22,7 @@ named!(command<CBS, &'static str>,
 );
 
 named!(unavailable<CBS, Option<String>>,
-    map!(tag_no_case!("[unavailable]"), |_| None)
+    do_parse!(tag_no_case!("[unavailable]") >> (None))
 );
 
 named!(value<CBS, Option<String>>,
@@ -40,17 +40,18 @@ named!(param<CBS, XforwardParam>,
 );
 
 named!(params<CBS, Vec<XforwardParam>>,
-    map!(pair!(
-        do_parse!(
+    do_parse!(
+        a: do_parse!(
             opt!(many1!(wsp)) >>
             p: param >>
             (p)
-        ),
-        many0!(do_parse!(
+        ) >>
+        b: fold_many0!(do_parse!(
             many1!(wsp) >>
-                p: param >>
-                (p)
-        ))), |(a, b)| { let mut out = Vec::with_capacity(b.len()+1); out.push(a); out.extend(b); out }
+            p: param >>
+            (p)
+        ), vec![a], |mut acc: Vec<_>, item| {acc.push(item); acc}) >>
+        (b)
     )
 );
 
