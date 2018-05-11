@@ -11,13 +11,13 @@ pub struct XforwardParam(pub &'static str, pub Option<String>);
 
 named!(command<CBS, &'static str>,
      alt!(
-         map!(tag_no_case!("addr"), |_| "addr") |
-         map!(tag_no_case!("helo"), |_| "helo") |
-         map!(tag_no_case!("ident"), |_| "ident") |
-         map!(tag_no_case!("name"), |_| "name") |
-         map!(tag_no_case!("port"), |_| "port") |
-         map!(tag_no_case!("proto"), |_| "proto") |
-         map!(tag_no_case!("source"), |_| "source")
+         do_parse!(tag_no_case!("addr") >> ("addr")) |
+         do_parse!(tag_no_case!("helo") >> ("helo")) |
+         do_parse!(tag_no_case!("ident") >> ("ident")) |
+         do_parse!(tag_no_case!("name") >> ("name")) |
+         do_parse!(tag_no_case!("port") >> ("port")) |
+         do_parse!(tag_no_case!("proto") >> ("proto")) |
+         do_parse!(tag_no_case!("source") >> ("source"))
      )
 );
 
@@ -26,8 +26,7 @@ named!(unavailable<CBS, Option<String>>,
 );
 
 named!(value<CBS, Option<String>>,
-    alt!(unavailable |
-         map!(xtext, |x| Some(ascii_to_string(&x))))
+    alt!(unavailable | do_parse!(x: xtext >> (Some(ascii_to_string(&x)))))
 );
 
 named!(param<CBS, XforwardParam>,

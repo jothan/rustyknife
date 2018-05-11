@@ -22,9 +22,9 @@ named!(field_name<CBS, CBS>,
 );
 
 named!(unstructured<CBS, CBS>,
-    recognize!(pair!(
-        many0!(pair!(ofws, alt!(recognize!(many1!(vchar)) | take_until1!("\r\n")))),
-        many0!(wsp)
+    recognize!(do_parse!(
+        many0!(do_parse!(ofws >> alt!(recognize!(many1!(vchar)) | take_until1!("\r\n")) >> ())) >>
+        many0!(wsp) >> ()
     ))
 );
 
