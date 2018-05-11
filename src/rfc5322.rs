@@ -222,7 +222,7 @@ impl ToTextVec for Word {
         match self {
             Word::Atom(a) => vec![Text::Atom(a.clone())],
             Word::EncodedWord(ew) => vec![Text::Literal(ew.clone())],
-            Word::QS(qc) => qc.iter().map(|x| x.to_text_vec()).collect::<Vec<Vec<_>>>().iter().flat_map(|y| y.iter()).cloned().collect(),
+            Word::QS(qc) => qc.iter().flat_map(|x| x.to_text_vec()).collect(),
         }
     }
 
@@ -230,8 +230,7 @@ impl ToTextVec for Word {
 
 impl ToTextVec for Vec<Word> {
     fn to_text_vec(&self) -> Vec<Text> {
-        self.iter().map(|item| item.to_text_vec()).collect::<Vec<Vec<_>>>()
-        .iter().flat_map(|item| item.iter()).cloned().collect()
+        self.iter().flat_map(|item| item.to_text_vec()).collect()
     }
 }
 
