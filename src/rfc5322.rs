@@ -128,7 +128,11 @@ named!(_inner_quoted_string<CBS, Vec<QContent>>,
         ({
             let mut out = Vec::with_capacity(a.len()*2+1);
             for (ws, cont) in a {
-                if let Some(x) = ws { out.push(QContent::Literal(ascii_to_string(&x))) };
+                match (&cont, out.last()) {
+                    #[cfg(feature = "quoted-string-rfc2047")]
+                    (QContent::EncodedWord(_), Some(QContent::EncodedWord(_))) => (),
+                    (_, _) => { if let Some(x) = ws { out.push(QContent::Literal(ascii_to_string(&x))) } },
+                }
                 out.push(cont);
             }
             if let Some(x) = b { out.push(QContent::Literal(ascii_to_string(&x))) }
