@@ -119,8 +119,8 @@ dependencies = [
 
 [[package]]
 name = "nom"
-version = "4.0.0-beta3"
-source = "git+https://github.com/zerospam/nom?branch=fixwarning#4d24ccd7962d9c521765cd7cc0ddab0315de8c5d"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "memchr 2.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -196,7 +196,7 @@ dependencies = [
  "base64 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "encoding 0.2.33 (registry+https://github.com/rust-lang/crates.io-index)",
  "memmap 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "nom 4.0.0-beta3 (git+https://github.com/zerospam/nom?branch=fixwarning)",
+ "nom 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "pyo3 0.2.5 (git+https://github.com/PyO3/pyo3)",
 ]
 
@@ -306,7 +306,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum log 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "89f010e843f2b1a31dbd316b3b8d443758bc634bed37aabade59c686d644e0a2"
 "checksum memchr 2.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "796fba70e76612589ed2ce7f45282f5af869e0fdd7cc6199fa1aa1f1d591ba9d"
 "checksum memmap 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)" = "e2ffa2c986de11a9df78620c01eeaaf27d94d3ff02bf81bfcca953102dd0c6ff"
-"checksum nom 4.0.0-beta3 (git+https://github.com/zerospam/nom?branch=fixwarning)" = "<none>"
+"checksum nom 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "898696750eb5c3ce5eb5afbfbe46e7f7c4e1936e19d3e97be4b7937da7b6d114"
 "checksum num-traits 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "c22f20a157cb4af265c71e47db525852368feeb4a0013f0f8c68a7f4ef0d0fc1"
 "checksum pyo3 0.2.5 (git+https://github.com/PyO3/pyo3)" = "<none>"
 "checksum pyo3-derive-backend 0.2.5 (git+https://github.com/PyO3/pyo3)" = "<none>"

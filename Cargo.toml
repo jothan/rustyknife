@@ -18,8 +18,7 @@ memmap = "0.6.2"
 base64 = "~0.6.0"
 
 [dependencies.nom]
-git = "https://github.com/zerospam/nom"
-branch = "fixwarning"
+version = "4.0.0"
 
 [dependencies.pyo3]
 git = "https://github.com/PyO3/pyo3"
