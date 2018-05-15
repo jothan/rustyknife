@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 use std::fs::File;
 
+use rfc2231::{content_type, content_disposition, content_transfer_encoding};
 use rfc3461::{orcpt_address, dsn_mail_params, DSNMailParams, DSNRet};
 use rfc5321::{EsmtpParam, mail_command, rcpt_command, validate_address};
 use rfc5322::{Address, Mailbox, Group, from, sender, reply_to, unstructured};
@@ -184,6 +185,21 @@ fn init_module(py: Python, m: &PyModule) -> PyResult<()> {
     #[pyfn(m, "unstructured")]
     fn py_unstructured(input: &PyBytes) -> PyResult<String> {
         convert_result(unstructured(input.data()), true)
+    }
+
+    #[pyfn(m, "content_type")]
+    fn py_content_type(input: &PyBytes, all: bool) -> PyResult<(String, Vec<(String, String)>)> {
+        convert_result(content_type(input.data()), all)
+    }
+
+    #[pyfn(m, "content_disposition")]
+    fn py_content_disposition(input: &PyBytes, all: bool) -> PyResult<(String, Vec<(String, String)>)> {
+        convert_result(content_disposition(input.data()), all)
+    }
+
+    #[pyfn(m, "content_transfer_encoding")]
+    fn py_content_transfer_encoding(input: &PyBytes) -> PyResult<String> {
+        convert_result(content_transfer_encoding(input.data()), true)
     }
 
     Ok(())

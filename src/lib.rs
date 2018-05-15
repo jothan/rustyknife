@@ -14,6 +14,7 @@ extern crate base64;
 mod util;
 mod rfc5234;
 pub mod rfc2047;
+pub mod rfc2231;
 pub mod rfc5321;
 pub mod rfc5322;
 pub mod rfc3461;

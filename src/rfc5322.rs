@@ -100,7 +100,7 @@ named!(cfws<CBS, CBS>,
 );
 
 named!(qtext<CBS, CBS>,
-    take_while1!(|c: u8| c == 33 || (35..=91).contains(&c) || (93..=126).contains(&c))
+    take_while1!(|c: u8| c == 33 || (35..=91).contains(&c) || (93..=126).contains(&c) || (128..=255).contains(&c))
 );
 
 #[cfg(feature = "quoted-string-rfc2047")]
@@ -151,13 +151,17 @@ named!(_raw_quoted_string<CBS, CBS>,
     )
 );
 
-named!(quoted_string<CBS, Vec<QContent>>,
+named!(_quoted_string_parts<CBS, Vec<QContent>>,
     do_parse!(
         opt!(cfws) >>
         qc: _inner_quoted_string >>
         opt!(cfws) >>
         (qc)
     )
+);
+
+named!(pub quoted_string<CBS, String>,
+    do_parse!(qs: _quoted_string_parts >> (_concat_atom_and_qs(&Word::QS(qs))))
 );
 
 #[derive(Clone, Debug)]
@@ -274,7 +278,7 @@ named!(word<CBS, Word>,
     alt!(
         map!(_padded_encoded_word, Word::EncodedWord) |
         map!(atom, |x| Word::Atom(ascii_to_string(x.0))) |
-        map!(quoted_string, Word::QS)
+        map!(_quoted_string_parts, Word::QS)
     )
 );
 
