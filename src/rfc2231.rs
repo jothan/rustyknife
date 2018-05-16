@@ -244,10 +244,10 @@ fn decode_parameter_list(input: &[Parameter]) -> Vec<(String, String)> {
         }
     }
 
-    let mut composite_out = HashMap::<String, String>::new();
+    let mut composite_out = Vec::new();
     for (name, mut segments) in composite {
         let codec = composite_encoding.get(&name).map(|x| *x).unwrap_or(ASCII);
-        composite_out.insert(name, decode_segments(segments, codec));
+        composite_out.push((name, decode_segments(segments, codec)));
     }
 
     for (name, value) in simple_encoded.into_iter().chain(composite_out.into_iter()) {
