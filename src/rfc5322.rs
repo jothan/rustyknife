@@ -2,6 +2,8 @@
 //!
 //! Comments are ignored. RFC2047 decoding is applied where appropriate.
 
+use std::mem;
+
 use rfc2047::encoded_word;
 use rfc5234::*;
 use util::*;
@@ -49,34 +51,23 @@ named!(pub ofws<CBS, Vec<u8>>,
        map!(opt!(fws), |i| i.unwrap_or_default())
 );
 
-fn _concat_comment(comments: &[CommentContent]) -> Vec<CommentContent> {
+fn _concat_comment(comments: Vec<CommentContent>, extra: Option<CommentContent>) -> Vec<CommentContent> {
     let mut out = Vec::new();
-    let mut prev_text = false;
+    let mut acc_text = Vec::new();
 
-    for comment in comments {
-        let (is_text, val) = match comment {
-            CommentContent::Text(text) => {
-                if text.is_empty() {
-                    continue;
-                }
-                if prev_text {
-                    if let Some(CommentContent::Text(mut pt)) = out.pop() {
-                        pt.extend(text);
-                        (true, CommentContent::Text(pt))
-                    } else {
-                        continue;
-                    }
-                } else {
-                    (true, comment.clone())
-                }
-            }
-            CommentContent::Comment(cmt) => {
-                (false, CommentContent::Comment(cmt.clone()))
-            },
-        };
-        prev_text = is_text;
-        out.push(val);
+    let push_text = |bytes: &mut Vec<_>, out: &mut Vec<CommentContent>| {
+        if !bytes.is_empty() {
+            out.push(CommentContent::Text(mem::replace(bytes, Vec::new())))
+        }
+    };
+
+    for comment in comments.into_iter().chain(extra.into_iter()) {
+        match comment {
+            CommentContent::Text(mut text) => acc_text.append(&mut text),
+            _ => { push_text(&mut acc_text, &mut out); out.push(comment) }
+        }
     }
+    push_text(&mut acc_text, &mut out);
 
     out
 }
@@ -91,7 +82,7 @@ named!(comment<CBS, Vec<CommentContent>>,
         }) >>
         b: ofws >>
         tag!(")") >>
-        ({let mut out = a.clone(); out.push(CommentContent::Text(b)); _concat_comment(&out)})
+        (_concat_comment(a, Some(CommentContent::Text(b))))
     )
 );
 

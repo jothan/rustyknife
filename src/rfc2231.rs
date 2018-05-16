@@ -174,7 +174,7 @@ named!(_parameter_list<CBS, Vec<Parameter>>,
     )
 );
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 enum Segment<'a> {
     Encoded(Vec<u8>),
     Decoded(&'a str),
