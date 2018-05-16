@@ -228,9 +228,9 @@ fn decode_parameter_list(input: &[Parameter]) -> Vec<(String, String)> {
         let mut out_seg = Vec::new();
         for (_, segment) in segments {
             match segment {
-                Segment::Encoded(s) => {
+                Segment::Encoded(mut s) => {
                     let pushed = if let Some(Segment::Encoded(prev)) = out_seg.last_mut() {
-                        prev.extend(s.iter());
+                        prev.append(&mut s);
                         true
                     } else {
                         false
