@@ -7,7 +7,6 @@ use std::collections::HashMap;
 
 use encoding::label::encoding_from_whatwg_label;
 use encoding::DecoderTrap;
-use encoding::all::ASCII;
 use nom::is_digit;
 
 use util::*;
@@ -180,6 +179,7 @@ enum Segment<'a> {
 }
 
 fn decode_parameter_list(input: &[Parameter]) -> Vec<(String, String)> {
+    let ascii = encoding_from_whatwg_label("ascii").unwrap();
     let mut simple = HashMap::<String, String>::new();
     let mut simple_encoded = HashMap::<String, String>::new();
     let mut composite = HashMap::<String, Vec<(u32, Segment)>>::new();
@@ -192,9 +192,12 @@ fn decode_parameter_list(input: &[Parameter]) -> Vec<(String, String)> {
             None => {
                 match value {
                     Value::Regular(v) => { simple.insert(name_norm.clone(), v.clone()); },
-                    Value::Extended(ExtendedValue::Initial{value, encoding, ..}) => {
-                        let encoding = encoding_from_whatwg_label(&ascii_to_string(encoding.unwrap_or(b"ascii"))).unwrap_or(ASCII);
-                        simple_encoded.insert(name_norm.clone(), encoding.decode(&value, DecoderTrap::Replace).unwrap());
+                    Value::Extended(ExtendedValue::Initial{value, encoding: encoding_name, ..}) => {
+                        let codec = match encoding_name {
+                            Some(encoding_name) => encoding_from_whatwg_label(&ascii_to_string(encoding_name)).unwrap_or(ascii),
+                            None => ascii,
+                        };
+                        simple_encoded.insert(name_norm.clone(), codec.decode(&value, DecoderTrap::Replace).unwrap());
                     }
                     Value::Extended(ExtendedValue::Other(..)) => unreachable!(),
                 }
@@ -204,10 +207,11 @@ fn decode_parameter_list(input: &[Parameter]) -> Vec<(String, String)> {
 
                 match value {
                     Value::Regular(v) => ent.push((section, Segment::Decoded(&v))),
-                    Value::Extended(ExtendedValue::Initial{value, encoding, ..}) => {
-                        if let Some(encoding) = encoding {
-                            let encoding = encoding_from_whatwg_label(&ascii_to_string(encoding)).unwrap_or(ASCII);
-                            encmap.insert(name_norm, encoding);
+                    Value::Extended(ExtendedValue::Initial{value, encoding: encoding_name, ..}) => {
+                        if let Some(encoding_name) = encoding_name {
+                            if let Some(codec) = encoding_from_whatwg_label(&ascii_to_string(encoding_name)) {
+                                encmap.insert(name_norm, codec);
+                            }
                         }
                         ent.push((section, Segment::Encoded(value.to_vec())))
                     }
@@ -244,8 +248,8 @@ fn decode_parameter_list(input: &[Parameter]) -> Vec<(String, String)> {
         for segment in out_seg {
             match segment {
                 Segment::Encoded(s) => {
-                    let encoding = encmap.get(name).unwrap();
-                    out_str.push_str(&encoding.decode(&s, DecoderTrap::Replace).unwrap())
+                    let codec = encmap.get(name).unwrap_or(&ascii);
+                    out_str.push_str(&codec.decode(&s, DecoderTrap::Replace).unwrap())
                 }
                 Segment::Decoded(s) => out_str.push_str(s),
             }
