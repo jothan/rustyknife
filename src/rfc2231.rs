@@ -223,24 +223,23 @@ fn decode_parameter_list(input: &[Parameter]) -> Vec<(String, String)> {
     let mut composite_out = HashMap::<String, String>::new();
 
     // Clump encoded segments together before decoding. Prevents partial UTF-8 sequences or similar with other encodings.
-    for (name, segments) in composite.iter_mut() {
+    for (name, mut segments) in composite {
         segments.sort_by(|a, b| a.0.cmp(&b.0));
         let mut out_seg = Vec::new();
         for (_, segment) in segments {
             match segment {
                 Segment::Encoded(s) => {
-                    let modified = if let Some(Segment::Encoded(prev)) = out_seg.last_mut() {
+                    let pushed = if let Some(Segment::Encoded(prev)) = out_seg.last_mut() {
                         prev.extend(s.iter());
                         true
                     } else {
                         false
                     };
-
-                    if !modified {
-                        out_seg.push(segment.clone());
+                    if !pushed {
+                        out_seg.push(Segment::Encoded(s))
                     }
                 }
-                Segment::Decoded(..) => out_seg.push(segment.clone()),
+                Segment::Decoded(..) => out_seg.push(segment),
             }
         }
         let mut out_str = String::new();
@@ -248,20 +247,20 @@ fn decode_parameter_list(input: &[Parameter]) -> Vec<(String, String)> {
         for segment in out_seg {
             match segment {
                 Segment::Encoded(s) => {
-                    let codec = encmap.get(name).unwrap_or(&ascii);
+                    let codec = encmap.get(&name).unwrap_or(&ascii);
                     out_str.push_str(&codec.decode(&s, DecoderTrap::Replace).unwrap())
                 }
                 Segment::Decoded(s) => out_str.push_str(s),
             }
         }
-        composite_out.insert(name.clone(), out_str);
+        composite_out.insert(name, out_str);
     }
 
-    for (name, value) in simple_encoded.drain().chain(composite_out.drain()) {
+    for (name, value) in simple_encoded.into_iter().chain(composite_out.into_iter()) {
         simple.insert(name, value);
     }
 
-    simple.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
+    simple.into_iter().collect()
 }
 
 named!(_content_type<CBS, (String, Vec<(String, String)>)>,
