@@ -6,7 +6,9 @@ use std::str;
 use std::collections::HashMap;
 
 use encoding::label::encoding_from_whatwg_label;
+use encoding::types::EncodingRef;
 use encoding::DecoderTrap;
+use encoding::all::ASCII;
 use nom::is_digit;
 
 use util::*;
@@ -178,13 +180,46 @@ enum Segment<'a> {
     Decoded(&'a str),
 }
 
+fn decode_segments(mut input: Vec<(u32, Segment)>, encoding: EncodingRef) -> String {
+    let mut out_seg = Vec::with_capacity(input.len());
+
+    input.sort_by(|a, b| a.0.cmp(&b.0));
+
+    // Clump encoded segments together before decoding. Prevents partial UTF-8 sequences or similar with other encodings.
+    for (_, segment) in input {
+        match segment {
+            Segment::Encoded(mut s) => {
+                let pushed = if let Some(Segment::Encoded(prev)) = out_seg.last_mut() {
+                    prev.append(&mut s);
+                    true
+                } else {
+                    false
+                };
+                if !pushed {
+                    out_seg.push(Segment::Encoded(s))
+                }
+            }
+            Segment::Decoded(..) => out_seg.push(segment),
+        }
+    }
+    let mut out_str = String::new();
+
+    for segment in out_seg {
+        match segment {
+            Segment::Encoded(s) => out_str.push_str(&encoding.decode(&s, DecoderTrap::Replace).unwrap()),
+            Segment::Decoded(s) => out_str.push_str(s),
+        }
+    }
+
+    out_str
+}
+
 fn decode_parameter_list(input: &[Parameter]) -> Vec<(String, String)> {
-    let ascii = encoding_from_whatwg_label("ascii").unwrap();
     let mut simple = HashMap::<String, String>::new();
     let mut simple_encoded = HashMap::<String, String>::new();
     let mut composite = HashMap::<String, Vec<(u32, Segment)>>::new();
+    let mut composite_encoding = HashMap::new();
 
-    let mut encmap = HashMap::new();
     for Parameter{name, value} in input {
         let name_norm = name.name.to_lowercase();
 
@@ -194,8 +229,8 @@ fn decode_parameter_list(input: &[Parameter]) -> Vec<(String, String)> {
                     Value::Regular(v) => { simple.insert(name_norm.clone(), v.clone()); },
                     Value::Extended(ExtendedValue::Initial{value, encoding: encoding_name, ..}) => {
                         let codec = match encoding_name {
-                            Some(encoding_name) => encoding_from_whatwg_label(&ascii_to_string(encoding_name)).unwrap_or(ascii),
-                            None => ascii,
+                            Some(encoding_name) => encoding_from_whatwg_label(&ascii_to_string(encoding_name)).unwrap_or(ASCII),
+                            None => ASCII,
                         };
                         simple_encoded.insert(name_norm.clone(), codec.decode(&value, DecoderTrap::Replace).unwrap());
                     }
@@ -210,7 +245,7 @@ fn decode_parameter_list(input: &[Parameter]) -> Vec<(String, String)> {
                     Value::Extended(ExtendedValue::Initial{value, encoding: encoding_name, ..}) => {
                         if let Some(encoding_name) = encoding_name {
                             if let Some(codec) = encoding_from_whatwg_label(&ascii_to_string(encoding_name)) {
-                                encmap.insert(name_norm, codec);
+                                composite_encoding.insert(name_norm, codec);
                             }
                         }
                         ent.push((section, Segment::Encoded(value.to_vec())))
@@ -220,40 +255,11 @@ fn decode_parameter_list(input: &[Parameter]) -> Vec<(String, String)> {
             }
         }
     }
+
     let mut composite_out = HashMap::<String, String>::new();
-
-    // Clump encoded segments together before decoding. Prevents partial UTF-8 sequences or similar with other encodings.
     for (name, mut segments) in composite {
-        segments.sort_by(|a, b| a.0.cmp(&b.0));
-        let mut out_seg = Vec::new();
-        for (_, segment) in segments {
-            match segment {
-                Segment::Encoded(mut s) => {
-                    let pushed = if let Some(Segment::Encoded(prev)) = out_seg.last_mut() {
-                        prev.append(&mut s);
-                        true
-                    } else {
-                        false
-                    };
-                    if !pushed {
-                        out_seg.push(Segment::Encoded(s))
-                    }
-                }
-                Segment::Decoded(..) => out_seg.push(segment),
-            }
-        }
-        let mut out_str = String::new();
-
-        for segment in out_seg {
-            match segment {
-                Segment::Encoded(s) => {
-                    let codec = encmap.get(&name).unwrap_or(&ascii);
-                    out_str.push_str(&codec.decode(&s, DecoderTrap::Replace).unwrap())
-                }
-                Segment::Decoded(s) => out_str.push_str(s),
-            }
-        }
-        composite_out.insert(name, out_str);
+        let codec = composite_encoding.get(&name).map(|x| *x).unwrap_or(ASCII);
+        composite_out.insert(name, decode_segments(segments, codec));
     }
 
     for (name, value) in simple_encoded.into_iter().chain(composite_out.into_iter()) {
