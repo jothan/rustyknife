@@ -226,13 +226,13 @@ fn decode_parameter_list(input: &[Parameter]) -> Vec<(String, String)> {
         match name.section {
             None => {
                 match value {
-                    Value::Regular(v) => { simple.insert(name_norm.clone(), v.clone()); },
+                    Value::Regular(v) => { simple.insert(name_norm, v.clone()); },
                     Value::Extended(ExtendedValue::Initial{value, encoding: encoding_name, ..}) => {
                         let codec = match encoding_name {
                             Some(encoding_name) => encoding_from_whatwg_label(&ascii_to_string(encoding_name)).unwrap_or(ASCII),
                             None => ASCII,
                         };
-                        simple_encoded.insert(name_norm.clone(), codec.decode(&value, DecoderTrap::Replace).unwrap());
+                        simple_encoded.insert(name_norm, codec.decode(&value, DecoderTrap::Replace).unwrap());
                     }
                     Value::Extended(ExtendedValue::Other(..)) => unreachable!(),
                 }
