@@ -181,35 +181,22 @@ enum Segment<'a> {
 }
 
 fn decode_segments(mut input: Vec<(u32, Segment)>, encoding: EncodingRef) -> String {
-    let mut out_seg = Vec::with_capacity(input.len());
-
     input.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut out_str = String::new();
+    let mut encoded = Vec::new();
 
     // Clump encoded segments together before decoding. Prevents partial UTF-8 sequences or similar with other encodings.
     for (_, segment) in input {
         match segment {
-            Segment::Encoded(mut s) => {
-                let pushed = if let Some(Segment::Encoded(prev)) = out_seg.last_mut() {
-                    prev.append(&mut s);
-                    true
-                } else {
-                    false
-                };
-                if !pushed {
-                    out_seg.push(Segment::Encoded(s))
-                }
-            }
-            Segment::Decoded(..) => out_seg.push(segment),
+            Segment::Encoded(mut bytes) => encoded.append(&mut bytes),
+            Segment::Decoded(s) => {
+                out_str.push_str(&encoding.decode(&encoded, DecoderTrap::Replace).unwrap());
+                encoded.clear();
+                out_str.push_str(s)
+            },
         }
     }
-    let mut out_str = String::new();
-
-    for segment in out_seg {
-        match segment {
-            Segment::Encoded(s) => out_str.push_str(&encoding.decode(&s, DecoderTrap::Replace).unwrap()),
-            Segment::Decoded(s) => out_str.push_str(s),
-        }
-    }
+    out_str.push_str(&encoding.decode(&encoded, DecoderTrap::Replace).unwrap());
 
     out_str
 }
