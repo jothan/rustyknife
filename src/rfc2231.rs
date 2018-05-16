@@ -175,9 +175,9 @@ named!(_parameter_list<CBS, Vec<Parameter>>,
 );
 
 #[derive(Debug)]
-enum Segment<'a> {
+enum Segment {
     Encoded(Vec<u8>),
-    Decoded(&'a str),
+    Decoded(String),
 }
 
 fn decode_segments(mut input: Vec<(u32, Segment)>, encoding: EncodingRef) -> String {
@@ -194,7 +194,7 @@ fn decode_segments(mut input: Vec<(u32, Segment)>, encoding: EncodingRef) -> Str
     for (_, segment) in input {
         match segment {
             Segment::Encoded(mut bytes) => encoded.append(&mut bytes),
-            Segment::Decoded(s) => { decode(&mut encoded, &mut out); out.push_str(s) }
+            Segment::Decoded(s) => { decode(&mut encoded, &mut out); out.push_str(&s) }
         }
     }
     decode(&mut encoded, &mut out);
@@ -202,7 +202,7 @@ fn decode_segments(mut input: Vec<(u32, Segment)>, encoding: EncodingRef) -> Str
     out
 }
 
-fn decode_parameter_list(input: &[Parameter]) -> Vec<(String, String)> {
+fn decode_parameter_list(input: Vec<Parameter>) -> Vec<(String, String)> {
     let mut simple = HashMap::<String, String>::new();
     let mut simple_encoded = HashMap::<String, String>::new();
     let mut composite = HashMap::<String, Vec<(u32, Segment)>>::new();
@@ -214,7 +214,7 @@ fn decode_parameter_list(input: &[Parameter]) -> Vec<(String, String)> {
         match name.section {
             None => {
                 match value {
-                    Value::Regular(v) => { simple.insert(name_norm, v.clone()); },
+                    Value::Regular(v) => { simple.insert(name_norm, v); },
                     Value::Extended(ExtendedValue::Initial{value, encoding: encoding_name, ..}) => {
                         let codec = match encoding_name {
                             Some(encoding_name) => encoding_from_whatwg_label(&ascii_to_string(encoding_name)).unwrap_or(ASCII),
@@ -229,7 +229,7 @@ fn decode_parameter_list(input: &[Parameter]) -> Vec<(String, String)> {
                 let ent = composite.entry(name_norm.clone()).or_default();
 
                 match value {
-                    Value::Regular(v) => ent.push((section, Segment::Decoded(&v))),
+                    Value::Regular(v) => ent.push((section, Segment::Decoded(v))),
                     Value::Extended(ExtendedValue::Initial{value, encoding: encoding_name, ..}) => {
                         if let Some(encoding_name) = encoding_name {
                             if let Some(codec) = encoding_from_whatwg_label(&ascii_to_string(encoding_name)) {
@@ -238,7 +238,7 @@ fn decode_parameter_list(input: &[Parameter]) -> Vec<(String, String)> {
                         }
                         ent.push((section, Segment::Encoded(value.to_vec())))
                     }
-                    Value::Extended(ExtendedValue::Other(v)) => ent.push((section, Segment::Encoded(v.to_vec()))),
+                    Value::Extended(ExtendedValue::Other(v)) => ent.push((section, Segment::Encoded(v))),
                 }
             }
         }
@@ -263,7 +263,7 @@ named!(_content_type<CBS, (String, Vec<(String, String)>)>,
         mt: _mime_type >>
         ofws >>
         p: _parameter_list >>
-        (ascii_to_string(mt.0).to_lowercase(), decode_parameter_list(&p))
+        (ascii_to_string(mt.0).to_lowercase(), decode_parameter_list(p))
     )
 );
 
@@ -290,7 +290,7 @@ named!(_content_disposition<CBS, (String, Vec<(String, String)>)>,
         disp: _disposition >>
         ofws >>
         p: _parameter_list >>
-        (disp, decode_parameter_list(&p))
+        (disp, decode_parameter_list(p))
     )
 );
 
