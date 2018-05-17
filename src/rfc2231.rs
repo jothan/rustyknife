@@ -78,6 +78,7 @@ fn is_attribute_char(c: u8) -> bool {
     (33..=126).contains(&c) && !b"*'%()<>@,;:\\\"/[]?=".contains(&c)
 }
 
+#[inline]
 named!(attribute_char<CBS, u8>,
     map!(verify!(take!(1), |x: CBS| is_attribute_char(x.0[0])), |c| c[0])
 );

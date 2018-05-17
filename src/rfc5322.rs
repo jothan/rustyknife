@@ -400,6 +400,7 @@ named!(address_crlf<CBS, Address>,
     )
 );
 
+#[inline]
 named!(_8bit_char<CBS, u8>,
        map!(verify!(take!(1), |c: CBS| (0x80..=0xff).contains(&c.0[0])), |x| x.0[0])
 );

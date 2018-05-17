@@ -16,6 +16,7 @@ named!(encoded_text<CBS, CBS>,
     take_while1!(|c| (33..=62).contains(&c) || (64..=126).contains(&c))
 );
 
+#[inline]
 named!(_qp_encoded_text<CBS, Vec<u8>>,
     many0!(alt!(
         do_parse!(tag!("=") >> b: hexpair >> (b)) |

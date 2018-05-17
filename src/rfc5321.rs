@@ -12,6 +12,7 @@ named!(_ldh<CBS, CBS>,
     take_while1!(|c| is_alphanumeric(c) || c == b'-')
 );
 
+#[inline]
 named!(_alphanum<CBS, CBS>,
     verify!(take!(1), |x: CBS| is_alphanumeric(x.0[0]))
 );
@@ -47,6 +48,7 @@ named!(ldh_str<CBS, CBS>,
     })
 );
 
+#[inline]
 named!(let_dig<CBS, CBS>,
     verify!(take!(1), |c: CBS| is_alphanumeric(c.0[0]))
 );
@@ -91,6 +93,7 @@ named!(dot_string<CBS, CBS>,
     ))
 );
 
+#[inline]
 named!(qtext_smtp<CBS, u8>,
    map!(verify!(take!(1), |x: CBS| {
        let c = &x.0[0];
@@ -98,6 +101,7 @@ named!(qtext_smtp<CBS, u8>,
    }), |x| x.0[0])
 );
 
+#[inline]
 named!(quoted_pair_smtp<CBS, u8>,
     do_parse!(
         tag!("\\") >>
