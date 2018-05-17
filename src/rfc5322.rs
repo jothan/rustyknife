@@ -152,7 +152,7 @@ named!(_quoted_string_parts<CBS, Vec<QContent>>,
 );
 
 named!(pub quoted_string<CBS, String>,
-    do_parse!(qs: _quoted_string_parts >> (_concat_atom_and_qs(&Word::QS(qs))))
+    do_parse!(qs: _quoted_string_parts >> (_concat_atom_and_qs(Word::QS(qs))))
 );
 
 #[derive(Clone, Debug)]
@@ -202,40 +202,40 @@ impl Text {
     }
 }
 
-trait ToTextVec {
-    fn to_text_vec(&self) -> Vec<Text>;
+trait IntoTextVec {
+    fn into_text_vec(self) -> Vec<Text>;
 }
 
-impl ToTextVec for QContent {
-    fn to_text_vec(&self) -> Vec<Text> {
+impl IntoTextVec for QContent {
+    fn into_text_vec(self) -> Vec<Text> {
         match self {
-            QContent::Literal(lit) => vec![Text::Literal(lit.clone())],
+            QContent::Literal(lit) => vec![Text::Literal(lit)],
             #[cfg(feature = "quoted-string-rfc2047")]
-            QContent::EncodedWord(ew) => vec![Text::Literal(ew.clone())],
+            QContent::EncodedWord(ew) => vec![Text::Literal(ew)],
         }
     }
 }
 
-impl ToTextVec for Word {
-    fn to_text_vec(&self) -> Vec<Text> {
+impl IntoTextVec for Word {
+    fn into_text_vec(self) -> Vec<Text> {
         match self {
-            Word::Atom(a) => vec![Text::Atom(a.clone())],
-            Word::EncodedWord(ew) => vec![Text::Literal(ew.clone())],
-            Word::QS(qc) => qc.iter().flat_map(|x| x.to_text_vec()).collect(),
+            Word::Atom(a) => vec![Text::Atom(a)],
+            Word::EncodedWord(ew) => vec![Text::Literal(ew)],
+            Word::QS(qc) => qc.into_iter().flat_map(|x| x.into_text_vec()).collect(),
         }
     }
 
 }
 
-impl ToTextVec for Vec<Word> {
-    fn to_text_vec(&self) -> Vec<Text> {
-        self.iter().flat_map(|item| item.to_text_vec()).collect()
+impl IntoTextVec for Vec<Word> {
+    fn into_text_vec(self) -> Vec<Text> {
+        self.into_iter().flat_map(|item| item.into_text_vec()).collect()
     }
 }
 
-impl ToTextVec for Vec<Text> {
-    fn to_text_vec(&self) -> Vec<Text> {
-        self.clone()
+impl IntoTextVec for Vec<Text> {
+    fn into_text_vec(self) -> Vec<Text> {
+        self
     }
 }
 
@@ -273,13 +273,13 @@ named!(word<CBS, Word>,
     )
 );
 
-fn _concat_atom_and_qs<T: ToTextVec>(input: &T) -> String {
-    let flat = input.to_text_vec();
+fn _concat_atom_and_qs<T: IntoTextVec>(input: T) -> String {
+    let flat = input.into_text_vec();
     let mut out = String::new();
 
     for (i, t1) in flat.iter().enumerate() {
         match (t1, flat.get(i+1)) {
-            (Text::Atom(v), Some(_)) => {out.push_str(v); out.push(' ')},
+            (Text::Atom(v), Some(_)) => {out.push_str(&v); out.push(' ')},
             (_, Some(Text::Atom(_))) => {out.push_str(t1.get()); out.push(' ')},
             (_, _) => out.push_str(t1.get()),
         };
@@ -288,7 +288,7 @@ fn _concat_atom_and_qs<T: ToTextVec>(input: &T) -> String {
 }
 
 named!(display_name<CBS, String>,
-    map!(many1!(word), |x| _concat_atom_and_qs(&x))
+    map!(many1!(word), |x| _concat_atom_and_qs(x))
 );
 
 named!(local_part<CBS, CBS>,
@@ -432,7 +432,7 @@ named!(_unstructured<CBS, String>,
             if !b.is_empty() {
                 out.push(Text::Literal(ascii_to_string(&b)))
             }
-            _concat_atom_and_qs(&out)
+            _concat_atom_and_qs(out)
         })
     )
 );
