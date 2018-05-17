@@ -288,7 +288,7 @@ fn _concat_atom_and_qs<T: IntoTextVec>(input: T) -> String {
 }
 
 named!(display_name<CBS, String>,
-    map!(many1!(word), |x| _concat_atom_and_qs(x))
+    map!(many1!(word), _concat_atom_and_qs)
 );
 
 named!(local_part<CBS, CBS>,
