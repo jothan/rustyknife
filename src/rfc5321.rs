@@ -17,12 +17,12 @@ named!(_alphanum<CBS, CBS>,
 );
 
 named!(esmtp_keyword<CBS, String>,
-    map!(recognize!(do_parse!(_alphanum >> many0!(_alphanum) >> ())), |x| ascii_to_string(x.0))
+    map!(recognize!(do_parse!(_alphanum >> many0!(_alphanum) >> ())), |x| ascii_to_string_slice(x.0))
 );
 
 named!(esmtp_value<CBS, String>,
     map!(take_while1!(|c| (33..=60).contains(&c) || (62..=126).contains(&c)),
-         |x| ascii_to_string(&x.0))
+         |x| ascii_to_string_slice(x.0))
 );
 
 named!(esmtp_param<CBS, EsmtpParam>,
@@ -142,7 +142,7 @@ named!(mailbox<CBS, String>,
         tag!("@") >>
         alt!(domain | address_literal) >>
         ()
-    )), |x| ascii_to_string(x.0))
+    )), |x| ascii_to_string_slice(x.0))
 );
 
 named!(path<CBS, String>,

@@ -43,7 +43,7 @@ named!(_printable_xtext<CBS, Vec<u8>>,
 named!(_original_recipient_address<CBS, (String, String)>,
     do_parse!(
         a: atom >> tag!(";") >> b: _printable_xtext >>
-        (ascii_to_string(a.0), ascii_to_string(&b))
+        (ascii_to_string_slice(a.0), ascii_to_string(b))
     )
 );
 
@@ -85,7 +85,7 @@ pub fn dsn_mail_params<'a>(input: Vec<(&'a str, Option<&'a str>)>) -> Result<(DS
                     return Err("ENVID over 100 bytes");
                 }
                 if let Ok((_, parsed)) = exact!(CBS(&inascii), _printable_xtext) {
-                    envid_val = Some(ascii_to_string(&parsed));
+                    envid_val = Some(ascii_to_string(parsed));
                 } else {
                     return Err("Invalid ENVID");
                 }

@@ -51,7 +51,7 @@ named!(_encoded_word<CBS, (String, Vec<u8>)>,
         tag!("?") >>
         encoded_text: encoded_text >>
         tag!("?=") >>
-        (ascii_to_string(charset.0), decode_text(encoding.0, encoded_text.0).unwrap_or_else(|| encoded_text.0.to_vec()))
+        (ascii_to_string_slice(charset.0), decode_text(encoding.0, encoded_text.0).unwrap_or_else(|| encoded_text.0.to_vec()))
     )
 );
 

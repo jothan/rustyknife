@@ -1,3 +1,5 @@
+use std::str;
+
 use nom;
 use nom::types::CompleteByteSlice;
 use encoding::{Encoding, EncoderTrap, DecoderTrap};
@@ -11,8 +13,16 @@ pub fn CBS(input: &[u8]) -> CBS {
     CompleteByteSlice(input)
 }
 
-pub fn ascii_to_string(i: &[u8]) -> String {
-    ASCII.decode(&i, DecoderTrap::Replace).unwrap()
+pub fn ascii_to_string(i: Vec<u8>) -> String {
+    if i.is_ascii() {
+        unsafe { String::from_utf8_unchecked(i) }
+    } else {
+        ASCII.decode(&i, DecoderTrap::Replace).unwrap()
+    }
+}
+
+pub fn ascii_to_string_slice(i: &[u8]) -> String {
+    ascii_to_string(i.to_vec())
 }
 
 pub fn string_to_ascii(i: &str) -> Vec<u8> {

@@ -97,15 +97,15 @@ named!(qtext<CBS, CBS>,
 #[cfg(feature = "quoted-string-rfc2047")]
 named!(qcontent<CBS, QContent>,
     alt!(map!(encoded_word, QContent::EncodedWord) |
-         map!(qtext, |x| QContent::Literal(ascii_to_string(x.0))) |
-         map!(quoted_pair, |x| QContent::Literal(ascii_to_string(x.0)))
+         map!(qtext, |x| QContent::Literal(ascii_to_string_slice(x.0))) |
+         map!(quoted_pair, |x| QContent::Literal(ascii_to_string_slice(x.0)))
     )
 );
 
 #[cfg(not(feature = "quoted-string-rfc2047"))]
 named!(qcontent<CBS, QContent>,
-    alt!(map!(qtext, |x| QContent::Literal(ascii_to_string(x.0))) |
-         map!(quoted_pair, |x| QContent::Literal(ascii_to_string(x.0)))
+    alt!(map!(qtext, |x| QContent::Literal(ascii_to_string_slice(x.0))) |
+         map!(quoted_pair, |x| QContent::Literal(ascii_to_string_slice(x.0)))
     )
 );
 
@@ -122,11 +122,11 @@ named!(_inner_quoted_string<CBS, Vec<QContent>>,
                 match (&cont, out.last()) {
                     #[cfg(feature = "quoted-string-rfc2047")]
                     (QContent::EncodedWord(_), Some(QContent::EncodedWord(_))) => (),
-                    (_, _) => { if let Some(x) = ws { out.push(QContent::Literal(ascii_to_string(&x))) } },
+                    (_, _) => { if let Some(x) = ws { out.push(QContent::Literal(ascii_to_string(x))) } },
                 }
                 out.push(cont);
             }
-            if let Some(x) = b { out.push(QContent::Literal(ascii_to_string(&x))) }
+            if let Some(x) = b { out.push(QContent::Literal(ascii_to_string(x))) }
             out
         })
     )
@@ -268,7 +268,7 @@ named!(_padded_encoded_word<CBS, String>,
 named!(word<CBS, Word>,
     alt!(
         map!(_padded_encoded_word, Word::EncodedWord) |
-        map!(atom, |x| Word::Atom(ascii_to_string(x.0))) |
+        map!(atom, |x| Word::Atom(ascii_to_string_slice(x.0))) |
         map!(_quoted_string_parts, Word::QS)
     )
 );
@@ -320,7 +320,7 @@ named!(addr_spec<CBS, String>,
         lp: local_part >>
         tag!("@") >>
         domain: domain >>
-        (ascii_to_string(&lp.iter().chain(b"@".iter()).chain(domain.iter()).cloned().collect::<Vec<_>>()))
+        (ascii_to_string(lp.iter().chain(b"@".iter()).chain(domain.iter()).cloned().collect::<Vec<_>>()))
     )
 );
 
@@ -413,7 +413,7 @@ named!(_unstructured<CBS, String>,
                 ewcont: many0!(do_parse!(fws >> e: encoded_word >> (Text::Literal(e)))) >>
                 ({
                     let mut out = Vec::with_capacity(ewcont.len()+2);
-                    if let Some(x) = ws { out.push(Text::Literal(ascii_to_string(&x))) };
+                    if let Some(x) = ws { out.push(Text::Literal(ascii_to_string(x))) };
                     out.push(Text::Literal(ew));
                     out.extend(ewcont);
                     out
@@ -422,7 +422,7 @@ named!(_unstructured<CBS, String>,
             do_parse!(
                 ws: opt!(fws) >>
                 vc: many1!(alt!(vchar | _8bit_char)) >>
-                ({let mut out = Vec::new(); if let Some(x) = ws { out.extend(x) }; out.extend(vc); vec![Text::Literal(ascii_to_string(&out))]})
+                ({let mut out = Vec::new(); if let Some(x) = ws { out.extend(x) }; out.extend(vc); vec![Text::Literal(ascii_to_string(out))]})
             )
 
         )) >>
@@ -430,7 +430,7 @@ named!(_unstructured<CBS, String>,
         ({
             let mut out : Vec<Text> = a.iter().flat_map(|x| x.iter()).cloned().collect();
             if !b.is_empty() {
-                out.push(Text::Literal(ascii_to_string(&b)))
+                out.push(Text::Literal(ascii_to_string(b)))
             }
             _concat_atom_and_qs(out)
         })
