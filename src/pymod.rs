@@ -182,6 +182,16 @@ fn init_module(py: Python, m: &PyModule) -> PyResult<()> {
         Ok(validate_address(&string_to_ascii(input)))
     }
 
+    /// unstructured(input)
+    ///
+    /// Decode an unstructured email header.
+    ///
+    /// Useful for converting subject lines.
+    ///
+    /// :param input: Input string
+    /// :type input: bytes
+    /// :return: Decoded header
+    /// :rtype: str
     #[pyfn(m, "unstructured")]
     fn py_unstructured(input: &PyBytes) -> PyResult<String> {
         convert_result(unstructured(input.data()), true)
@@ -197,6 +207,17 @@ fn init_module(py: Python, m: &PyModule) -> PyResult<()> {
         convert_result(content_disposition(input.data()), all)
     }
 
+    /// content_transfer_encoding(input)
+    ///
+    /// Parse a MIME Content-Transfer-Encoding header.
+    ///
+    /// Standard encodings such as 7bit, 8bit are accepted. Extended
+    /// encodings starting with a "x-" prefix are also accepted.
+    ///
+    /// :param input: Input string.
+    /// :type input: bytes
+    /// :return: Validated Content-Transfer-Encoding
+    /// :rtype: str
     #[pyfn(m, "content_transfer_encoding")]
     fn py_content_transfer_encoding(input: &PyBytes) -> PyResult<String> {
         convert_result(content_transfer_encoding(input.data()), true)
