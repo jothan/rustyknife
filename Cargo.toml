@@ -21,8 +21,7 @@ base64 = "~0.6.0"
 version = "4.0.0"
 
 [dependencies.pyo3]
-git = "https://github.com/PyO3/pyo3"
-branch = "master"
+version = "0.2.7"
 features = ["python3", "extension-module"]
 
 [profile.release]
