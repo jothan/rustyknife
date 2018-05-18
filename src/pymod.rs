@@ -120,26 +120,41 @@ fn header_section_slice(py: Python, input: &[u8]) -> PyResult<PyObject> {
 
 #[pymodinit(rustyknife)]
 fn init_module(py: Python, m: &PyModule) -> PyResult<()> {
+    /// from_(input)
     #[pyfn(m, "from_")]
     fn py_from(input: &PyBytes) -> PyResult<Vec<Address>> {
         convert_result(from(input.data()), true)
     }
 
+    /// sender(input)
     #[pyfn(m, "sender")]
     fn py_sender(input: &PyBytes) -> PyResult<Address> {
         convert_result(sender(input.data()), true)
     }
 
+    /// reply_to(input)
     #[pyfn(m, "reply_to")]
     fn py_reply_to(input: &PyBytes) -> PyResult<Vec<Address>> {
         convert_result(reply_to(input.data()), true)
     }
 
+    /// header_section(input) -> ([headers...], end of headers position)
+    ///
+    /// :param input: Input string.
+    /// :type input: bytes
+    /// :return: A list of separated header (name, value) tuples with
+    ///  the exact byte position of the end of headers.
+    /// :rtype: list of byte string tuples
     #[pyfn(m, "header_section")]
     fn py_header_section(py2: Python, input: &PyBytes) -> PyResult<PyObject> {
         header_section_slice(py2, input.data())
     }
 
+    /// header_section_file(fname) -> ([headers...], end of headers position)
+    ///
+    /// :param fname: File name to read.
+    /// :type fname: str
+    /// :return: Same as :meth:`header_section`
     #[pyfn(m, "header_section_file")]
     fn py_header_section_file(py2: Python, fname: &str) -> PyResult<PyObject> {
         let file = File::open(fname)?;
@@ -148,34 +163,56 @@ fn init_module(py: Python, m: &PyModule) -> PyResult<()> {
         header_section_slice(py2, &fmap)
     }
 
+    /// xforward_params(input)
     #[pyfn(m, "xforward_params")]
     fn py_xforward_params(input: &PyBytes) -> PyResult<Vec<XforwardParam>> {
         convert_result(xforward_params(input.data()), true)
     }
 
+    /// orcpt_address(input)
     #[pyfn(m, "orcpt_address")]
     fn py_orcpt_address(input: &str) -> PyResult<(String, String)> {
         let inascii = string_to_ascii(&input);
         convert_result(orcpt_address(&inascii), true)
     }
 
+    /// dsn_mail_params(input)
     #[pyfn(m, "dsn_mail_params")]
     fn py_dsn_mail_params(py2: Python, input: Vec<(&str, Option<&str>)>) -> PyResult<(PyObject, PyObject)> {
         dsn_mail_params(input).map(|(parsed, rem)| (parsed.to_object(py2), rem.to_object(py2))).map_err(|e| PyErr::new::<exc::ValueError, _>(e))
     }
 
+    /// mail_command(input)
+    ///
+    /// :param input: Full SMTP MAIL command
+    ///
+    ///  b"MAIL FROM:<user@example.org> BODY=7BIT"
+    /// :type input: bytes
+    /// :return: (address, [(param, param_value), ...])
     #[pyfn(m, "mail_command")]
     pub fn py_mail_command(input: &PyBytes) -> PyResult<(String, Vec<EsmtpParam>)>
     {
         convert_result(mail_command(input.data()), true)
     }
 
+    /// rcpt_command(input)
+    ///
+    /// :param input: Full SMTP RCPT command
+    ///
+    ///  b"RCPT TO:<user@example.org> ORCPT=rfc822;user@example.org"
+    /// :type input: bytes
+    /// :return: (address, [(param, param_value), ...])
     #[pyfn(m, "rcpt_command")]
     pub fn py_rcpt_command(input: &PyBytes) -> PyResult<(String, Vec<EsmtpParam>)>
     {
         convert_result(rcpt_command(input.data()), true)
     }
 
+    /// validate_address(address)
+    ///
+    /// :param address: Non-empty address without <> brackets.
+    /// :type address: str
+    /// :rtype: bool
     #[pyfn(m, "validate_address")]
     pub fn py_validate_address(input: &str) -> PyResult<bool>
     {
@@ -197,11 +234,13 @@ fn init_module(py: Python, m: &PyModule) -> PyResult<()> {
         convert_result(unstructured(input.data()), true)
     }
 
+    /// content_type(input, all)
     #[pyfn(m, "content_type")]
     fn py_content_type(input: &PyBytes, all: bool) -> PyResult<(String, Vec<(String, String)>)> {
         convert_result(content_type(input.data()), all)
     }
 
+    /// content_disposition(input, all)
     #[pyfn(m, "content_disposition")]
     fn py_content_disposition(input: &PyBytes, all: bool) -> PyResult<(String, Vec<(String, String)>)> {
         convert_result(content_disposition(input.data()), all)
@@ -218,6 +257,7 @@ fn init_module(py: Python, m: &PyModule) -> PyResult<()> {
     /// :type input: bytes
     /// :return: Validated Content-Transfer-Encoding
     /// :rtype: str
+    ///
     #[pyfn(m, "content_transfer_encoding")]
     fn py_content_transfer_encoding(input: &PyBytes) -> PyResult<String> {
         convert_result(content_transfer_encoding(input.data()), true)
