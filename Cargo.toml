@@ -1,6 +1,6 @@
 [package]
 name = "rustyknife"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Jonathan Bastien-Filiatrault <jonathan@zerospam.ca>"]
 
 [features]
