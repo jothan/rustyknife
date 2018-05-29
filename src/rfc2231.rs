@@ -296,12 +296,18 @@ named!(_content_disposition<CBS, (String, Vec<(String, String)>)>,
 );
 
 named!(_content_transfer_encoding<CBS, String>,
-    alt!(
-        map!(tag_no_case!("7bit"), |_| String::from("7bit")) |
-        map!(tag_no_case!("8bit"), |_| String::from("8bit")) |
-        map!(tag_no_case!("binary"), |_| String::from("binary")) |
-        map!(tag_no_case!("quoted-printable"), |_| String::from("quoted-printable")) |
-        map!(_x_token, |x| x.to_lowercase())
+    do_parse!(
+        ofws >>
+        cte: alt!(
+            map!(tag_no_case!("7bit"), |_| String::from("7bit")) |
+            map!(tag_no_case!("8bit"), |_| String::from("8bit")) |
+            map!(tag_no_case!("binary"), |_| String::from("binary")) |
+            map!(tag_no_case!("base64"), |_| String::from("base64")) |
+            map!(tag_no_case!("quoted-printable"), |_| String::from("quoted-printable")) |
+            map!(_x_token, |x| x.to_lowercase())
+        ) >>
+        opt!(crlf) >>
+        (cte)
     )
 );
 
