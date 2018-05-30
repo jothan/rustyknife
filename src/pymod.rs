@@ -246,7 +246,7 @@ fn init_module(py: Python, m: &PyModule) -> PyResult<()> {
         convert_result(content_disposition(input.data()), all)
     }
 
-    /// content_transfer_encoding(input)
+    /// content_transfer_encoding(input, all)
     ///
     /// Parse a MIME Content-Transfer-Encoding header.
     ///
@@ -259,8 +259,8 @@ fn init_module(py: Python, m: &PyModule) -> PyResult<()> {
     /// :rtype: str
     ///
     #[pyfn(m, "content_transfer_encoding")]
-    fn py_content_transfer_encoding(input: &PyBytes) -> PyResult<String> {
-        convert_result(content_transfer_encoding(input.data()), true)
+    fn py_content_transfer_encoding(input: &PyBytes, all: bool) -> PyResult<String> {
+        convert_result(content_transfer_encoding(input.data()), all)
     }
 
     Ok(())
