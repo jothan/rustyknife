@@ -3,6 +3,7 @@
 //! Comments are ignored. RFC2047 decoding is applied where appropriate.
 
 use std::mem;
+use std::iter;
 
 use rfc2047::encoded_word;
 use rfc5234::*;
@@ -202,40 +203,39 @@ impl Text {
     }
 }
 
-trait IntoTextVec {
-    fn into_text_vec(self) -> Vec<Text>;
+trait IntoTextIter {
+    fn iter_text(self) -> Box<Iterator<Item=Text>>;
 }
 
-impl IntoTextVec for QContent {
-    fn into_text_vec(self) -> Vec<Text> {
+impl IntoTextIter for QContent {
+    fn iter_text(self) -> Box<Iterator<Item=Text>> {
         match self {
-            QContent::Literal(lit) => vec![Text::Literal(lit)],
+            QContent::Literal(lit) => Box::new(iter::once(Text::Literal(lit))),
             #[cfg(feature = "quoted-string-rfc2047")]
-            QContent::EncodedWord(ew) => vec![Text::Literal(ew)],
+            QContent::EncodedWord(ew) => Box::new(iter::once(Text::Literal(ew))),
         }
     }
 }
 
-impl IntoTextVec for Word {
-    fn into_text_vec(self) -> Vec<Text> {
+impl IntoTextIter for Word {
+    fn iter_text(self) -> Box<Iterator<Item=Text>> {
         match self {
-            Word::Atom(a) => vec![Text::Atom(a)],
-            Word::EncodedWord(ew) => vec![Text::Literal(ew)],
-            Word::QS(qc) => qc.into_iter().flat_map(|x| x.into_text_vec()).collect(),
+            Word::Atom(a) => Box::new(iter::once(Text::Atom(a))),
+            Word::EncodedWord(ew) => Box::new(iter::once(Text::Literal(ew))),
+            Word::QS(qc) => Box::new(qc.into_iter().flat_map(|x| x.iter_text())),
         }
     }
-
 }
 
-impl IntoTextVec for Vec<Word> {
-    fn into_text_vec(self) -> Vec<Text> {
-        self.into_iter().flat_map(|item| item.into_text_vec()).collect()
+impl IntoTextIter for Vec<Word> {
+    fn iter_text(self) -> Box<Iterator<Item=Text>> {
+        Box::new(self.into_iter().flat_map(|item| item.iter_text()))
     }
 }
 
-impl IntoTextVec for Vec<Text> {
-    fn into_text_vec(self) -> Vec<Text> {
-        self
+impl IntoTextIter for Vec<Text> {
+    fn iter_text(self) -> Box<Iterator<Item=Text>> {
+        Box::new(self.into_iter())
     }
 }
 
@@ -273,15 +273,15 @@ named!(word<CBS, Word>,
     )
 );
 
-fn _concat_atom_and_qs<T: IntoTextVec>(input: T) -> String {
-    let flat = input.into_text_vec();
+fn _concat_atom_and_qs<T: IntoTextIter>(input: T) -> String {
+    let mut flat = input.iter_text().peekable();
     let mut out = String::new();
 
-    for (i, t1) in flat.iter().enumerate() {
-        match (t1, flat.get(i+1)) {
+    while let Some(t1) = flat.next() {
+        match (t1, flat.peek()) {
             (Text::Atom(v), Some(_)) => {out.push_str(&v); out.push(' ')},
-            (_, Some(Text::Atom(_))) => {out.push_str(t1.get()); out.push(' ')},
-            (_, _) => out.push_str(t1.get()),
+            (t1, Some(Text::Atom(_))) => {out.push_str(t1.get()); out.push(' ')},
+            (t1, _) => out.push_str(t1.get()),
         };
     }
     out
