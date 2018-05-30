@@ -307,7 +307,6 @@ named!(_content_transfer_encoding<CBS, String>,
             map!(_x_token, |x| x.to_lowercase())
         ) >>
         ofws >>
-        opt!(crlf) >>
         (cte)
     )
 );
@@ -321,5 +320,12 @@ pub fn content_disposition(i: &[u8]) -> KResult<&[u8], (String, Vec<(String, Str
 }
 
 pub fn content_transfer_encoding(i: &[u8]) -> KResult<&[u8], String> {
-    wrap_cbs_result(_content_transfer_encoding(CBS(i)))
+    // Strip CRLF manually, needed because of the bad interaction of
+    // FWS with an optional CRLF.
+    let s = if i.ends_with(b"\r\n") {
+        &i[0..i.len()-2]
+    } else {
+        i
+    };
+    wrap_cbs_result(_content_transfer_encoding(CBS(s)))
 }
