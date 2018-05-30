@@ -6,6 +6,7 @@ use util::*;
 use rfc5234::wsp;
 use rfc5322::{atext as atom};
 
+#[derive(Clone)]
 pub struct EsmtpParam(pub String, pub Option<String>);
 
 named!(_ldh<CBS, CBS>,
@@ -38,7 +39,7 @@ named!(_esmtp_params<CBS, Vec<EsmtpParam>>,
     do_parse!(
         a: esmtp_param >>
         b: many0!(do_parse!(many1!(wsp) >> c: esmtp_param >> (c))) >>
-        ({ let mut out = Vec::with_capacity(b.len()+1); out.push(a); out.extend(b); out })
+        ({ let mut out = Vec::with_capacity(b.len()+1); out.push(a); out.extend_from_slice(&b); out })
     )
 );
 

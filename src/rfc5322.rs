@@ -38,9 +38,9 @@ named!(fws<CBS, Vec<u8>>,
         )) >>
         b: many1!(wsp) >>
         ({
-            let mut out = Vec::new();
-            if let Some(x) = a { out.extend(x) };
-            out.extend(b);
+            let mut out = Vec::with_capacity(b.len());
+            if let Some(x) = a { out.extend_from_slice(&x) };
+            out.extend_from_slice(&b);
             out
         })
     )
@@ -307,7 +307,7 @@ named!(domain_literal<CBS, Vec<u8>>,
         b: ofws >>
         tag!("]") >>
         opt!(cfws) >>
-        ({let mut out : Vec<u8> = vec![b'[']; out.extend(a.iter().flat_map(|(x, y)| x.iter().chain(y.0.iter()))); out.extend(b); out.push(b']'); out})
+        ({let mut out : Vec<u8> = vec![b'[']; out.extend(a.iter().flat_map(|(x, y)| x.iter().chain(y.0.iter()))); out.extend_from_slice(&b); out.push(b']'); out})
     )
 );
 
@@ -416,14 +416,14 @@ named!(_unstructured<CBS, String>,
                     let mut out = Vec::with_capacity(ewcont.len()+2);
                     if let Some(x) = ws { out.push(Text::Literal(ascii_to_string(x))) };
                     out.push(Text::Literal(ew));
-                    out.extend(ewcont);
+                    out.extend_from_slice(&ewcont);
                     out
                 })
             ) |
             do_parse!(
                 ws: opt!(fws) >>
                 vc: many1!(alt!(vchar | _8bit_char)) >>
-                ({let mut out = Vec::new(); if let Some(x) = ws { out.extend(x) }; out.extend(vc); vec![Text::Literal(ascii_to_string(out))]})
+                ({let mut out = Vec::new(); if let Some(x) = ws { out.extend_from_slice(&x) }; out.extend_from_slice(&vc); vec![Text::Literal(ascii_to_string(out))]})
             )
 
         )) >>

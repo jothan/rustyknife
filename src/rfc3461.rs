@@ -27,7 +27,7 @@ named!(xchar<CBS, CBS>,
 named!(pub xtext<CBS, Vec<u8>>,
     fold_many0!(alt!(
         map!(xchar, |x| x.0.to_vec()) |
-        map!(hexchar, |x| vec![x])), Vec::new(), |mut acc: Vec<_>, x| {acc.extend(x); acc} )
+        map!(hexchar, |x| vec![x])), Vec::new(), |mut acc: Vec<_>, x: Vec<u8>| {acc.extend_from_slice(&x); acc} )
 );
 
 named!(_printable_xtext<CBS, Vec<u8>>,
