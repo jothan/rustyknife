@@ -306,6 +306,7 @@ named!(_content_transfer_encoding<CBS, String>,
             map!(tag_no_case!("quoted-printable"), |_| String::from("quoted-printable")) |
             map!(_x_token, |x| x.to_lowercase())
         ) >>
+        ofws >>
         opt!(crlf) >>
         (cte)
     )
