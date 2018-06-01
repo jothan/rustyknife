@@ -118,6 +118,18 @@ fn header_section_slice(py: Python, input: &[u8]) -> PyResult<PyObject> {
     convert_result(res, false)
 }
 
+fn fix_bare_cr(input: &[u8]) -> Vec<u8> {
+    // Remove bare CR and make sure every LF is preceeded by CR.
+    input.iter().cloned().filter(|c| *c != b'\r')
+        .fold(Vec::with_capacity(input.len()), |mut acc, c| {
+            match c {
+                b'\n' => acc.extend_from_slice(b"\r\n"),
+                _ => acc.push(c),
+            }
+            acc
+        })
+}
+
 #[pymodinit(rustyknife)]
 fn init_module(py: Python, m: &PyModule) -> PyResult<()> {
     /// from_(input)
@@ -237,7 +249,10 @@ fn init_module(py: Python, m: &PyModule) -> PyResult<()> {
     /// content_type(input, all=False)
     #[pyfn(m, "content_type", input, all=false)]
     fn py_content_type(input: &PyBytes, all: bool) -> PyResult<(String, Vec<(String, String)>)> {
-        convert_result(content_type(input.data()), all)
+        // FIXME: Figure out how to better handle a bare LF in
+        // quoted-string without duplicating the rest of the RFC5322
+        // syntax
+        convert_result(content_type(&fix_bare_cr(input.data())), all)
     }
 
     /// content_disposition(input, all=False)
