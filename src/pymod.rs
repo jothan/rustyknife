@@ -234,19 +234,19 @@ fn init_module(py: Python, m: &PyModule) -> PyResult<()> {
         convert_result(unstructured(input.data()), true)
     }
 
-    /// content_type(input, all)
-    #[pyfn(m, "content_type")]
+    /// content_type(input, all=False)
+    #[pyfn(m, "content_type", input, all=false)]
     fn py_content_type(input: &PyBytes, all: bool) -> PyResult<(String, Vec<(String, String)>)> {
         convert_result(content_type(input.data()), all)
     }
 
-    /// content_disposition(input, all)
-    #[pyfn(m, "content_disposition")]
+    /// content_disposition(input, all=False)
+    #[pyfn(m, "content_disposition", input, all=false)]
     fn py_content_disposition(input: &PyBytes, all: bool) -> PyResult<(String, Vec<(String, String)>)> {
         convert_result(content_disposition(input.data()), all)
     }
 
-    /// content_transfer_encoding(input, all)
+    /// content_transfer_encoding(input, all=False)
     ///
     /// Parse a MIME Content-Transfer-Encoding header.
     ///
@@ -258,7 +258,7 @@ fn init_module(py: Python, m: &PyModule) -> PyResult<()> {
     /// :return: Validated Content-Transfer-Encoding
     /// :rtype: str
     ///
-    #[pyfn(m, "content_transfer_encoding")]
+    #[pyfn(m, "content_transfer_encoding", input, all=false)]
     fn py_content_transfer_encoding(input: &PyBytes, all: bool) -> PyResult<String> {
         convert_result(content_transfer_encoding(input.data()), all)
     }
