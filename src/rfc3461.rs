@@ -2,10 +2,10 @@
 
 use std::str;
 
-use util::*;
+use crate::util::*;
 
 use nom::is_hex_digit;
-use rfc5322::atom;
+use crate::rfc5322::atom;
 
 named!(pub hexpair<CBS, u8>,
     map_res!(take_while_m_n!(2, 2, is_hex_digit),

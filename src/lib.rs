@@ -2,7 +2,7 @@
 //!
 //! Collection of nom parsers for email with a Python interface.
 
-#![feature(proc_macro, range_contains, entry_or_default)]
+#![feature(range_contains)]
 
 #[macro_use]
 extern crate nom;
@@ -22,4 +22,4 @@ pub mod headersection;
 pub mod xforward;
 
 mod pymod;
-pub use pymod::PyInit_rustyknife;
+pub use crate::pymod::PyInit_rustyknife;

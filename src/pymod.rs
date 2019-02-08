@@ -1,13 +1,13 @@
 use std::fmt::Debug;
 use std::fs::File;
 
-use rfc2231::{content_type, content_disposition, content_transfer_encoding};
-use rfc3461::{orcpt_address, dsn_mail_params, DSNMailParams, DSNRet};
-use rfc5321::{EsmtpParam, mail_command, rcpt_command, validate_address};
-use rfc5322::{Address, Mailbox, Group, from, sender, reply_to, unstructured};
-use headersection::{HeaderField, header_section};
-use xforward::{XforwardParam, xforward_params};
-use util::{KResult, string_to_ascii};
+use crate::rfc2231::{content_type, content_disposition, content_transfer_encoding};
+use crate::rfc3461::{orcpt_address, dsn_mail_params, DSNMailParams, DSNRet};
+use crate::rfc5321::{EsmtpParam, mail_command, rcpt_command, validate_address};
+use crate::rfc5322::{Address, Mailbox, Group, from, sender, reply_to, unstructured};
+use crate::headersection::{HeaderField, header_section};
+use crate::xforward::{XforwardParam, xforward_params};
+use crate::util::{KResult, string_to_ascii};
 
 use memmap::Mmap;
 

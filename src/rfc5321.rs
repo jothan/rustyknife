@@ -2,9 +2,9 @@
 
 use nom::is_alphanumeric;
 
-use util::*;
-use rfc5234::wsp;
-use rfc5322::{atext as atom};
+use crate::util::*;
+use crate::rfc5234::wsp;
+use crate::rfc5322::{atext as atom};
 
 #[derive(Clone)]
 pub struct EsmtpParam(pub String, pub Option<String>);

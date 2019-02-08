@@ -2,9 +2,9 @@
 
 use nom::*;
 
-use rfc5234::wsp;
-use rfc3461::xtext;
-use util::*;
+use crate::rfc5234::wsp;
+use crate::rfc3461::xtext;
+use crate::util::*;
 
 pub struct XforwardParam(pub &'static str, pub Option<String>);
 

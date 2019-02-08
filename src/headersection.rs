@@ -4,9 +4,9 @@
 //! tolerates bytes above 127. The header section is considered to be
 //! everything above a double CRLF.
 
-use util::*;
-use rfc5234::*;
-use rfc5322::ofws;
+use crate::util::*;
+use crate::rfc5234::*;
+use crate::rfc5322::ofws;
 
 pub enum HeaderField<'a> {
     /// Header name and value of a valid header.

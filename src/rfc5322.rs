@@ -5,9 +5,9 @@
 use std::mem;
 use std::iter;
 
-use rfc2047::encoded_word;
-use rfc5234::*;
-use util::*;
+use crate::rfc2047::encoded_word;
+use crate::rfc5234::*;
+use crate::util::*;
 
 named!(quoted_pair<CBS, CBS>,
        do_parse!(

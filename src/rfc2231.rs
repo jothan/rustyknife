@@ -11,10 +11,10 @@ use encoding::DecoderTrap;
 use encoding::all::ASCII;
 use nom::is_digit;
 
-use util::*;
-use rfc3461::hexpair;
-use rfc5234::crlf;
-use rfc5322::{ofws, quoted_string};
+use crate::util::*;
+use crate::rfc3461::hexpair;
+use crate::rfc5234::crlf;
+use crate::rfc5322::{ofws, quoted_string};
 
 #[derive(Debug)]
 struct Parameter<'a> {

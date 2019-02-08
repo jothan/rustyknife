@@ -5,8 +5,8 @@ use encoding::DecoderTrap;
 use encoding::all::ASCII;
 use encoding::label::encoding_from_whatwg_label;
 
-use util::*;
-use rfc3461::hexpair;
+use crate::util::*;
+use crate::rfc3461::hexpair;
 
 named!(token<CBS, CBS>,
     take_while1!(|c| (33..=126).contains(&c) && !b"()<>@,;:\\\"/[]?.=".contains(&c))
