@@ -3,7 +3,7 @@ extern crate rustyknife;
 use std::env;
 use std::os::unix::ffi::OsStringExt;
 
-use rustyknife::from;
+use rustyknife::rfc5322::from;
 
 fn main() {
     let args : Vec<_> = env::args_os().skip(1).map(|x| x.into_vec()).collect();
