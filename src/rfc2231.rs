@@ -246,7 +246,7 @@ fn decode_parameter_list(input: Vec<Parameter>) -> Vec<(String, String)> {
     }
 
     let mut composite_out = Vec::new();
-    for (name, mut segments) in composite {
+    for (name, segments) in composite {
         let codec = composite_encoding.get(&name).map(|x| *x).unwrap_or(ASCII);
         composite_out.push((name, decode_segments(segments, codec)));
     }

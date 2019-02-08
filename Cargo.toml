@@ -2,6 +2,7 @@
 name = "rustyknife"
 version = "0.1.4"
 authors = ["Jonathan Bastien-Filiatrault <jonathan@zerospam.ca>"]
+edition = "2018"
 
 [features]
 default = ["quoted-string-rfc2047"]
