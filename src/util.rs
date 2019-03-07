@@ -15,7 +15,7 @@ pub fn CBS(input: &[u8]) -> CBS {
 
 pub fn ascii_to_string(i: Vec<u8>) -> String {
     if i.is_ascii() {
-        unsafe { String::from_utf8_unchecked(i) }
+        String::from_utf8(i).unwrap()
     } else {
         ASCII.decode(&i, DecoderTrap::Replace).unwrap()
     }
