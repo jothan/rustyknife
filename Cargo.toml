@@ -19,7 +19,7 @@ memmap = "0.7.0"
 base64 = "0.10.1"
 
 [dependencies.nom]
-version = "4.0.0"
+version = "^4.2"
 
 [dependencies.pyo3]
 version = "=0.6.0-alpha.2"
