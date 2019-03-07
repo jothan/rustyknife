@@ -15,6 +15,17 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyTuple, PyDict};
 use pyo3::types::exceptions as exc;
 
+macro_rules! intopyobject {
+    ( $e:ident ) => {
+        impl IntoPyObject for $e {
+            fn into_object(self, py: Python) -> PyObject {
+                self.to_object(py)
+            }
+        }
+    }
+}
+
+intopyobject!(Address);
 impl ToPyObject for Address {
     fn to_object(&self, py: Python) -> PyObject {
         match self {
@@ -35,12 +46,6 @@ impl ToPyObject for Mailbox {
     }
 }
 
-impl IntoPyObject for Address {
-    fn into_object(self, py: Python) -> PyObject {
-        self.to_object(py)
-    }
-}
-
 impl<'a> IntoPyObject for HeaderField<'a> {
     fn into_object(self, py: Python) -> PyObject {
         self.to_object(py)
@@ -58,6 +63,7 @@ impl<'a> ToPyObject for HeaderField<'a> {
     }
 }
 
+intopyobject!(XforwardParam);
 impl ToPyObject for XforwardParam {
     fn to_object(&self, py: Python) -> PyObject {
         PyTuple::new(py, &[self.0.to_object(py),
@@ -65,22 +71,11 @@ impl ToPyObject for XforwardParam {
     }
 }
 
-impl IntoPyObject for XforwardParam {
-    fn into_object(self, py: Python) -> PyObject {
-        self.to_object(py)
-    }
-}
-
+intopyobject!(EsmtpParam);
 impl ToPyObject for EsmtpParam {
     fn to_object(&self, py: Python) -> PyObject {
         PyTuple::new(py, &[self.0.to_object(py),
                            self.1.to_object(py)]).into_object(py)
-    }
-}
-
-impl IntoPyObject for EsmtpParam {
-    fn into_object(self, py: Python) -> PyObject {
-        self.to_object(py)
     }
 }
 
@@ -98,7 +93,7 @@ impl ToPyObject for DSNMailParams {
     }
 }
 
-fn convert_result<O, E: Debug>  (input: KResult<&[u8], O, E>, match_all: bool) -> PyResult<O> {
+intopyobject!(Path);
 impl ToPyObject for Path {
     fn to_object(&self, py: Python) -> PyObject {
         match self {
@@ -108,12 +103,7 @@ impl ToPyObject for Path {
     }
 }
 
-impl IntoPyObject for Path {
-    fn into_object(self, py: Python) -> PyObject {
-        self.to_object(py)
-    }
-}
-
+intopyobject!(ReversePath);
 impl ToPyObject for ReversePath {
     fn to_object(&self, py: Python) -> PyObject {
         match self {
@@ -123,12 +113,7 @@ impl ToPyObject for ReversePath {
     }
 }
 
-impl IntoPyObject for ReversePath {
-    fn into_object(self, py: Python) -> PyObject {
-        self.to_object(py)
-    }
-}
-
+fn convert_result<O, E: Debug> (input: KResult<&[u8], O, E>, match_all: bool) -> PyResult<O> {
     match input {
         Ok((rem, out)) => {
             if match_all && !rem.is_empty() {
