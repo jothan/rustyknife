@@ -204,11 +204,11 @@ impl Text {
 }
 
 trait IntoTextIter {
-    fn iter_text(self) -> Box<Iterator<Item=Text>>;
+    fn iter_text(self) -> Box<dyn Iterator<Item=Text>>;
 }
 
 impl IntoTextIter for QContent {
-    fn iter_text(self) -> Box<Iterator<Item=Text>> {
+    fn iter_text(self) -> Box<dyn Iterator<Item=Text>> {
         match self {
             QContent::Literal(lit) => Box::new(iter::once(Text::Literal(lit))),
             #[cfg(feature = "quoted-string-rfc2047")]
@@ -218,7 +218,7 @@ impl IntoTextIter for QContent {
 }
 
 impl IntoTextIter for Word {
-    fn iter_text(self) -> Box<Iterator<Item=Text>> {
+    fn iter_text(self) -> Box<dyn Iterator<Item=Text>> {
         match self {
             Word::Atom(a) => Box::new(iter::once(Text::Atom(a))),
             Word::EncodedWord(ew) => Box::new(iter::once(Text::Literal(ew))),
@@ -228,13 +228,13 @@ impl IntoTextIter for Word {
 }
 
 impl IntoTextIter for Vec<Word> {
-    fn iter_text(self) -> Box<Iterator<Item=Text>> {
+    fn iter_text(self) -> Box<dyn Iterator<Item=Text>> {
         Box::new(self.into_iter().flat_map(|item| item.iter_text()))
     }
 }
 
 impl IntoTextIter for Vec<Text> {
-    fn iter_text(self) -> Box<Iterator<Item=Text>> {
+    fn iter_text(self) -> Box<dyn Iterator<Item=Text>> {
         Box::new(self.into_iter())
     }
 }

@@ -3,6 +3,8 @@
 //! Collection of nom parsers for email with a Python interface.
 
 #![feature(range_contains)]
+#![warn(rust_2018_idioms)]
+#![allow(elided_lifetimes_in_paths)]
 
 #[macro_use]
 extern crate nom;
