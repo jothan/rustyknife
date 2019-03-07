@@ -66,21 +66,20 @@ pub fn dsn_mail_params<'a>(input: Vec<(&'a str, Option<&'a str>)>) -> Result<(DS
     let mut ret_val : Option<DSNRet> = None;
 
     for (name, value) in input {
-        match name.to_lowercase().as_str() {
-            "ret" => {
+        match (name.to_lowercase().as_str(), value) {
+            ("ret", Some(value)) => {
                 if ret_val.is_some() { return Err("Duplicate RET"); }
-                if value.is_none() { return Err("RET without value"); }
 
-                ret_val = match value.unwrap().to_lowercase().as_str() {
+                ret_val = match value.to_lowercase().as_str() {
                     "full" => Some(DSNRet::Full),
                     "hdrs" => Some(DSNRet::Hdrs),
                     _ => return Err("Invalid RET")
                 }
             },
-            "envid" => {
+
+            ("envid", Some(value)) => {
                 if envid_val.is_some() { return Err("Duplicate ENVID"); }
-                if value.is_none() { return Err("ENVID without value"); }
-                let inascii = string_to_ascii(value.unwrap());
+                let inascii = string_to_ascii(value);
                 if inascii.len() > 100 {
                     return Err("ENVID over 100 bytes");
                 }
@@ -90,6 +89,8 @@ pub fn dsn_mail_params<'a>(input: Vec<(&'a str, Option<&'a str>)>) -> Result<(DS
                     return Err("Invalid ENVID");
                 }
             },
+            ("ret", None) => { return Err("RET without value") },
+            ("envid", None) => { return Err("ENVID without value") },
             _ => {
                 out.push((name, value))
             }
