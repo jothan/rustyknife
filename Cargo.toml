@@ -14,16 +14,16 @@ name = "rustyknife"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-encoding = "0.2"
-memmap = "0.6.2"
-base64 = "~0.6.0"
+encoding = "0.2.33"
+memmap = "0.7.0"
+base64 = "0.10.1"
 
 [dependencies.nom]
 version = "4.0.0"
 
 [dependencies.pyo3]
-version = "0.2.7"
-features = ["python3", "extension-module"]
+version = "=0.6.0-alpha.2"
+features = ["extension-module"]
 
 [profile.release]
 panic = "abort"
