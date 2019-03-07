@@ -6,10 +6,6 @@
 
 #[macro_use]
 extern crate nom;
-extern crate pyo3;
-extern crate encoding;
-extern crate memmap;
-extern crate base64;
 
 mod util;
 mod rfc5234;
