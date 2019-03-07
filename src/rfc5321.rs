@@ -9,6 +9,16 @@ use crate::rfc5322::{atext as atom};
 #[derive(Clone)]
 pub struct EsmtpParam(pub String, pub Option<String>);
 
+pub enum Path {
+    Path(String),
+    PostMaster, // RCPT TO: <postmaster>
+}
+
+pub enum ReversePath {
+    Path(String),
+    Null, // MAIL FROM: <>
+}
+
 named!(_ldh<CBS, CBS>,
     take_while1!(|c| is_alphanumeric(c) || c == b'-')
 );
@@ -160,11 +170,12 @@ named!(path<CBS, String>,
     )
 );
 
-named!(reverse_path<CBS, String>,
-    alt!(path | map!(tag!("<>"), |_| "".to_string()))
+named!(reverse_path<CBS, ReversePath>,
+    alt!(map!(path, ReversePath::Path) |
+         map!(tag!("<>"), |_| ReversePath::Null))
 );
 
-named!(_mail_command<CBS, (String, Vec<EsmtpParam>)>,
+named!(_mail_command<CBS, (ReversePath, Vec<EsmtpParam>)>,
     do_parse!(
         tag_no_case!("MAIL FROM:") >>
         addr: reverse_path >>
@@ -173,24 +184,23 @@ named!(_mail_command<CBS, (String, Vec<EsmtpParam>)>,
     )
 );
 
-named!(_rcpt_command<CBS, (String, Vec<EsmtpParam>)>,
+named!(_rcpt_command<CBS, (Path, Vec<EsmtpParam>)>,
     do_parse!(
         tag_no_case!("RCPT TO:") >>
         addr: alt!(
-            // FIXME: Handle the postmaster case better.
-            map!(tag_no_case!("<postmaster>"), |_| "postmaster@invalid".to_string()) |
-            path
+            map!(tag_no_case!("<postmaster>"), |_| Path::PostMaster) |
+            map!(path, Path::Path)
         ) >>
         params: opt!(do_parse!(tag!(" ") >> p: _esmtp_params >> (p))) >>
         (addr, params.unwrap_or_default())
     )
 );
 
-pub fn mail_command(i: &[u8]) -> KResult<&[u8], (String, Vec<EsmtpParam>)> {
+pub fn mail_command(i: &[u8]) -> KResult<&[u8], (ReversePath, Vec<EsmtpParam>)> {
     wrap_cbs_result(exact!(CBS(i), _mail_command))
 }
 
-pub fn rcpt_command(i: &[u8]) -> KResult<&[u8], (String, Vec<EsmtpParam>)> {
+pub fn rcpt_command(i: &[u8]) -> KResult<&[u8], (Path, Vec<EsmtpParam>)> {
     wrap_cbs_result(exact!(CBS(i), _rcpt_command))
 }
 

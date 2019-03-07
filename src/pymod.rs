@@ -3,7 +3,7 @@ use std::fs::File;
 
 use crate::rfc2231::{content_type, content_disposition, content_transfer_encoding};
 use crate::rfc3461::{orcpt_address, dsn_mail_params, DSNMailParams, DSNRet};
-use crate::rfc5321::{EsmtpParam, mail_command, rcpt_command, validate_address};
+use crate::rfc5321::{EsmtpParam, mail_command, rcpt_command, validate_address, Path, ReversePath};
 use crate::rfc5322::{Address, Mailbox, Group, from, sender, reply_to, unstructured};
 use crate::headersection::{HeaderField, header_section};
 use crate::xforward::{XforwardParam, xforward_params};
@@ -99,6 +99,36 @@ impl ToPyObject for DSNMailParams {
 }
 
 fn convert_result<O, E: Debug>  (input: KResult<&[u8], O, E>, match_all: bool) -> PyResult<O> {
+impl ToPyObject for Path {
+    fn to_object(&self, py: Python) -> PyObject {
+        match self {
+            Path::Path(p) => p.to_object(py),
+            Path::PostMaster => "postmaster".to_object(py),
+        }
+    }
+}
+
+impl IntoPyObject for Path {
+    fn into_object(self, py: Python) -> PyObject {
+        self.to_object(py)
+    }
+}
+
+impl ToPyObject for ReversePath {
+    fn to_object(&self, py: Python) -> PyObject {
+        match self {
+            ReversePath::Path(p) => p.to_object(py),
+            ReversePath::Null => "".to_object(py),
+        }
+    }
+}
+
+impl IntoPyObject for ReversePath {
+    fn into_object(self, py: Python) -> PyObject {
+        self.to_object(py)
+    }
+}
+
     match input {
         Ok((rem, out)) => {
             if match_all && !rem.is_empty() {
@@ -202,7 +232,7 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     /// :type input: bytes
     /// :return: (address, [(param, param_value), ...])
     #[pyfn(m, "mail_command")]
-    pub fn py_mail_command(input: &PyBytes) -> PyResult<(String, Vec<EsmtpParam>)>
+    pub fn py_mail_command(input: &PyBytes) -> PyResult<(ReversePath, Vec<EsmtpParam>)>
     {
         convert_result(mail_command(input.as_bytes()), true)
     }
@@ -215,7 +245,7 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     /// :type input: bytes
     /// :return: (address, [(param, param_value), ...])
     #[pyfn(m, "rcpt_command")]
-    pub fn py_rcpt_command(input: &PyBytes) -> PyResult<(String, Vec<EsmtpParam>)>
+    pub fn py_rcpt_command(input: &PyBytes) -> PyResult<(Path, Vec<EsmtpParam>)>
     {
         convert_result(rcpt_command(input.as_bytes()), true)
     }
