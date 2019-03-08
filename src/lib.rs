@@ -19,5 +19,5 @@ pub mod rfc3461;
 pub mod headersection;
 pub mod xforward;
 
+#[cfg(feature = "python")]
 mod pymod;
-pub use crate::pymod::PyInit_rustyknife;

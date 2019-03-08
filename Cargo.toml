@@ -5,9 +5,10 @@ authors = ["Jonathan Bastien-Filiatrault <jonathan@zerospam.ca>"]
 edition = "2018"
 
 [features]
-default = ["quoted-string-rfc2047"]
+default = ["quoted-string-rfc2047", "python"]
 quoted-string-rfc2047 = []
 nom-verbose-errors = ["nom/verbose-errors"]
+python = ["memmap", "pyo3"]
 
 [lib]
 name = "rustyknife"
@@ -15,15 +16,11 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 encoding = "0.2.33"
-memmap = "0.7.0"
+nom = "^4.2"
 base64 = "0.10.1"
 
-[dependencies.nom]
-version = "^4.2"
-
-[dependencies.pyo3]
-version = "=0.6.0-alpha.2"
-features = ["extension-module"]
+memmap = { version = "0.7.0", optional=true }
+pyo3 = { version = "0.6.0-alpha.4", features = ["extension-module"], optional=true }
 
 [profile.release]
 panic = "abort"
