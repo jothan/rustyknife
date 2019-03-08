@@ -59,7 +59,9 @@ pub struct DSNMailParams {
     pub ret: Option<DSNRet>,
 }
 
-pub fn dsn_mail_params<'a>(input: Vec<(&'a str, Option<&'a str>)>) -> Result<(DSNMailParams, Vec<(&'a str, Option<&'a str>)>), &'static str>
+type ParamList<'a> = Vec<(&'a str, Option<&'a str>)>;
+
+pub fn dsn_mail_params<'a>(input: &ParamList<'a>) -> Result<(DSNMailParams, ParamList<'a>), &'static str>
 {
     let mut out = Vec::new();
     let mut envid_val : Option<String> = None;
@@ -92,7 +94,7 @@ pub fn dsn_mail_params<'a>(input: Vec<(&'a str, Option<&'a str>)>) -> Result<(DS
             ("ret", None) => { return Err("RET without value") },
             ("envid", None) => { return Err("ENVID without value") },
             _ => {
-                out.push((name, value))
+                out.push((*name, *value))
             }
         }
     }
