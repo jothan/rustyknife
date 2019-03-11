@@ -1,36 +1,36 @@
 use rustyknife::rfc5322::*;
 
-fn extract_single(mut input: Vec<Address>) -> (Option<String>, String) {
-    assert_eq!(input.len(), 1);
+fn parse_single<'a, E, F>(syntax: F, input: &'a [u8]) -> Mailbox
+    where F: Fn(&'a [u8]) -> Result<(&'a [u8], Vec<Address>), E>,
+          E: std::fmt::Debug
+{
+    let (rem, mut parsed) = syntax(input).unwrap();
+    assert_eq!(rem.len(), 0);
+    assert_eq!(parsed.len(), 1);
 
-    if let Address::Mailbox(Mailbox{dname, address}) = input.remove(0) {
-        (dname, address)
-    } else {
-        unreachable!()
+    match parsed.remove(0) {
+        Address::Mailbox(mbox) => mbox,
+        _ => unreachable!(),
     }
 }
 
 #[test]
 fn concat_atom() {
-    let (rem, parsed) = from(b" atom  atom   atom    <ignored@example>\r\n").unwrap();
-    assert_eq!(rem.len(), 0);
-    assert_eq!(extract_single(parsed).0, Some("atom atom atom".into()));
+    let parsed = parse_single(from, b" atom  atom   atom    <ignored@example>\r\n");
+    assert_eq!(parsed.dname, Some("atom atom atom".into()));
 }
 
 #[test]
 fn concat_qs() {
-    let (rem, parsed) = from(b"\"no\"   \"space\"   space space \"two  space\" \"end space \" <ignored@example>\r\n").unwrap();
-    assert_eq!(rem.len(), 0);
-    assert_eq!(extract_single(parsed).0, Some("nospace space space two  spaceend space ".into()));
+    let parsed = parse_single(from, b"\"no\"   \"space\"   space space \"two  space\" \"end space \" <ignored@example>\r\n");
+    assert_eq!(parsed.dname, Some("nospace space space two  spaceend space ".into()));
 }
 
 #[test]
 fn simple_from() {
-    let (rem, parsed) = from(b"John Doe <jdoe@machine.example>\r\n").unwrap();
-    assert_eq!(rem.len(), 0);
-    let (dname, addr) = extract_single(parsed);
-    assert_eq!(dname, Some("John Doe".into()));
-    assert_eq!(addr, "jdoe@machine.example");
+    let parsed = parse_single(from, b"John Doe <jdoe@machine.example>\r\n");
+    assert_eq!(parsed.dname, Some("John Doe".into()));
+    assert_eq!(parsed.address, "jdoe@machine.example");
 }
 
 #[test]
@@ -47,11 +47,9 @@ fn simple_sender() {
 
 #[test]
 fn simple_reply_to() {
-    let (rem, parsed) = reply_to(b"\"Mary Smith: Personal Account\" <smith@home.example>\r\n").unwrap();
-    assert_eq!(rem.len(), 0);
-    let (dname, addr) = extract_single(parsed);
-    assert_eq!(dname, Some("Mary Smith: Personal Account".into()));
-    assert_eq!(addr, "smith@home.example");
+    let parsed = parse_single(reply_to, b"\"Mary Smith: Personal Account\" <smith@home.example>\r\n");
+    assert_eq!(parsed.dname, Some("Mary Smith: Personal Account".into()));
+    assert_eq!(parsed.address, "smith@home.example");
 }
 
 #[test]
@@ -87,9 +85,7 @@ fn multi_reply_to() {
 
 #[test]
 fn folded_qs() {
-    let (rem, parsed) = reply_to(b"\"Mary\r\n Smith\"\r\n <mary@\r\n x.test(comment)>\r\n").unwrap();
-    assert_eq!(rem.len(), 0);
-    let (dname, addr) = extract_single(parsed);
-    assert_eq!(dname, Some("Mary Smith".into()));
-    assert_eq!(addr, "mary@x.test");
+    let parsed = parse_single(reply_to, b"\"Mary\r\n Smith\"\r\n <mary@\r\n x.test(comment)>\r\n");
+    assert_eq!(parsed.dname, Some("Mary Smith".into()));
+    assert_eq!(parsed.address, "mary@x.test");
 }
