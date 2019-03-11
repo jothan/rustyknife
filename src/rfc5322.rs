@@ -156,19 +156,19 @@ named!(pub quoted_string<CBS, String>,
     do_parse!(qs: _quoted_string_parts >> (_concat_atom_and_qs(Word::QS(qs))))
 );
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Mailbox {
     pub dname: Option<String>,
     pub address: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Group {
     pub dname: String,
     pub members: Vec<Mailbox>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Address {
     Mailbox(Mailbox),
     Group(Group),
