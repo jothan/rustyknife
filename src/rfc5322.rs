@@ -176,7 +176,7 @@ pub enum Address {
 
 #[derive(Clone, Debug)]
 enum Word {
-    EncodedWord(String),
+    Encoded(String),
     Atom(String),
     QS(Vec<QContent>),
 }
@@ -221,7 +221,7 @@ impl IntoTextIter for Word {
     fn iter_text(self) -> Box<dyn Iterator<Item=Text>> {
         match self {
             Word::Atom(a) => Box::new(iter::once(Text::Atom(a))),
-            Word::EncodedWord(ew) => Box::new(iter::once(Text::Literal(ew))),
+            Word::Encoded(ew) => Box::new(iter::once(Text::Literal(ew))),
             Word::QS(qc) => Box::new(qc.into_iter().flat_map(IntoTextIter::iter_text)),
         }
     }
@@ -267,7 +267,7 @@ named!(_padded_encoded_word<CBS, String>,
 
 named!(word<CBS, Word>,
     alt!(
-        map!(_padded_encoded_word, Word::EncodedWord) |
+        map!(_padded_encoded_word, Word::Encoded) |
         map!(atom, |x| Word::Atom(ascii_to_string_slice(x.0))) |
         map!(_quoted_string_parts, Word::QS)
     )
