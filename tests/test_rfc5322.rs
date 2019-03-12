@@ -89,3 +89,10 @@ fn folded_qs() {
     assert_eq!(parsed.dname, Some("Mary Smith".into()));
     assert_eq!(parsed.address, "mary@x.test");
 }
+
+#[test]
+fn intl_subject() {
+    let (rem, parsed) = unstructured(b"=?x-sjis?B?lEWWQI7Kg4GM9ZTygs6CtSiPzik=?=").unwrap();
+    assert_eq!(rem.len(), 0);
+    assert_eq!(parsed, "忍法写メ光飛ばし(笑)");
+}
