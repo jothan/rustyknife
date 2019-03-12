@@ -120,10 +120,11 @@ named!(_inner_quoted_string<CBS, Vec<QContent>>,
         ({
             let mut out = Vec::with_capacity(a.len()*2+1);
             for (ws, cont) in a {
-                match (&cont, out.last()) {
+                match (ws, &cont, out.last()) {
                     #[cfg(feature = "quoted-string-rfc2047")]
-                    (QContent::EncodedWord(_), Some(QContent::EncodedWord(_))) => (),
-                    (_, _) => { if let Some(x) = ws { out.push(QContent::Literal(ascii_to_string(x))) } },
+                    (_, QContent::EncodedWord(_), Some(QContent::EncodedWord(_))) => (),
+                    (Some(ws),_, _) => { out.push(QContent::Literal(ascii_to_string(ws))); },
+                    _ => (),
                 }
                 out.push(cont);
             }
@@ -203,22 +204,29 @@ impl Text {
     }
 }
 
-trait IntoTextIter {
-    fn iter_text(self) -> Box<dyn Iterator<Item=Text>>;
+trait IntoTextIter
+    where Self::Iter: Iterator<Item=Text>
+{
+    type Iter;
+    fn iter_text(self) -> Self::Iter;
 }
 
 impl IntoTextIter for QContent {
-    fn iter_text(self) -> Box<dyn Iterator<Item=Text>> {
+    type Iter = std::iter::Once<Text>;
+
+    fn iter_text(self) -> Self::Iter {
         match self {
-            QContent::Literal(lit) => Box::new(iter::once(Text::Literal(lit))),
+            QContent::Literal(lit) => iter::once(Text::Literal(lit)),
             #[cfg(feature = "quoted-string-rfc2047")]
-            QContent::EncodedWord(ew) => Box::new(iter::once(Text::Literal(ew))),
+            QContent::EncodedWord(ew) => iter::once(Text::Literal(ew)),
         }
     }
 }
 
 impl IntoTextIter for Word {
-    fn iter_text(self) -> Box<dyn Iterator<Item=Text>> {
+    type Iter = Box<dyn Iterator<Item=Text>>;
+
+    fn iter_text(self) -> Self::Iter {
         match self {
             Word::Atom(a) => Box::new(iter::once(Text::Atom(a))),
             Word::Encoded(ew) => Box::new(iter::once(Text::Literal(ew))),
@@ -228,14 +236,18 @@ impl IntoTextIter for Word {
 }
 
 impl IntoTextIter for Vec<Word> {
-    fn iter_text(self) -> Box<dyn Iterator<Item=Text>> {
-        Box::new(self.into_iter().flat_map(IntoTextIter::iter_text))
+    type Iter = std::iter::FlatMap<std::vec::IntoIter<Word>, <Word as IntoTextIter>::Iter, fn(Word) -> <Word as IntoTextIter>::Iter>;
+
+    fn iter_text(self) -> Self::Iter {
+        self.into_iter().flat_map(IntoTextIter::iter_text)
     }
 }
 
 impl IntoTextIter for Vec<Text> {
-    fn iter_text(self) -> Box<dyn Iterator<Item=Text>> {
-        Box::new(self.into_iter())
+    type Iter = std::vec::IntoIter<Text>;
+
+    fn iter_text(self) -> Self::Iter {
+        self.into_iter()
     }
 }
 
