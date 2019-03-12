@@ -222,14 +222,14 @@ impl IntoTextIter for Word {
         match self {
             Word::Atom(a) => Box::new(iter::once(Text::Atom(a))),
             Word::EncodedWord(ew) => Box::new(iter::once(Text::Literal(ew))),
-            Word::QS(qc) => Box::new(qc.into_iter().flat_map(|x| x.iter_text())),
+            Word::QS(qc) => Box::new(qc.into_iter().flat_map(IntoTextIter::iter_text)),
         }
     }
 }
 
 impl IntoTextIter for Vec<Word> {
     fn iter_text(self) -> Box<dyn Iterator<Item=Text>> {
-        Box::new(self.into_iter().flat_map(|item| item.iter_text()))
+        Box::new(self.into_iter().flat_map(IntoTextIter::iter_text))
     }
 }
 

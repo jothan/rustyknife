@@ -59,9 +59,9 @@ pub struct DSNMailParams {
     pub ret: Option<DSNRet>,
 }
 
-type ParamList<'a> = Vec<(&'a str, Option<&'a str>)>;
+type Param<'a> = (&'a str, Option<&'a str>);
 
-pub fn dsn_mail_params<'a>(input: &ParamList<'a>) -> Result<(DSNMailParams, ParamList<'a>), &'static str>
+pub fn dsn_mail_params<'a>(input: &[Param<'a>]) -> Result<(DSNMailParams, Vec<Param<'a>>), &'static str>
 {
     let mut out = Vec::new();
     let mut envid_val : Option<String> = None;
