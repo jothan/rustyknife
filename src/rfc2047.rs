@@ -25,13 +25,13 @@ named!(_qp_encoded_text<CBS, Vec<u8>>,
     ))
 );
 
-/// Decode the modified quoted-printable as defined by this RFC.
+// Decode the modified quoted-printable as defined by this RFC.
 fn decode_qp(input: &[u8]) -> Option<Vec<u8>>
 {
     exact!(CBS(input), _qp_encoded_text).ok().map(|(_, o)| o)
 }
 
-/// Undoes the quoted-printable or base64 encoding.
+// Undoes the quoted-printable or base64 encoding.
 fn decode_text(encoding: &[u8], text: &[u8]) -> Option<Vec<u8>>
 {
     match &encoding.to_ascii_lowercase()[..] {
@@ -41,7 +41,7 @@ fn decode_text(encoding: &[u8], text: &[u8]) -> Option<Vec<u8>>
     }
 }
 
-/// Encoded word with no charset decoding.
+// Encoded word with no charset decoding.
 named!(_encoded_word<CBS, (String, Vec<u8>)>,
     do_parse!(
         tag!("=?") >>

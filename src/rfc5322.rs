@@ -110,7 +110,7 @@ named!(qcontent<CBS, QContent>,
     )
 );
 
-/// quoted-string not surrounded by CFWS
+// quoted-string not surrounded by CFWS
 named!(_inner_quoted_string<CBS, Vec<QContent>>,
     do_parse!(
         tag!("\"") >>
@@ -133,7 +133,7 @@ named!(_inner_quoted_string<CBS, Vec<QContent>>,
     )
 );
 
-/// Undecoded quoted-string
+// Undecoded quoted-string
 named!(_raw_quoted_string<CBS, CBS>,
     do_parse!(
         opt!(cfws) >>
