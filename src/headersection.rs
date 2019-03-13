@@ -8,6 +8,7 @@ use crate::util::*;
 use crate::rfc5234::*;
 use crate::rfc5322::ofws;
 
+#[derive(Debug, PartialEq)]
 pub enum HeaderField<'a> {
     /// Header name and value of a valid header.
     Valid(&'a[u8], &'a[u8]),
