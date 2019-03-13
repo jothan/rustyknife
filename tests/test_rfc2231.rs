@@ -79,6 +79,49 @@ fn encoded_single() {
 }
 
 #[test]
+fn encoded_single_no_encoding() {
+    let (rem, (mtype, params)) = content_type(b"application/x-stuff;\r\n title*='en-us'This%20is%20%2A%2A%2Afun%2A%2A%2A\r\n").unwrap();
+    assert_eq!(rem.len(), 0);
+    assert_eq!(mtype, "application/x-stuff");
+    assert_eq!(params, vec![("title".into(), "This is ***fun***".into())]);
+}
+
+#[test]
+fn cd_mixed() {
+    const CASES : &[&[u8]] = &[b"inline", b"attachment", b"x-whatever"];
+    for input in CASES.iter() {
+        let (rem, (disp, params)) = content_disposition(input).unwrap();
+        assert_eq!(rem.len(), 0);
+        assert_eq!(disp, std::str::from_utf8(*input).unwrap());
+        assert_eq!(params, vec![]);
+    }
+}
+
+#[test]
+fn cte_base64() {
+    const CASES : &[&[u8]] = &[b"Base64", b"base64", b" base64 \r\n", b" base64\r\n", b" base64 \r\n "];
+    for input in CASES.iter() {
+        let (rem, parsed) = content_transfer_encoding(input).unwrap();
+        assert_eq!(rem.len(), 0);
+        assert_eq!(parsed, "base64");
+    }
+
+    let (rem, parsed) = content_transfer_encoding(b" base64 aoeu").unwrap();
+    assert_eq!(rem.len(), 4);
+    assert_eq!(parsed, "base64");
+}
+
+#[test]
+fn cte_mixed() {
+    const CASES : &[&[u8]] = &[b"7bit", b"8bit", b"binary", b"base64", b"quoted-printable", b"x-whatever"];
+    for input in CASES.iter() {
+        let (rem, parsed) = content_transfer_encoding(input).unwrap();
+        assert_eq!(rem.len(), 0);
+        assert_eq!(parsed, std::str::from_utf8(*input).unwrap());
+    }
+}
+
+#[test]
 fn encoded_mixed() {
     let (rem, (mtype, params)) = content_type(b"application/x-stuff;\r\n title*0*=us-ascii'en'This%20is%20even%20more%20;\r\n title*1*=%2A%2A%2Afun%2A%2A%2A%20;\r\n title*2=\"isn\'t it!\"").unwrap();
     assert_eq!(rem.len(), 0);
