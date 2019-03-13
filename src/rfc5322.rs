@@ -3,7 +3,6 @@
 //! Comments are ignored. RFC2047 decoding is applied where appropriate.
 
 use std::mem;
-use std::iter;
 
 use crate::rfc2047::encoded_word;
 use crate::rfc5234::*;
@@ -204,50 +203,48 @@ impl <'a> From<&'a Text> for &'a str {
     }
 }
 
-trait IntoTextIter
-    where Self::Iter: Iterator<Item=Text>
+trait TextPusher
 {
-    type Iter;
-    fn iter_text(self) -> Self::Iter;
+    fn convert<F: FnMut(Text)>(self, push: &mut F);
 }
 
-impl IntoTextIter for QContent {
-    type Iter = std::iter::Once<Text>;
-
-    fn iter_text(self) -> Self::Iter {
+impl TextPusher for QContent {
+    fn convert<F: FnMut(Text)>(self, push: &mut F) {
         match self {
-            QContent::Literal(lit) => iter::once(Text::Literal(lit)),
+            QContent::Literal(lit) => push(Text::Literal(lit)),
             #[cfg(feature = "quoted-string-rfc2047")]
-            QContent::EncodedWord(ew) => iter::once(Text::Literal(ew)),
+            QContent::EncodedWord(ew) => push(Text::Literal(ew)),
         }
     }
 }
 
-impl IntoTextIter for Word {
-    type Iter = Box<dyn Iterator<Item=Text>>;
-
-    fn iter_text(self) -> Self::Iter {
+impl TextPusher for Word {
+    fn convert<F: FnMut(Text)>(self, push: &mut F) {
         match self {
-            Word::Atom(a) => Box::new(iter::once(Text::Atom(a))),
-            Word::Encoded(ew) => Box::new(iter::once(Text::Literal(ew))),
-            Word::QS(qc) => Box::new(qc.into_iter().flat_map(IntoTextIter::iter_text)),
+            Word::Atom(a) => push(Text::Atom(a)),
+            Word::Encoded(ew) => push(Text::Literal(ew)),
+            Word::QS(qc) => {
+                for w in qc.into_iter() {
+                    w.convert(push);
+                }
+            }
         }
     }
 }
 
-impl IntoTextIter for Vec<Word> {
-    type Iter = std::iter::FlatMap<std::vec::IntoIter<Word>, <Word as IntoTextIter>::Iter, fn(Word) -> <Word as IntoTextIter>::Iter>;
-
-    fn iter_text(self) -> Self::Iter {
-        self.into_iter().flat_map(IntoTextIter::iter_text)
+impl TextPusher for Vec<Word> {
+    fn convert<F: FnMut(Text)>(self, push: &mut F) {
+        for w in self.into_iter() {
+            w.convert(push);
+        }
     }
 }
 
-impl IntoTextIter for Vec<Text> {
-    type Iter = std::vec::IntoIter<Text>;
-
-    fn iter_text(self) -> Self::Iter {
-        self.into_iter()
+impl TextPusher for Vec<Text> {
+    fn convert<F: FnMut(Text)>(self, push: &mut F) {
+        for w in self.into_iter() {
+            push(w);
+        }
     }
 }
 
@@ -285,15 +282,18 @@ named!(word<CBS, Word>,
     )
 );
 
-fn _concat_atom_and_qs<T: IntoTextIter>(input: T) -> String {
-    let mut flat = input.iter_text().peekable();
+fn _concat_atom_and_qs<T: TextPusher>(input: T) -> String {
+    let mut flat = Vec::new();
+    input.convert(&mut |x| flat.push(x));
+
+    let mut iter = flat.iter().peekable();
     let mut out = String::new();
 
-    while let Some(t1) = flat.next() {
-        match (t1, flat.peek()) {
+    while let Some(t1) = iter.next() {
+        match (t1, iter.peek()) {
             (Text::Atom(v), Some(_)) => {out.push_str(&v); out.push(' ')},
-            (ref t1, Some(Text::Atom(_))) => {out.push_str(t1.into()); out.push(' ')},
-            (ref t1, _) => out.push_str(t1.into()),
+            (t1, Some(Text::Atom(_))) => {out.push_str(t1.into()); out.push(' ')},
+            (t1, _) => out.push_str(t1.into()),
         };
     }
     out
