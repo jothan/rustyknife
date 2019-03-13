@@ -283,19 +283,28 @@ named!(word<CBS, Word>,
 );
 
 fn _concat_atom_and_qs<T: TextPusher>(input: T) -> String {
-    let mut flat = Vec::new();
-    input.convert(&mut |x| flat.push(x));
-
-    let mut iter = flat.iter().peekable();
+    let mut cur : Option<Text> = None;
     let mut out = String::new();
 
-    while let Some(t1) = iter.next() {
-        match (t1, iter.peek()) {
-            (Text::Atom(v), Some(_)) => {out.push_str(&v); out.push(' ')},
-            (t1, Some(Text::Atom(_))) => {out.push_str(t1.into()); out.push(' ')},
+    let mut catter = |next: Text| {
+        if cur.is_none() {
+            cur = Some(next);
+            return;
+        }
+
+        match (cur.as_ref().unwrap(), &next) {
+            (Text::Atom(v), _) => {out.push_str(&v); out.push(' ')},
+            (t1, Text::Atom(_)) => {out.push_str(t1.into()); out.push(' ')},
             (t1, _) => out.push_str(t1.into()),
         };
-    }
+        cur = Some(next);
+    };
+
+    input.convert(&mut catter);
+    if let Some(end) = cur {
+        out.push_str((&end).into());
+    };
+
     out
 }
 
