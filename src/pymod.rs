@@ -206,7 +206,7 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     /// dsn_mail_params(input)
     #[pyfn(m, "dsn_mail_params")]
     fn py_dsn_mail_params(py2: Python, input: Vec<(&str, Option<&str>)>) -> PyResult<(PyObject, PyObject)> {
-        dsn_mail_params(&input).map(|(parsed, rem)| (parsed.to_object(py2), rem.to_object(py2))).map_err(|e| PyErr::new::<exc::ValueError, _>(e))
+        dsn_mail_params(&input).map(|(parsed, rem)| (parsed.to_object(py2), rem.to_object(py2))).map_err(PyErr::new::<exc::ValueError, _>)
     }
 
     /// mail_command(input)
