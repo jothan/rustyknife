@@ -195,9 +195,9 @@ enum Text {
     Atom(String),
 }
 
-impl Text {
-    fn get(&self) -> &str {
-        match self {
+impl <'a> From<&'a Text> for &'a str {
+    fn from(t: &'a Text) -> &'a str {
+        match t {
             Text::Literal(s) => s,
             Text::Atom(s) => s,
         }
@@ -292,8 +292,8 @@ fn _concat_atom_and_qs<T: IntoTextIter>(input: T) -> String {
     while let Some(t1) = flat.next() {
         match (t1, flat.peek()) {
             (Text::Atom(v), Some(_)) => {out.push_str(&v); out.push(' ')},
-            (t1, Some(Text::Atom(_))) => {out.push_str(t1.get()); out.push(' ')},
-            (t1, _) => out.push_str(t1.get()),
+            (ref t1, Some(Text::Atom(_))) => {out.push_str(t1.into()); out.push(' ')},
+            (ref t1, _) => out.push_str(t1.into()),
         };
     }
     out
