@@ -66,7 +66,7 @@ named!(regular_parameter_name<CBS, Name>,
     do_parse!(
         name: attribute >>
         section: opt!(section) >>
-        (Name{name: ascii_to_string(&name.0), section})
+        (Name{name: ascii_to_string(name), section})
     )
 );
 
@@ -125,7 +125,7 @@ named!(extended_initial_name<CBS, Name>,
         name: attribute >>
         section: opt!(initial_section) >>
         tag!("*") >>
-        (Name{name: ascii_to_string(&name.0), section})
+        (Name{name: ascii_to_string(name), section})
     )
 );
 
@@ -134,7 +134,7 @@ named!(extended_other_names<CBS, Name>,
         name: attribute >>
         section: other_sections >>
         tag!("*") >>
-        (Name{name: ascii_to_string(&name.0), section: Some(section)})
+        (Name{name: ascii_to_string(name), section: Some(section)})
     )
 );
 
@@ -158,7 +158,7 @@ named!(extended_other_values<CBS, Vec<u8>>,
 );
 
 named!(value<CBS, String>,
-   alt!(map!(token, |x| ascii_to_string(&x.0)) | quoted_string)
+   alt!(map!(token, |x| ascii_to_string(x)) | quoted_string)
 );
 
 
@@ -264,7 +264,7 @@ named!(_content_type<CBS, (String, Vec<(String, String)>)>,
         mt: _mime_type >>
         ofws >>
         p: _parameter_list >>
-        (ascii_to_string(&mt.0).to_lowercase(), decode_parameter_list(p))
+        (ascii_to_string(mt).to_lowercase(), decode_parameter_list(p))
     )
 );
 
@@ -274,7 +274,7 @@ named!(_x_token<CBS, String>,
         tag_no_case!("x-") >>
         token >>
         ()
-    )), |x| ascii_to_string(&x.0))
+    )), |x| ascii_to_string(x))
 );
 
 named!(_disposition<CBS, String>,

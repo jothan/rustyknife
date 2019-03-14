@@ -43,7 +43,7 @@ named!(_printable_xtext<CBS, Vec<u8>>,
 named!(_original_recipient_address<CBS, (String, String)>,
     do_parse!(
         a: atom >> tag!(";") >> b: _printable_xtext >>
-        (ascii_to_string(&a.0), ascii_to_string_vec(b))
+        (ascii_to_string(a), ascii_to_string_vec(b))
     )
 );
 

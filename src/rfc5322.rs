@@ -97,15 +97,15 @@ named!(qtext<CBS, CBS>,
 #[cfg(feature = "quoted-string-rfc2047")]
 named!(qcontent<CBS, QContent>,
     alt!(map!(encoded_word, QContent::EncodedWord) |
-         map!(qtext, |x| QContent::Literal(ascii_to_string(&x.0))) |
-         map!(quoted_pair, |x| QContent::Literal(ascii_to_string(&x.0)))
+         map!(qtext, |x| QContent::Literal(ascii_to_string(x))) |
+         map!(quoted_pair, |x| QContent::Literal(ascii_to_string(x)))
     )
 );
 
 #[cfg(not(feature = "quoted-string-rfc2047"))]
 named!(qcontent<CBS, QContent>,
-    alt!(map!(qtext, |x| QContent::Literal(ascii_to_string(&x.0))) |
-         map!(quoted_pair, |x| QContent::Literal(ascii_to_string(&x.0)))
+    alt!(map!(qtext, |x| QContent::Literal(ascii_to_string(x))) |
+         map!(quoted_pair, |x| QContent::Literal(ascii_to_string(x)))
     )
 );
 
@@ -277,7 +277,7 @@ named!(_padded_encoded_word<CBS, String>,
 named!(word<CBS, Word>,
     alt!(
         map!(_padded_encoded_word, Word::Encoded) |
-        map!(atom, |x| Word::Atom(ascii_to_string(&x.0))) |
+        map!(atom, |x| Word::Atom(ascii_to_string(x))) |
         map!(_quoted_string_parts, Word::QS)
     )
 );

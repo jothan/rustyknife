@@ -14,9 +14,9 @@ pub fn CBS(input: &[u8]) -> CBS {
     CompleteByteSlice(input)
 }
 
-pub fn ascii_to_string<T: Deref<Target=[u8]>>(i: &T) -> String {
+pub fn ascii_to_string<'a, T: Deref<Target=&'a [u8]>>(i: T) -> String {
     if i.is_ascii() {
-        str::from_utf8(i).unwrap().to_string()
+        str::from_utf8(&i).unwrap().to_string()
     } else {
         ASCII.decode(&i, DecoderTrap::Replace).unwrap()
     }
