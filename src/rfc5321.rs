@@ -1,7 +1,5 @@
 //! Parser for SMTP syntax.
 
-use std::borrow::Cow;
-
 use nom::is_alphanumeric;
 
 use crate::util::*;
@@ -83,13 +81,13 @@ named!(_alphanum<CBS, CBS>,
     verify!(take!(1), |x: CBS| is_alphanumeric(x.0[0]))
 );
 
-named!(esmtp_keyword<CBS, Cow<'_, str>>,
-    map!(recognize!(do_parse!(_alphanum >> many0!(_alphanum) >> ())), |x| ascii_to_string(x))
+named!(esmtp_keyword<CBS, &'_ str>,
+    map!(recognize!(do_parse!(_alphanum >> many0!(_alphanum) >> ())), |x| std::str::from_utf8(&x).unwrap())
 );
 
-named!(esmtp_value<CBS, Cow<'_, str>>,
+named!(esmtp_value<CBS, &'_ str>,
     map!(take_while1!(|c| (33..=60).contains(&c) || (62..=126).contains(&c)),
-         |x| ascii_to_string(x))
+         |x| std::str::from_utf8(&x).unwrap())
 );
 
 named!(esmtp_param<CBS, EsmtpParam>,

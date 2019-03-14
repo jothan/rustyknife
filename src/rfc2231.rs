@@ -26,7 +26,7 @@ struct Parameter<'a> {
 #[derive(Debug)]
 struct Name<'a> {
     section: Option<u32>,
-    name: Cow<'a, str>,
+    name: &'a str,
 }
 
 #[derive(Debug)]
@@ -67,7 +67,7 @@ named!(regular_parameter_name<CBS, Name>,
     do_parse!(
         name: attribute >>
         section: opt!(section) >>
-        (Name{name: ascii_to_string(name), section})
+        (Name{name: std::str::from_utf8(&name).unwrap(), section})
     )
 );
 
@@ -126,7 +126,7 @@ named!(extended_initial_name<CBS, Name>,
         name: attribute >>
         section: opt!(initial_section) >>
         tag!("*") >>
-        (Name{name: ascii_to_string(name), section})
+        (Name{name: str::from_utf8(&name).unwrap(), section})
     )
 );
 
@@ -135,7 +135,7 @@ named!(extended_other_names<CBS, Name>,
         name: attribute >>
         section: other_sections >>
         tag!("*") >>
-        (Name{name: ascii_to_string(name), section: Some(section)})
+        (Name{name: str::from_utf8(&name).unwrap(), section: Some(section)})
     )
 );
 
@@ -270,12 +270,12 @@ named!(_content_type<CBS, (String, Vec<(String, String)>)>,
 );
 
 
-named!(_x_token<CBS, Cow<'_, str>>,
+named!(_x_token<CBS, &'_ str>,
     map!(recognize!(do_parse!(
         tag_no_case!("x-") >>
         token >>
         ()
-    )), |x| ascii_to_string(x))
+    )), |x| str::from_utf8(&x).unwrap())
 );
 
 named!(_disposition<CBS, String>,
@@ -296,16 +296,16 @@ named!(_content_disposition<CBS, (String, Vec<(String, String)>)>,
     )
 );
 
-named!(_content_transfer_encoding<CBS, String>,
+named!(_content_transfer_encoding<CBS, Cow<'_, str>>,
     do_parse!(
         ofws >>
         cte: alt!(
-            map!(tag_no_case!("7bit"), |_| String::from("7bit")) |
-            map!(tag_no_case!("8bit"), |_| String::from("8bit")) |
-            map!(tag_no_case!("binary"), |_| String::from("binary")) |
-            map!(tag_no_case!("base64"), |_| String::from("base64")) |
-            map!(tag_no_case!("quoted-printable"), |_| String::from("quoted-printable")) |
-            map!(_x_token, |x| x.to_lowercase())
+            map!(tag_no_case!("7bit"), |_| Cow::from("7bit")) |
+            map!(tag_no_case!("8bit"), |_| Cow::from("8bit")) |
+            map!(tag_no_case!("binary"), |_| Cow::from("binary")) |
+            map!(tag_no_case!("base64"), |_| Cow::from("base64")) |
+            map!(tag_no_case!("quoted-printable"), |_| Cow::from("quoted-printable")) |
+            map!(_x_token, |x| Cow::from(x.to_lowercase()))
         ) >>
         ofws >>
         (cte)
@@ -320,7 +320,7 @@ pub fn content_disposition(i: &[u8]) -> KResult<&[u8], (String, Vec<(String, Str
     wrap_cbs_result(_content_disposition(CBS(i)))
 }
 
-pub fn content_transfer_encoding(i: &[u8]) -> KResult<&[u8], String> {
+pub fn content_transfer_encoding<'a>(i: &'a [u8]) -> KResult<&'a[u8], Cow<'a, str>> {
     // Strip CRLF manually, needed because of the bad interaction of
     // FWS with an optional CRLF.
     let s = if i.ends_with(b"\r\n") {

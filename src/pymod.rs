@@ -290,7 +290,7 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     ///
     #[pyfn(m, "content_transfer_encoding", input, all=false)]
     fn py_content_transfer_encoding(input: &PyBytes, all: bool) -> PyResult<String> {
-        convert_result(content_transfer_encoding(&fix_bare_cr(input.as_bytes())), all)
+        convert_result(content_transfer_encoding(&fix_bare_cr(input.as_bytes())), all).map(std::borrow::Cow::into_owned)
     }
 
     Ok(())
