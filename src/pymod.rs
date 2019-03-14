@@ -97,7 +97,7 @@ intopyobject!(Path);
 impl ToPyObject for Path {
     fn to_object(&self, py: Python) -> PyObject {
         match self {
-            Path::Path(p) => p.to_object(py),
+            Path::Mailbox(p) => String::from(p).to_object(py),
             Path::PostMaster => "postmaster".to_object(py),
         }
     }
@@ -107,7 +107,7 @@ intopyobject!(ReversePath);
 impl ToPyObject for ReversePath {
     fn to_object(&self, py: Python) -> PyObject {
         match self {
-            ReversePath::Path(p) => p.to_object(py),
+            ReversePath::Mailbox(p) => String::from(p).to_object(py),
             ReversePath::Null => "".to_object(py),
         }
     }

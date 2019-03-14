@@ -11,15 +11,70 @@ pub struct EsmtpParam(pub String, pub Option<String>);
 
 #[derive(Debug, PartialEq)]
 pub enum Path {
-    Path(String),
+    Mailbox(Mailbox),
     PostMaster, // RCPT TO: <postmaster>
 }
 
 #[derive(Debug, PartialEq)]
 pub enum ReversePath {
-    Path(String),
+    Mailbox(Mailbox),
     Null, // MAIL FROM: <>
 }
+
+#[derive(Debug, PartialEq)]
+pub enum LocalPart {
+    Atom(String),
+    Quoted(Vec<u8>),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum DomainPart {
+    Domain(String),
+    AddressLiteral(String),
+}
+
+impl From<&LocalPart> for String {
+    fn from(lp: &LocalPart) -> String {
+        match lp {
+            LocalPart::Atom(a) => a.clone(),
+            LocalPart::Quoted(q) => quote_localpart(q),
+        }
+    }
+}
+
+fn quote_localpart(input: &[u8]) -> String {
+    let mut out = String::with_capacity(input.len());
+
+    for c in input {
+        match c {
+            b'"' | b'\\' => {
+                out.push('\\');
+                out.push(*c as char);
+            }
+            _ => out.push(*c as char)
+        }
+    }
+
+    out
+}
+
+impl From<&DomainPart> for String {
+    fn from(dp: &DomainPart) -> String {
+        match dp {
+            DomainPart::Domain(d) => d.clone(),
+            DomainPart::AddressLiteral(a) => format!("[{}]", a),
+        }
+    }
+}
+
+impl From<&Mailbox> for String {
+    fn from(mbox: &Mailbox) -> String {
+        format!("{}@{}", String::from(&mbox.0), String::from(&mbox.1))
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Mailbox(pub LocalPart, pub DomainPart);
 
 #[inline]
 named!(_alphanum<CBS, CBS>,
@@ -70,12 +125,20 @@ named!(sub_domain<CBS, CBS>,
     ))
 );
 
-named!(domain<CBS, CBS>,
-    recognize!(do_parse!(
-        sub_domain >>
-        many0!(do_parse!(tag!(".") >> sub_domain >> ())) >>
-        ()
-    ))
+named!(domain<CBS, DomainPart>,
+    do_parse!(
+        first: sub_domain >>
+        cont: many0!(do_parse!(tag!(".") >> sd: sub_domain >> (sd))) >>
+        ({
+            let mut out = Vec::new();
+            out.extend(first.0);
+            for c in cont.iter() {
+                out.push(b'.');
+                out.extend(c.0);
+            }
+            DomainPart::Domain(ascii_to_string(out))
+        })
+    )
 );
 
 named!(at_domain<CBS, ()>,
@@ -135,30 +198,30 @@ named!(quoted_string<CBS, Vec<u8>>,
     )
 );
 
-named!(local_part<CBS, CBS>,
-    recognize!(alt!(map!(dot_string, |_| ()) | map!(quoted_string, |_| ())))
+named!(local_part<CBS, LocalPart>,
+    alt!(map!(dot_string, |s| LocalPart::Atom(ascii_to_string(s.0.to_vec()))) | map!(quoted_string, LocalPart::Quoted))
 );
 
 // FIXME: does not validate literals
-named!(address_literal<CBS, CBS>,
-    recognize!(do_parse!(
+named!(address_literal<CBS, DomainPart>,
+    do_parse!(
         tag!("[") >>
-        take_until1!("]") >>
+        dp: take_until1!("]") >>
         tag!("]") >>
-        ()
-    ))
+        (DomainPart::AddressLiteral(ascii_to_string(dp.0.to_vec())))
+    )
 );
 
-named!(mailbox<CBS, String>,
-    map!(recognize!(do_parse!(
-        local_part >>
+named!(mailbox<CBS, Mailbox>,
+    do_parse!(
+        lp: local_part >>
         tag!("@") >>
-        alt!(domain | address_literal) >>
-        ()
-    )), |x| ascii_to_string_slice(x.0))
+        dp: alt!(domain | address_literal) >>
+        (Mailbox(lp, dp))
+    )
 );
 
-named!(path<CBS, String>,
+named!(path<CBS, Mailbox>,
     do_parse!(
         tag!("<") >>
         opt!(do_parse!(a_d_l >> tag!(":") >> ())) >>
@@ -169,7 +232,7 @@ named!(path<CBS, String>,
 );
 
 named!(reverse_path<CBS, ReversePath>,
-    alt!(map!(path, ReversePath::Path) |
+    alt!(map!(path, ReversePath::Mailbox) |
          map!(tag!("<>"), |_| ReversePath::Null))
 );
 
@@ -187,7 +250,7 @@ named!(_rcpt_command<CBS, (Path, Vec<EsmtpParam>)>,
         tag_no_case!("RCPT TO:") >>
         addr: alt!(
             map!(tag_no_case!("<postmaster>"), |_| Path::PostMaster) |
-            map!(path, Path::Path)
+            map!(path, Path::Mailbox)
         ) >>
         params: opt!(do_parse!(tag!(" ") >> p: _esmtp_params >> (p))) >>
         (addr, params.unwrap_or_default())
