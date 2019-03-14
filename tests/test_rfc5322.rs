@@ -56,7 +56,7 @@ fn simple_reply_to() {
 fn group_reply_to() {
     let (rem, parsed) = reply_to(b"  A Group(Some people)\r\n    :Chris Jones <c@(Chris's host.)public.example>,\r\n        joe@example.org,\r\n John <jdoe@one.test> (my dear friend); (the end of the group)\r\n").unwrap();
     assert_eq!(rem.len(), 0);
-    assert_eq!(parsed, vec![Address::Group(Group{
+    assert_eq!(parsed, [Address::Group(Group{
         dname: "A Group".into(),
         members: vec![
             Mailbox { dname: Some("Chris Jones".into()),
@@ -73,7 +73,7 @@ fn group_reply_to() {
 fn multi_reply_to() {
     let (rem, parsed) = reply_to(b"Mary Smith <mary@x.test>, jdoe@example.org, Who? <one@y.test>\r\n").unwrap();
     assert_eq!(rem.len(), 0);
-    assert_eq!(parsed, vec![
+    assert_eq!(parsed, [
         Address::Mailbox(Mailbox { dname: Some("Mary Smith".into()),
                                    address: "mary@x.test".into()}),
         Address::Mailbox(Mailbox { dname: None,
