@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use std::str;
 
 use nom;
@@ -13,16 +14,20 @@ pub fn CBS(input: &[u8]) -> CBS {
     CompleteByteSlice(input)
 }
 
-pub fn ascii_to_string(i: Vec<u8>) -> String {
+pub fn ascii_to_string<T: Deref<Target=[u8]>>(i: &T) -> String {
     if i.is_ascii() {
-        String::from_utf8(i).unwrap()
+        str::from_utf8(i).unwrap().to_string()
     } else {
         ASCII.decode(&i, DecoderTrap::Replace).unwrap()
     }
 }
 
-pub fn ascii_to_string_slice(i: &[u8]) -> String {
-    ascii_to_string(i.to_vec())
+pub fn ascii_to_string_vec(i: Vec<u8>) -> String {
+    if i.is_ascii() {
+        String::from_utf8(i).unwrap()
+    } else {
+        ASCII.decode(&i, DecoderTrap::Replace).unwrap()
+    }
 }
 
 pub fn string_to_ascii(i: &str) -> Vec<u8> {

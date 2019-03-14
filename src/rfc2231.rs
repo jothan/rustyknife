@@ -66,7 +66,7 @@ named!(regular_parameter_name<CBS, Name>,
     do_parse!(
         name: attribute >>
         section: opt!(section) >>
-        (Name{name: ascii_to_string_slice(name.0), section})
+        (Name{name: ascii_to_string(&name.0), section})
     )
 );
 
@@ -125,7 +125,7 @@ named!(extended_initial_name<CBS, Name>,
         name: attribute >>
         section: opt!(initial_section) >>
         tag!("*") >>
-        (Name{name: ascii_to_string_slice(name.0), section})
+        (Name{name: ascii_to_string(&name.0), section})
     )
 );
 
@@ -134,7 +134,7 @@ named!(extended_other_names<CBS, Name>,
         name: attribute >>
         section: other_sections >>
         tag!("*") >>
-        (Name{name: ascii_to_string_slice(name.0), section: Some(section)})
+        (Name{name: ascii_to_string(&name.0), section: Some(section)})
     )
 );
 
@@ -158,7 +158,7 @@ named!(extended_other_values<CBS, Vec<u8>>,
 );
 
 named!(value<CBS, String>,
-   alt!(map!(token, |x| ascii_to_string_slice(x.0)) | quoted_string)
+   alt!(map!(token, |x| ascii_to_string(&x.0)) | quoted_string)
 );
 
 
@@ -218,7 +218,7 @@ fn decode_parameter_list(input: Vec<Parameter>) -> Vec<(String, String)> {
                     Value::Regular(v) => { simple.insert(name_norm, v); },
                     Value::Extended(ExtendedValue::Initial{value, encoding: encoding_name, ..}) => {
                         let codec = match encoding_name {
-                            Some(encoding_name) => encoding_from_whatwg_label(&ascii_to_string_slice(encoding_name)).unwrap_or(ASCII),
+                            Some(encoding_name) => encoding_from_whatwg_label(&ascii_to_string(&encoding_name)).unwrap_or(ASCII),
                             None => ASCII,
                         };
                         simple_encoded.insert(name_norm, codec.decode(&value, DecoderTrap::Replace).unwrap());
@@ -233,7 +233,7 @@ fn decode_parameter_list(input: Vec<Parameter>) -> Vec<(String, String)> {
                     Value::Regular(v) => ent.push((section, Segment::Decoded(v))),
                     Value::Extended(ExtendedValue::Initial{value, encoding: encoding_name, ..}) => {
                         if let Some(encoding_name) = encoding_name {
-                            if let Some(codec) = encoding_from_whatwg_label(&ascii_to_string_slice(encoding_name)) {
+                            if let Some(codec) = encoding_from_whatwg_label(&ascii_to_string(&encoding_name)) {
                                 composite_encoding.insert(name_norm, codec);
                             }
                         }
@@ -264,7 +264,7 @@ named!(_content_type<CBS, (String, Vec<(String, String)>)>,
         mt: _mime_type >>
         ofws >>
         p: _parameter_list >>
-        (ascii_to_string_slice(mt.0).to_lowercase(), decode_parameter_list(p))
+        (ascii_to_string(&mt.0).to_lowercase(), decode_parameter_list(p))
     )
 );
 
@@ -274,7 +274,7 @@ named!(_x_token<CBS, String>,
         tag_no_case!("x-") >>
         token >>
         ()
-    )), |x| ascii_to_string_slice(x.0))
+    )), |x| ascii_to_string(&x.0))
 );
 
 named!(_disposition<CBS, String>,

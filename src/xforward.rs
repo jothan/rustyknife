@@ -26,7 +26,7 @@ named!(unavailable<CBS, Option<String>>,
 );
 
 named!(value<CBS, Option<String>>,
-    alt!(unavailable | do_parse!(x: xtext >> (Some(ascii_to_string(x)))))
+    alt!(unavailable | do_parse!(x: xtext >> (Some(ascii_to_string_vec(x)))))
 );
 
 named!(param<CBS, XforwardParam>,

@@ -82,12 +82,12 @@ named!(_alphanum<CBS, CBS>,
 );
 
 named!(esmtp_keyword<CBS, String>,
-    map!(recognize!(do_parse!(_alphanum >> many0!(_alphanum) >> ())), |x| ascii_to_string_slice(x.0))
+    map!(recognize!(do_parse!(_alphanum >> many0!(_alphanum) >> ())), |x| ascii_to_string(&x.0))
 );
 
 named!(esmtp_value<CBS, String>,
     map!(take_while1!(|c| (33..=60).contains(&c) || (62..=126).contains(&c)),
-         |x| ascii_to_string_slice(x.0))
+         |x| ascii_to_string(&x.0))
 );
 
 named!(esmtp_param<CBS, EsmtpParam>,
@@ -126,18 +126,8 @@ named!(sub_domain<CBS, CBS>,
 );
 
 named!(domain<CBS, DomainPart>,
-    do_parse!(
-        first: sub_domain >>
-        cont: many0!(do_parse!(tag!(".") >> sd: sub_domain >> (sd))) >>
-        ({
-            let mut out = Vec::new();
-            out.extend(first.0);
-            for c in cont.iter() {
-                out.push(b'.');
-                out.extend(c.0);
-            }
-            DomainPart::Domain(ascii_to_string(out))
-        })
+    map!(recognize!(do_parse!(sub_domain >> many0!(do_parse!(tag!(".") >> sub_domain >> ())) >> ())),
+         |domain| DomainPart::Domain(ascii_to_string(&domain.0))
     )
 );
 
@@ -199,7 +189,7 @@ named!(quoted_string<CBS, Vec<u8>>,
 );
 
 named!(local_part<CBS, LocalPart>,
-    alt!(map!(dot_string, |s| LocalPart::Atom(ascii_to_string(s.0.to_vec()))) | map!(quoted_string, LocalPart::Quoted))
+    alt!(map!(dot_string, |s| LocalPart::Atom(ascii_to_string(&s.0))) | map!(quoted_string, LocalPart::Quoted))
 );
 
 // FIXME: does not validate literals
@@ -208,7 +198,7 @@ named!(address_literal<CBS, DomainPart>,
         tag!("[") >>
         dp: take_until1!("]") >>
         tag!("]") >>
-        (DomainPart::AddressLiteral(ascii_to_string(dp.0.to_vec())))
+        (DomainPart::AddressLiteral(ascii_to_string(&dp.0)))
     )
 );
 
