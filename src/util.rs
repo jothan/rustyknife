@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::ops::Deref;
 use std::str;
 
@@ -14,12 +15,8 @@ pub fn CBS(input: &[u8]) -> CBS {
     CompleteByteSlice(input)
 }
 
-pub fn ascii_to_string<'a, T: Deref<Target=&'a [u8]>>(i: T) -> String {
-    if i.is_ascii() {
-        str::from_utf8(&i).unwrap().to_string()
-    } else {
-        ASCII.decode(&i, DecoderTrap::Replace).unwrap()
-    }
+pub fn ascii_to_string<'a, T: Deref<Target=&'a [u8]>>(i: T) -> Cow<'a, str> {
+    String::from_utf8_lossy(&i)
 }
 
 pub fn ascii_to_string_vec(i: Vec<u8>) -> String {

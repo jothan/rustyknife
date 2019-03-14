@@ -1,5 +1,6 @@
 //! SMTP DSN extension
 
+use std::borrow::Cow;
 use std::str;
 
 use crate::util::*;
@@ -40,7 +41,7 @@ named!(_printable_xtext<CBS, Vec<u8>>,
     })
 );
 
-named!(_original_recipient_address<CBS, (String, String)>,
+named!(_original_recipient_address<CBS, (Cow<'_, str>, String)>,
     do_parse!(
         a: atom >> tag!(";") >> b: _printable_xtext >>
         (ascii_to_string(a), ascii_to_string_vec(b))
@@ -104,5 +105,5 @@ pub fn dsn_mail_params<'a>(input: &[Param<'a>]) -> Result<(DSNMailParams, Vec<Pa
 
 pub fn orcpt_address(input: &[u8]) -> KResult<&[u8], (String, String)>
 {
-    wrap_cbs_result(_original_recipient_address(CBS(input)))
+    wrap_cbs_result(_original_recipient_address(CBS(input))).map(|(rem, (tp, addr))| (rem, (tp.into(), addr.into())))
 }

@@ -2,6 +2,7 @@
 //!
 //! Implements RFC 2045 syntax extended with RFC 2231
 
+use std::borrow::Cow;
 use std::str;
 use std::collections::HashMap;
 
@@ -18,19 +19,19 @@ use crate::rfc5322::{ofws, quoted_string};
 
 #[derive(Debug)]
 struct Parameter<'a> {
-    name: Name,
+    name: Name<'a>,
     value: Value<'a>,
 }
 
 #[derive(Debug)]
-struct Name {
+struct Name<'a> {
     section: Option<u32>,
-    name: String,
+    name: Cow<'a, str>,
 }
 
 #[derive(Debug)]
 enum Value<'a> {
-    Regular(String),
+    Regular(Cow<'a, str>),
     Extended(ExtendedValue<'a>),
 }
 
@@ -157,8 +158,8 @@ named!(extended_other_values<CBS, Vec<u8>>,
     many0!(alt!(ext_octet | attribute_char))
 );
 
-named!(value<CBS, String>,
-   alt!(map!(token, |x| ascii_to_string(x)) | quoted_string)
+named!(value<CBS, Cow<'_, str>>,
+   alt!(map!(token, |x| ascii_to_string(x)) | map!(quoted_string, Cow::from))
 );
 
 
@@ -176,9 +177,9 @@ named!(_parameter_list<CBS, Vec<Parameter>>,
 );
 
 #[derive(Debug)]
-enum Segment {
+enum Segment<'a> {
     Encoded(Vec<u8>),
-    Decoded(String),
+    Decoded(Cow<'a, str>),
 }
 
 fn decode_segments(mut input: Vec<(u32, Segment)>, encoding: EncodingRef) -> String {
@@ -215,7 +216,7 @@ fn decode_parameter_list(input: Vec<Parameter>) -> Vec<(String, String)> {
         match name.section {
             None => {
                 match value {
-                    Value::Regular(v) => { simple.insert(name_norm, v); },
+                    Value::Regular(v) => { simple.insert(name_norm, v.into()); },
                     Value::Extended(ExtendedValue::Initial{value, encoding: encoding_name, ..}) => {
                         let codec = match encoding_name {
                             Some(encoding_name) => encoding_from_whatwg_label(&ascii_to_string(&encoding_name)).unwrap_or(ASCII),
@@ -269,7 +270,7 @@ named!(_content_type<CBS, (String, Vec<(String, String)>)>,
 );
 
 
-named!(_x_token<CBS, String>,
+named!(_x_token<CBS, Cow<'_, str>>,
     map!(recognize!(do_parse!(
         tag_no_case!("x-") >>
         token >>

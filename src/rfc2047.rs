@@ -1,5 +1,7 @@
 //! Header extensions for non-ASCII text
 
+use std::borrow::Cow;
+
 use base64;
 use encoding::DecoderTrap;
 use encoding::all::ASCII;
@@ -42,7 +44,7 @@ fn decode_text(encoding: &[u8], text: &[u8]) -> Option<Vec<u8>>
 }
 
 // Encoded word with no charset decoding.
-named!(_encoded_word<CBS, (String, Vec<u8>)>,
+named!(_encoded_word<CBS, (Cow<'_, str>, Vec<u8>)>,
     do_parse!(
         tag!("=?") >>
         charset: token >>
@@ -56,7 +58,7 @@ named!(_encoded_word<CBS, (String, Vec<u8>)>,
     )
 );
 
-fn decode_charset((charset, bytes): (String, Vec<u8>)) -> String
+fn decode_charset((charset, bytes): (Cow<'_, str>, Vec<u8>)) -> String
 {
     encoding_from_whatwg_label(&charset).unwrap_or(ASCII).decode(&bytes, DecoderTrap::Replace).unwrap()
 }

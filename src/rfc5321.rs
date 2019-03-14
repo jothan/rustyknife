@@ -1,5 +1,7 @@
 //! Parser for SMTP syntax.
 
+use std::borrow::Cow;
+
 use nom::is_alphanumeric;
 
 use crate::util::*;
@@ -81,11 +83,11 @@ named!(_alphanum<CBS, CBS>,
     verify!(take!(1), |x: CBS| is_alphanumeric(x.0[0]))
 );
 
-named!(esmtp_keyword<CBS, String>,
+named!(esmtp_keyword<CBS, Cow<'_, str>>,
     map!(recognize!(do_parse!(_alphanum >> many0!(_alphanum) >> ())), |x| ascii_to_string(x))
 );
 
-named!(esmtp_value<CBS, String>,
+named!(esmtp_value<CBS, Cow<'_, str>>,
     map!(take_while1!(|c| (33..=60).contains(&c) || (62..=126).contains(&c)),
          |x| ascii_to_string(x))
 );
@@ -94,7 +96,7 @@ named!(esmtp_param<CBS, EsmtpParam>,
     do_parse!(
         name: esmtp_keyword >>
         value: opt!(do_parse!(tag!("=") >>  v: esmtp_value >> (v))) >>
-        (EsmtpParam(name, value))
+        (EsmtpParam(name.into(), value.map(|v| v.into())))
     )
 );
 
@@ -127,7 +129,7 @@ named!(sub_domain<CBS, CBS>,
 
 named!(domain<CBS, DomainPart>,
     map!(recognize!(do_parse!(sub_domain >> many0!(do_parse!(tag!(".") >> sub_domain >> ())) >> ())),
-         |domain| DomainPart::Domain(ascii_to_string(domain))
+         |domain| DomainPart::Domain(ascii_to_string(domain).into())
     )
 );
 
@@ -189,7 +191,7 @@ named!(quoted_string<CBS, Vec<u8>>,
 );
 
 named!(local_part<CBS, LocalPart>,
-    alt!(map!(dot_string, |s| LocalPart::Atom(ascii_to_string(s))) | map!(quoted_string, LocalPart::Quoted))
+    alt!(map!(dot_string, |s| LocalPart::Atom(ascii_to_string(s).into())) | map!(quoted_string, LocalPart::Quoted))
 );
 
 // FIXME: does not validate literals
@@ -198,7 +200,7 @@ named!(address_literal<CBS, DomainPart>,
         tag!("[") >>
         dp: take_until1!("]") >>
         tag!("]") >>
-        (DomainPart::AddressLiteral(ascii_to_string(dp)))
+        (DomainPart::AddressLiteral(ascii_to_string(dp).into()))
     )
 );
 
