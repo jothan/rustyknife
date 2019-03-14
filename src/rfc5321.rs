@@ -6,22 +6,20 @@ use crate::util::*;
 use crate::rfc5234::wsp;
 use crate::rfc5322::{atext as atom};
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct EsmtpParam(pub String, pub Option<String>);
 
+#[derive(Debug, PartialEq)]
 pub enum Path {
     Path(String),
     PostMaster, // RCPT TO: <postmaster>
 }
 
+#[derive(Debug, PartialEq)]
 pub enum ReversePath {
     Path(String),
     Null, // MAIL FROM: <>
 }
-
-named!(_ldh<CBS, CBS>,
-    take_while1!(|c| is_alphanumeric(c) || c == b'-')
-);
 
 #[inline]
 named!(_alphanum<CBS, CBS>,
