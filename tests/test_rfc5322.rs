@@ -16,8 +16,9 @@ fn parse_single<'a, E, F>(syntax: F, input: &'a [u8]) -> Mailbox
 
 #[test]
 fn concat_atom() {
-    let parsed = parse_single(from, b" atom  atom   atom    <ignored@example>\r\n");
-    assert_eq!(parsed.dname, Some("atom atom atom".into()));
+    assert_eq!(parse_single(from, b" atom                 <ignored@example>").dname, Some("atom".into()));
+    assert_eq!(parse_single(from, b" atom  atom           <ignored@example>").dname, Some("atom atom".into()));
+    assert_eq!(parse_single(from, b" atom  atom   atom    <ignored@example>").dname, Some("atom atom atom".into()));
 }
 
 #[test]
