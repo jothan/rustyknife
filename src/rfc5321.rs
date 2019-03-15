@@ -9,25 +9,25 @@ use crate::rfc5322::{atext as atom};
 #[derive(Clone, Debug, PartialEq)]
 pub struct EsmtpParam(pub String, pub Option<String>);
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Path {
     Mailbox(Mailbox),
     PostMaster, // RCPT TO: <postmaster>
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ReversePath {
     Mailbox(Mailbox),
     Null, // MAIL FROM: <>
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum LocalPart {
     Atom(String),
-    Quoted(Vec<u8>),
+    Quoted(String),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum DomainPart {
     Domain(String),
     AddressLiteral(String),
@@ -42,16 +42,16 @@ impl From<&LocalPart> for String {
     }
 }
 
-fn quote_localpart(input: &[u8]) -> String {
+fn quote_localpart(input: &str) -> String {
     let mut out = String::with_capacity(input.len());
 
-    for c in input {
+    for c in input.chars() {
         match c {
-            b'"' | b'\\' => {
+            '"' | '\\' => {
                 out.push('\\');
-                out.push(*c as char);
+                out.push(c);
             }
-            _ => out.push(*c as char)
+            _ => out.push(c)
         }
     }
 
@@ -73,7 +73,7 @@ impl From<&Mailbox> for String {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Mailbox(pub LocalPart, pub DomainPart);
 
 #[inline]
@@ -156,40 +156,41 @@ named!(dot_string<CBS, CBS>,
 );
 
 #[inline]
-named!(qtext_smtp<CBS, u8>,
+named!(qtext_smtp<CBS, char>,
    map!(verify!(take!(1), |x: CBS| {
        let c = &x.0[0];
        (32..=33).contains(c) || (35..=91).contains(c) || (93..=126).contains(c)
-   }), |x| x.0[0])
+   }), |x| x.0[0] as char)
 );
 
 #[inline]
-named!(quoted_pair_smtp<CBS, u8>,
+named!(quoted_pair_smtp<CBS, char>,
     do_parse!(
         tag!("\\") >>
         c: map!(verify!(take!(1), |x: CBS| {
             let c = &x.0[0];
             (32..=126).contains(c)
         }), |x| x.0[0]) >>
-        (c)
+        (c as char)
     )
 );
 
-named!(qcontent_smtp<CBS, u8>,
+named!(qcontent_smtp<CBS, char>,
     alt!(qtext_smtp | quoted_pair_smtp)
 );
 
-named!(quoted_string<CBS, Vec<u8>>,
+named!(quoted_string<CBS, String>,
     do_parse!(
         tag!("\"") >>
         qc: many0!(qcontent_smtp) >>
         tag!("\"") >>
-        (qc)
+        (qc.into_iter().collect())
     )
 );
 
 named!(local_part<CBS, LocalPart>,
-    alt!(map!(dot_string, |s| LocalPart::Atom(ascii_to_string(s).into())) | map!(quoted_string, LocalPart::Quoted))
+    alt!(map!(dot_string, |s| LocalPart::Atom(ascii_to_string(s).into())) |
+         map!(quoted_string, LocalPart::Quoted))
 );
 
 // FIXME: does not validate literals

@@ -7,6 +7,7 @@ use std::mem;
 
 use crate::rfc2047::encoded_word;
 use crate::rfc5234::*;
+pub use crate::rfc5321::{Mailbox as SMTPMailbox, LocalPart, DomainPart};
 use crate::util::*;
 
 named!(quoted_pair<CBS, CBS>,
@@ -134,16 +135,6 @@ named!(_inner_quoted_string<CBS, Vec<QContent>>,
     )
 );
 
-// Undecoded quoted-string
-named!(_raw_quoted_string<CBS, CBS>,
-    do_parse!(
-        opt!(cfws) >>
-        qc: recognize!(_inner_quoted_string) >>
-        opt!(cfws) >>
-        (qc)
-    )
-);
-
 named!(pub quoted_string<CBS, String>,
     do_parse!(
         opt!(cfws) >>
@@ -156,7 +147,7 @@ named!(pub quoted_string<CBS, String>,
 #[derive(Clone, Debug, PartialEq)]
 pub struct Mailbox {
     pub dname: Option<String>,
-    pub address: String,
+    pub address: SMTPMailbox,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -261,15 +252,16 @@ named!(display_name<CBS, String>,
     map!(many1!(word), |words| _concat_atom_and_qs(words.into_iter().map(Into::into)))
 );
 
-named!(local_part<CBS, CBS>,
-    alt!(dot_atom | _raw_quoted_string)
+named!(local_part<CBS, LocalPart>,
+    alt!(map!(dot_atom, |a| LocalPart::Atom(ascii_to_string(a).into())) |
+         map!(quoted_string, LocalPart::Quoted))
 );
 
 named!(dtext<CBS, CBS>,
     take_while1!(|c: u8| (33..=90).contains(&c) || (94..=126).contains(&c))
 );
 
-named!(domain_literal<CBS, Vec<u8>>,
+named!(domain_literal<CBS, DomainPart>,
     do_parse!(
         opt!(cfws) >>
         tag!("[") >>
@@ -277,24 +269,28 @@ named!(domain_literal<CBS, Vec<u8>>,
         b: ofws >>
         tag!("]") >>
         opt!(cfws) >>
-        ({let mut out : Vec<u8> = vec![b'[']; out.extend(a.iter().flat_map(|(x, y)| x.iter().chain(y.0.iter()))); out.extend_from_slice(&b); out.push(b']'); out})
+        ({
+            let mut out : Vec<u8> = a.iter().flat_map(|(x, y)| x.into_iter().chain(y.0.into_iter())).cloned().collect();
+            out.extend_from_slice(&b);
+            DomainPart::AddressLiteral(String::from_utf8(out).unwrap())
+        })
     )
 );
 
-named!(domain<CBS, Vec<u8>>,
-    alt!(map!(dot_atom, |x| x.0.to_vec()) | domain_literal)
+named!(domain<CBS, DomainPart>,
+    alt!(map!(dot_atom, |x| DomainPart::Domain(ascii_to_string(x).into())) | domain_literal)
 );
 
-named!(addr_spec<CBS, String>,
+named!(addr_spec<CBS, SMTPMailbox>,
     do_parse!(
         lp: local_part >>
         tag!("@") >>
         domain: domain >>
-        (ascii_to_string_vec(lp.iter().chain(b"@".iter()).chain(domain.iter()).cloned().collect::<Vec<_>>()))
+        (SMTPMailbox(lp, domain))
     )
 );
 
-named!(angle_addr<CBS, String>,
+named!(angle_addr<CBS, SMTPMailbox>,
     do_parse!(
         opt!(cfws) >>
         tag!("<") >>

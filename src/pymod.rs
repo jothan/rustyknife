@@ -42,7 +42,7 @@ impl ToPyObject for Group {
 }
 impl ToPyObject for Mailbox {
     fn to_object(&self, py: Python) -> PyObject {
-        PyTuple::new(py, &[self.dname.to_object(py), self.address.to_object(py)]).into_object(py)
+        PyTuple::new(py, &[self.dname.to_object(py), String::from(&self.address).to_object(py)]).into_object(py)
     }
 }
 
