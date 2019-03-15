@@ -1,3 +1,6 @@
+use std::str::FromStr;
+use std::net::{IpAddr, Ipv4Addr};
+
 use rustyknife::rfc5321::*;
 
 #[test]
@@ -35,7 +38,8 @@ fn esmtp_param() {
 #[test]
 fn address_literal_domain() {
     let (_, (path, params)) = rcpt_command(b"RCPT TO:<bob@[127.0.0.1]>").unwrap();
-    assert_eq!(path, Path::Mailbox(Mailbox(LocalPart::Atom("bob".into()), DomainPart::AddressLiteral("127.0.0.1".into()))));
+    assert_eq!(path, Path::Mailbox(Mailbox(LocalPart::Atom("bob".into()),
+                                           DomainPart::AddressLiteral(AddressLiteral::IpAddr(IpAddr::V4(Ipv4Addr::from_str("127.0.0.1").unwrap()))))));
     assert_eq!(params, []);
 }
 
