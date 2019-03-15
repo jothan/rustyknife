@@ -144,17 +144,13 @@ named!(_raw_quoted_string<CBS, CBS>,
     )
 );
 
-named!(_quoted_string_parts<CBS, Vec<QContent>>,
+named!(pub quoted_string<CBS, String>,
     do_parse!(
         opt!(cfws) >>
         qc: _inner_quoted_string >>
         opt!(cfws) >>
-        (qc)
+        (concat_qs(qc.into_iter()))
     )
-);
-
-named!(pub quoted_string<CBS, String>,
-    do_parse!(qs: _quoted_string_parts >> (concat_qs(qs.into_iter())))
 );
 
 #[derive(Clone, Debug, PartialEq)]
@@ -173,13 +169,6 @@ pub struct Group {
 pub enum Address {
     Mailbox(Mailbox),
     Group(Group),
-}
-
-#[derive(Clone, Debug)]
-enum Word<'a> {
-    Encoded(String),
-    Atom(&'a str),
-    QS(Vec<QContent>),
 }
 
 #[derive(Clone, Debug)]
@@ -217,22 +206,6 @@ fn concat_qs<A: Iterator<Item=QContent>>(input: A) -> String {
     out
 }
 
-impl <'a> From<Vec<QContent>> for Text<'a> {
-    fn from(qc: Vec<QContent>) -> Text<'a> {
-        Text::Literal(concat_qs(qc.into_iter()))
-    }
-}
-
-impl <'a> From<Word<'a>> for Text<'a> {
-    fn from(word: Word) -> Text {
-        match word {
-            Word::Atom(a) => Text::Atom(a),
-            Word::Encoded(ew) => Text::Literal(ew),
-            Word::QS(qc) => qc.into(),
-        }
-    }
-}
-
 named!(pub atext<CBS, CBS>,
     take_while1!(|c: u8| b"!#$%&'*+-/=?^_`{|}~".contains(&c) || (b'0'..=b'9').contains(&c) || (b'A'..=b'Z').contains(&c) || (b'a'..=b'z').contains(&c))
 );
@@ -259,11 +232,11 @@ named!(_padded_encoded_word<CBS, String>,
     do_parse!(opt!(cfws) >> e: encoded_word >> opt!(cfws) >> (e))
 );
 
-named!(word<CBS, Word>,
+named!(word<CBS, Text>,
     alt!(
-        map!(_padded_encoded_word, Word::Encoded) |
-        map!(atom, |x| Word::Atom(str::from_utf8(&x).unwrap())) |
-        map!(_quoted_string_parts, Word::QS)
+        map!(_padded_encoded_word, Text::Literal) |
+        map!(atom, |x| Text::Atom(str::from_utf8(&x).unwrap())) |
+        map!(quoted_string, Text::Literal)
     )
 );
 
