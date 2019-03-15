@@ -2,6 +2,7 @@
 //!
 //! Comments are ignored. RFC2047 decoding is applied where appropriate.
 
+use std::str;
 use std::mem;
 
 use crate::rfc2047::encoded_word;
@@ -153,7 +154,7 @@ named!(_quoted_string_parts<CBS, Vec<QContent>>,
 );
 
 named!(pub quoted_string<CBS, String>,
-    do_parse!(qs: _quoted_string_parts >> (_concat_atom_and_qs(Word::QS(qs))))
+    do_parse!(qs: _quoted_string_parts >> (concat_qs(qs.into_iter())))
 );
 
 #[derive(Clone, Debug, PartialEq)]
@@ -175,9 +176,9 @@ pub enum Address {
 }
 
 #[derive(Clone, Debug)]
-enum Word {
+enum Word<'a> {
     Encoded(String),
-    Atom(String),
+    Atom(&'a str),
     QS(Vec<QContent>),
 }
 
@@ -189,13 +190,13 @@ enum QContent {
 }
 
 #[derive(Clone, Debug)]
-enum Text {
+enum Text<'a> {
     Literal(String),
-    Atom(String),
+    Atom(&'a str),
 }
 
-impl <'a> From<&'a Text> for &'a str {
-    fn from(t: &'a Text) -> &'a str {
+impl <'a> From<&'a Text<'a>> for &'a str {
+    fn from(t: &'a Text<'a>) -> &'a str {
         match t {
             Text::Literal(s) => s,
             Text::Atom(s) => s,
@@ -203,47 +204,31 @@ impl <'a> From<&'a Text> for &'a str {
     }
 }
 
-trait TextPusher
-{
-    fn convert<F: FnMut(Text)>(self, push: &mut F);
-}
+fn concat_qs<A: Iterator<Item=QContent>>(input: A) -> String {
+    let mut out = String::new();
 
-impl TextPusher for QContent {
-    fn convert<F: FnMut(Text)>(self, push: &mut F) {
-        match self {
-            QContent::Literal(lit) => push(Text::Literal(lit)),
+    for qc in input {
+        match qc {
+            QContent::Literal(lit) => out.push_str(&lit),
             #[cfg(feature = "quoted-string-rfc2047")]
-            QContent::EncodedWord(ew) => push(Text::Literal(ew)),
+            QContent::EncodedWord(ew) => out.push_str(&ew),
         }
+    }
+    out
+}
+
+impl <'a> From<Vec<QContent>> for Text<'a> {
+    fn from(qc: Vec<QContent>) -> Text<'a> {
+        Text::Literal(concat_qs(qc.into_iter()))
     }
 }
 
-impl TextPusher for Word {
-    fn convert<F: FnMut(Text)>(self, push: &mut F) {
-        match self {
-            Word::Atom(a) => push(Text::Atom(a)),
-            Word::Encoded(ew) => push(Text::Literal(ew)),
-            Word::QS(qc) => {
-                for w in qc.into_iter() {
-                    w.convert(push);
-                }
-            }
-        }
-    }
-}
-
-impl TextPusher for Vec<Word> {
-    fn convert<F: FnMut(Text)>(self, push: &mut F) {
-        for w in self.into_iter() {
-            w.convert(push);
-        }
-    }
-}
-
-impl TextPusher for Vec<Text> {
-    fn convert<F: FnMut(Text)>(self, push: &mut F) {
-        for w in self.into_iter() {
-            push(w);
+impl <'a> From<Word<'a>> for Text<'a> {
+    fn from(word: Word) -> Text {
+        match word {
+            Word::Atom(a) => Text::Atom(a),
+            Word::Encoded(ew) => Text::Literal(ew),
+            Word::QS(qc) => qc.into(),
         }
     }
 }
@@ -277,39 +262,30 @@ named!(_padded_encoded_word<CBS, String>,
 named!(word<CBS, Word>,
     alt!(
         map!(_padded_encoded_word, Word::Encoded) |
-        map!(atom, |x| Word::Atom(ascii_to_string(x).into())) |
+        map!(atom, |x| Word::Atom(str::from_utf8(&x).unwrap())) |
         map!(_quoted_string_parts, Word::QS)
     )
 );
 
-fn _concat_atom_and_qs<T: TextPusher>(input: T) -> String {
-    let mut cur : Option<Text> = None;
+fn _concat_atom_and_qs<'a, A>(input: A) -> String
+    where A: Iterator<Item=Text<'a>>,
+{
+    let mut iter = input.peekable();
     let mut out = String::new();
 
-    let mut catter = |next: Text| {
-        if cur.is_none() {
-            cur = Some(next);
-            return;
-        }
-
-        match (cur.as_ref().unwrap(), &next) {
-            (Text::Atom(v), _) => {out.push_str(&v); out.push(' ')},
-            (t1, Text::Atom(_)) => {out.push_str(t1.into()); out.push(' ')},
-            (t1, _) => out.push_str(t1.into()),
+    while let Some(cur) = iter.next() {
+        match (cur, iter.peek()) {
+            (Text::Atom(v), Some(_)) => {out.push_str(&v); out.push(' ')},
+            (_, Some(Text::Atom(v))) => {out.push_str(&v); out.push(' ')},
+            (ref t1, _) => out.push_str(t1.into()),
         };
-        cur = Some(next);
-    };
-
-    input.convert(&mut catter);
-    if let Some(end) = cur {
-        out.push_str((&end).into());
     };
 
     out
 }
 
 named!(display_name<CBS, String>,
-    map!(many1!(word), _concat_atom_and_qs)
+    map!(many1!(word), |words| _concat_atom_and_qs(words.into_iter().map(Into::into)))
 );
 
 named!(local_part<CBS, CBS>,
@@ -444,23 +420,21 @@ named!(_unstructured<CBS, String>,
             do_parse!(
                 ws: opt!(fws) >>
                 vc: many1!(alt!(vchar | _8bit_char)) >>
-                ({let mut out = Vec::new();
-                  if let Some(x) = ws {
-                      out.extend_from_slice(&x)
-                  };
-                  out.extend_from_slice(&vc);
-                  vec![Text::Literal(ascii_to_string_vec(out))]
+                ({
+                    let mut out = Vec::new();
+                    if let Some(x) = ws {
+                        out.extend_from_slice(&x)
+                    };
+                    out.extend_from_slice(&vc);
+                    vec![Text::Literal(ascii_to_string_vec(out))]
                 })
             )
 
         )) >>
         b: many0!(wsp) >>
         ({
-            let mut out : Vec<Text> = a.iter().flat_map(|x| x.iter()).cloned().collect();
-            if !b.is_empty() {
-                out.push(Text::Literal(ascii_to_string_vec(b)))
-            }
-            _concat_atom_and_qs(out)
+            let iter =  a.into_iter().flat_map(|x| x.into_iter()).chain(std::iter::once(Text::Literal(ascii_to_string_vec(b))));
+            _concat_atom_and_qs(iter)
         })
     )
 );
