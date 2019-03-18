@@ -7,7 +7,7 @@ use std::str::{self, FromStr};
 use nom::{is_alphanumeric, is_digit, is_hex_digit};
 
 use crate::util::*;
-use crate::rfc5234::wsp;
+use crate::rfc5234::{crlf, wsp};
 use crate::rfc5322::{atext as atom};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -388,6 +388,7 @@ named!(_mail_command<CBS, (ReversePath, Vec<EsmtpParam>)>,
         tag_no_case!("MAIL FROM:") >>
         addr: reverse_path >>
         params: opt!(do_parse!(tag!(" ") >> p: _esmtp_params >> (p))) >>
+        crlf >>
         (addr, params.unwrap_or_default())
     )
 );
@@ -400,6 +401,7 @@ named!(_rcpt_command<CBS, (Path, Vec<EsmtpParam>)>,
             map!(path, Path::Mailbox)
         ) >>
         params: opt!(do_parse!(tag!(" ") >> p: _esmtp_params >> (p))) >>
+        crlf >>
         (addr, params.unwrap_or_default())
     )
 );
@@ -411,7 +413,7 @@ named!(_rcpt_command<CBS, (Path, Vec<EsmtpParam>)>,
 /// ```
 /// use rustyknife::rfc5321::{mail_command, EsmtpParam};
 ///
-/// let (_, (rp, params)) = mail_command(b"MAIL FROM:<bob@example.org> BODY=8BIT").unwrap();
+/// let (_, (rp, params)) = mail_command(b"MAIL FROM:<bob@example.org> BODY=8BIT\r\n").unwrap();
 ///
 /// assert_eq!(rp.to_string(), "<bob@example.org>");
 /// assert_eq!(params, [EsmtpParam("BODY".into(), Some("8BIT".into()))]);
@@ -427,7 +429,7 @@ pub fn mail_command(i: &[u8]) -> KResult<&[u8], (ReversePath, Vec<EsmtpParam>)> 
 /// ```
 /// use rustyknife::rfc5321::{rcpt_command, EsmtpParam};
 ///
-/// let (_, (p, params)) = rcpt_command(b"RCPT TO:<bob@example.org> NOTIFY=NEVER").unwrap();
+/// let (_, (p, params)) = rcpt_command(b"RCPT TO:<bob@example.org> NOTIFY=NEVER\r\n").unwrap();
 ///
 /// assert_eq!(p.to_string(), "<bob@example.org>");
 /// assert_eq!(params, [EsmtpParam("NOTIFY".into(), Some("NEVER".into()))]);
