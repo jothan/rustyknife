@@ -387,11 +387,11 @@ named!(_rcpt_command<CBS, (Path, Vec<EsmtpParam>)>,
 );
 
 pub fn mail_command(i: &[u8]) -> KResult<&[u8], (ReversePath, Vec<EsmtpParam>)> {
-    wrap_cbs_result(exact!(CBS(i), _mail_command))
+    wrap_cbs_result(_mail_command(CBS(i)))
 }
 
 pub fn rcpt_command(i: &[u8]) -> KResult<&[u8], (Path, Vec<EsmtpParam>)> {
-    wrap_cbs_result(exact!(CBS(i), _rcpt_command))
+    wrap_cbs_result(_rcpt_command(CBS(i)))
 }
 
 /// Validates an email address.
