@@ -46,3 +46,12 @@ pub fn convert_context(c: nom::Context<CBS>) -> nom::Context<&[u8]> {
         nom::Context::List(mut v) => nom::Context::List(v.drain(..).map(|(r, e)| (r.0, e)).collect()),
     }
 }
+
+/// Strip an optionnal CRLF.
+pub fn strip_crlf(i: &[u8]) -> &[u8] {
+    if i.ends_with(b"\r\n") {
+        &i[0..i.len()-2]
+    } else {
+        i
+    }
+}

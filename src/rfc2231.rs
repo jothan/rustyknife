@@ -323,10 +323,5 @@ pub fn content_disposition(i: &[u8]) -> KResult<&[u8], (String, Vec<(String, Str
 pub fn content_transfer_encoding<'a>(i: &'a [u8]) -> KResult<&'a[u8], Cow<'a, str>> {
     // Strip CRLF manually, needed because of the bad interaction of
     // FWS with an optional CRLF.
-    let s = if i.ends_with(b"\r\n") {
-        &i[0..i.len()-2]
-    } else {
-        i
-    };
-    wrap_cbs_result(_content_transfer_encoding(CBS(s)))
+    wrap_cbs_result(_content_transfer_encoding(CBS(strip_crlf(i))))
 }
