@@ -39,7 +39,7 @@ fn esmtp_param() {
 fn address_literal_domain() {
     let (_, (path, params)) = rcpt_command(b"RCPT TO:<bob@[127.0.0.1]>").unwrap();
     assert_eq!(path, Path::Mailbox(Mailbox(LocalPart::Atom("bob".into()),
-                                           DomainPart::AddressLiteral(AddressLiteral::IpAddr(IpAddr::V4(Ipv4Addr::from_str("127.0.0.1").unwrap()))))));
+                                           DomainPart::Address(AddressLiteral::IP(IpAddr::V4(Ipv4Addr::from_str("127.0.0.1").unwrap()))))));
     assert_eq!(params, []);
 }
 

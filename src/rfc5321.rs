@@ -69,14 +69,14 @@ pub enum DomainPart {
     /// A DNS domain name such as `"example.org"`.
     Domain(String),
     /// An address literal.
-    AddressLiteral(AddressLiteral),
+    Address(AddressLiteral),
 }
 
 impl Display for DomainPart {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             DomainPart::Domain(d) => write!(f, "{}", d),
-            DomainPart::AddressLiteral(a) => write!(f, "{}", a),
+            DomainPart::Address(a) => write!(f, "{}", a),
         }
     }
 }
@@ -93,10 +93,10 @@ pub enum AddressLiteral {
     /// let ipv4 : AddressLiteral = "[192.0.2.1]".parse().unwrap();
     /// let ipv6 : AddressLiteral = "[IPv6:2001:db8::1]".parse().unwrap();
     ///
-    /// assert_eq!(ipv4, AddressLiteral::IpAddr("192.0.2.1".parse().unwrap()));
-    /// assert_eq!(ipv6, AddressLiteral::IpAddr("2001:db8::1".parse().unwrap()));
+    /// assert_eq!(ipv4, AddressLiteral::IP("192.0.2.1".parse().unwrap()));
+    /// assert_eq!(ipv6, AddressLiteral::IP("2001:db8::1".parse().unwrap()));
     /// ```
-    IpAddr(IpAddr),
+    IP(IpAddr),
     /// An address literal in the form tag:value.
     /// # Examples
     /// ```
@@ -119,7 +119,7 @@ impl AddressLiteral {
     /// let valid = AddressLiteral::FreeForm("192.0.2.1".into());
     /// let invalid = AddressLiteral::FreeForm("somewhere".into());
     ///
-    /// assert_eq!(valid.upgrade(), Ok(AddressLiteral::IpAddr("192.0.2.1".parse().unwrap())));
+    /// assert_eq!(valid.upgrade(), Ok(AddressLiteral::IP("192.0.2.1".parse().unwrap())));
     /// assert_eq!(invalid.upgrade(), Err(()));
     /// ```
     pub fn upgrade(&self) -> Result<Self, ()> {
@@ -153,7 +153,7 @@ impl FromStr for AddressLiteral {
 impl Display for AddressLiteral {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            AddressLiteral::IpAddr(ip) => match ip {
+            AddressLiteral::IP(ip) => match ip {
                 IpAddr::V4(ipv4) => write!(f, "[{}]", ipv4),
                 IpAddr::V6(ipv6) => write!(f, "[IPv6:{}]", ipv6),
             },
@@ -299,19 +299,19 @@ named!(_ipv4_literal<CBS, AddressLiteral>,
     do_parse!(
         a: _ip_int >>
         b: many_m_n!(3, 3, do_parse!(tag!(".") >> i: _ip_int >> (i))) >>
-        (AddressLiteral::IpAddr(IpAddr::V4(Ipv4Addr::new(a, b[0], b[1], b[2]))))
+        (AddressLiteral::IP(Ipv4Addr::new(a, b[0], b[1], b[2]).into()))
     )
 );
 
 named!(_ipv6_literal<CBS, AddressLiteral>,
-    map!(map_res!(do_parse!(
+    map_res!(do_parse!(
         tag_no_case!("IPv6:") >>
         addr: take_while1!(|c| is_hex_digit(c) || b":.".contains(&c))  >>
         (addr)),
         |addr : CBS| {
-            Ipv6Addr::from_str(str::from_utf8(addr.0).unwrap())
-        }),
-        |addr| AddressLiteral::IpAddr(IpAddr::V6(addr)))
+            Ipv6Addr::from_str(str::from_utf8(addr.0).unwrap()).map(|ip| AddressLiteral::IP(ip.into()))
+        }
+    )
 );
 
 named!(dcontent<CBS, &'_ str>,
@@ -345,7 +345,7 @@ named!(mailbox<CBS, Mailbox>,
     do_parse!(
         lp: local_part >>
         tag!("@") >>
-        dp: alt!(domain | map!(address_literal, DomainPart::AddressLiteral)) >>
+        dp: alt!(domain | map!(address_literal, DomainPart::Address)) >>
         (Mailbox(lp, dp))
     )
 );
