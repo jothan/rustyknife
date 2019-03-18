@@ -3,10 +3,10 @@ use std::fs::File;
 
 use crate::rfc2231::{content_type, content_disposition, content_transfer_encoding};
 use crate::rfc3461::{orcpt_address, dsn_mail_params, DSNMailParams, DSNRet};
-use crate::rfc5321::{EsmtpParam, mail_command, rcpt_command, validate_address, Path, ReversePath};
+use crate::rfc5321::{Param as ESMTPParam, mail_command, rcpt_command, validate_address, Path, ReversePath};
 use crate::rfc5322::{Address, Mailbox, Group, from, sender, reply_to, unstructured};
 use crate::headersection::{HeaderField, header_section};
-use crate::xforward::{XforwardParam, xforward_params};
+use crate::xforward::{Param as XFORWARDParam, xforward_params};
 use crate::util::{KResult, string_to_ascii};
 
 use memmap::Mmap;
@@ -63,16 +63,16 @@ impl<'a> ToPyObject for HeaderField<'a> {
     }
 }
 
-intopyobject!(XforwardParam);
-impl ToPyObject for XforwardParam {
+intopyobject!(XFORWARDParam);
+impl ToPyObject for XFORWARDParam {
     fn to_object(&self, py: Python) -> PyObject {
         PyTuple::new(py, &[self.0.to_object(py),
                            self.1.to_object(py)]).into_object(py)
     }
 }
 
-intopyobject!(EsmtpParam);
-impl ToPyObject for EsmtpParam {
+intopyobject!(ESMTPParam);
+impl ToPyObject for ESMTPParam {
     fn to_object(&self, py: Python) -> PyObject {
         PyTuple::new(py, &[self.0.to_object(py),
                            self.1.to_object(py)]).into_object(py)
@@ -192,7 +192,7 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
 
     /// xforward_params(input)
     #[pyfn(m, "xforward_params")]
-    fn py_xforward_params(input: &PyBytes) -> PyResult<Vec<XforwardParam>> {
+    fn py_xforward_params(input: &PyBytes) -> PyResult<Vec<XFORWARDParam>> {
         convert_result(xforward_params(input.as_bytes()), true)
     }
 
@@ -217,7 +217,7 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     /// :type input: bytes
     /// :return: (address, [(param, param_value), ...])
     #[pyfn(m, "mail_command")]
-    pub fn py_mail_command(input: &PyBytes) -> PyResult<(ReversePath, Vec<EsmtpParam>)>
+    pub fn py_mail_command(input: &PyBytes) -> PyResult<(ReversePath, Vec<ESMTPParam>)>
     {
         convert_result(mail_command(input.as_bytes()), true)
     }
@@ -230,7 +230,7 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     /// :type input: bytes
     /// :return: (address, [(param, param_value), ...])
     #[pyfn(m, "rcpt_command")]
-    pub fn py_rcpt_command(input: &PyBytes) -> PyResult<(Path, Vec<EsmtpParam>)>
+    pub fn py_rcpt_command(input: &PyBytes) -> PyResult<(Path, Vec<ESMTPParam>)>
     {
         convert_result(rcpt_command(input.as_bytes()), true)
     }

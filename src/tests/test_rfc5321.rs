@@ -32,7 +32,7 @@ fn invalid_rcpt() {
 fn esmtp_param() {
     let (_, (path, params)) = rcpt_command(b"RCPT TO:<mrbob?@example.org> ORCPT=rfc822;mrbob+AD@example.org\r\n").unwrap();
     assert_eq!(path, Path::Mailbox(Mailbox(LocalPart::Atom("mrbob?".into()), DomainPart::Domain("example.org".into()))));
-    assert_eq!(params, [EsmtpParam("ORCPT".into(), Some("rfc822;mrbob+AD@example.org".into()))]);
+    assert_eq!(params, [Param("ORCPT".into(), Some("rfc822;mrbob+AD@example.org".into()))]);
 }
 
 #[test]
@@ -47,8 +47,8 @@ fn address_literal_domain() {
 fn esmtp_from() {
     let (_, (path, params)) = mail_command(b"MAIL FROM:<bob@example.com> RET=FULL ENVID=abc123\r\n").unwrap();
     assert_eq!(path, ReversePath::Mailbox(Mailbox(LocalPart::Atom("bob".into()), DomainPart::Domain("example.com".into()))));
-    assert_eq!(params, [EsmtpParam("RET".into(), Some("FULL".into())),
-                        EsmtpParam("ENVID".into(), Some("abc123".into()))]);
+    assert_eq!(params, [Param("RET".into(), Some("FULL".into())),
+                        Param("ENVID".into(), Some("abc123".into()))]);
 }
 
 #[test]

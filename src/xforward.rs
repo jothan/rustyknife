@@ -6,7 +6,7 @@ use crate::rfc5234::wsp;
 use crate::rfc3461::xtext;
 use crate::util::*;
 
-pub struct XforwardParam(pub &'static str, pub Option<String>);
+pub struct Param(pub &'static str, pub Option<String>);
 
 
 named!(command<CBS, &'static str>,
@@ -29,16 +29,16 @@ named!(value<CBS, Option<String>>,
     alt!(unavailable | do_parse!(x: xtext >> (Some(ascii_to_string_vec(x)))))
 );
 
-named!(param<CBS, XforwardParam>,
+named!(param<CBS, Param>,
     do_parse!(
         c: command >>
         tag!("=") >>
         v: value >>
-        (XforwardParam(c, v))
+        (Param(c, v))
     )
 );
 
-named!(params<CBS, Vec<XforwardParam>>,
+named!(params<CBS, Vec<Param>>,
     do_parse!(
         a: do_parse!(
             opt!(many1!(wsp)) >>
@@ -54,6 +54,6 @@ named!(params<CBS, Vec<XforwardParam>>,
     )
 );
 
-pub fn xforward_params(i: &[u8]) -> KResult<&[u8], Vec<XforwardParam>> {
+pub fn xforward_params(i: &[u8]) -> KResult<&[u8], Vec<Param>> {
     wrap_cbs_result(params(CBS(i)))
 }

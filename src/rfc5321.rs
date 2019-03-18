@@ -11,7 +11,7 @@ use crate::rfc5234::{crlf, wsp};
 use crate::rfc5322::{atext as atom};
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct EsmtpParam(pub String, pub Option<String>);
+pub struct Param(pub String, pub Option<String>);
 
 /// Represents a forward path from the `"RCPT TO"` command.
 #[derive(Clone, Debug, PartialEq)]
@@ -204,15 +204,15 @@ named!(esmtp_value<CBS, &'_ str>,
          |x| std::str::from_utf8(&x).unwrap())
 );
 
-named!(esmtp_param<CBS, EsmtpParam>,
+named!(esmtp_param<CBS, Param>,
     do_parse!(
         name: esmtp_keyword >>
         value: opt!(do_parse!(tag!("=") >>  v: esmtp_value >> (v))) >>
-        (EsmtpParam(name.into(), value.map(|v| v.into())))
+        (Param(name.into(), value.map(|v| v.into())))
     )
 );
 
-named!(_esmtp_params<CBS, Vec<EsmtpParam>>,
+named!(_esmtp_params<CBS, Vec<Param>>,
     do_parse!(
         a: esmtp_param >>
         b: many0!(do_parse!(many1!(wsp) >> c: esmtp_param >> (c))) >>
@@ -383,7 +383,7 @@ named!(reverse_path<CBS, ReversePath>,
          map!(tag!("<>"), |_| ReversePath::Null))
 );
 
-named!(_mail_command<CBS, (ReversePath, Vec<EsmtpParam>)>,
+named!(_mail_command<CBS, (ReversePath, Vec<Param>)>,
     do_parse!(
         tag_no_case!("MAIL FROM:") >>
         addr: reverse_path >>
@@ -393,7 +393,7 @@ named!(_mail_command<CBS, (ReversePath, Vec<EsmtpParam>)>,
     )
 );
 
-named!(_rcpt_command<CBS, (Path, Vec<EsmtpParam>)>,
+named!(_rcpt_command<CBS, (Path, Vec<Param>)>,
     do_parse!(
         tag_no_case!("RCPT TO:") >>
         addr: alt!(
@@ -411,14 +411,14 @@ named!(_rcpt_command<CBS, (Path, Vec<EsmtpParam>)>,
 /// Returns a tuple with the reverse path and ESMTP parameters.
 /// # Examples
 /// ```
-/// use rustyknife::rfc5321::{mail_command, EsmtpParam};
+/// use rustyknife::rfc5321::{mail_command, Param};
 ///
 /// let (_, (rp, params)) = mail_command(b"MAIL FROM:<bob@example.org> BODY=8BIT\r\n").unwrap();
 ///
 /// assert_eq!(rp.to_string(), "<bob@example.org>");
-/// assert_eq!(params, [EsmtpParam("BODY".into(), Some("8BIT".into()))]);
+/// assert_eq!(params, [Param("BODY".into(), Some("8BIT".into()))]);
 /// ```
-pub fn mail_command(i: &[u8]) -> KResult<&[u8], (ReversePath, Vec<EsmtpParam>)> {
+pub fn mail_command(i: &[u8]) -> KResult<&[u8], (ReversePath, Vec<Param>)> {
     wrap_cbs_result(_mail_command(CBS(i)))
 }
 
@@ -427,14 +427,14 @@ pub fn mail_command(i: &[u8]) -> KResult<&[u8], (ReversePath, Vec<EsmtpParam>)> 
 /// Returns a tuple with the forward path and ESMTP parameters.
 /// # Examples
 /// ```
-/// use rustyknife::rfc5321::{rcpt_command, EsmtpParam};
+/// use rustyknife::rfc5321::{rcpt_command, Param};
 ///
 /// let (_, (p, params)) = rcpt_command(b"RCPT TO:<bob@example.org> NOTIFY=NEVER\r\n").unwrap();
 ///
 /// assert_eq!(p.to_string(), "<bob@example.org>");
-/// assert_eq!(params, [EsmtpParam("NOTIFY".into(), Some("NEVER".into()))]);
+/// assert_eq!(params, [Param("NOTIFY".into(), Some("NEVER".into()))]);
 /// ```
-pub fn rcpt_command(i: &[u8]) -> KResult<&[u8], (Path, Vec<EsmtpParam>)> {
+pub fn rcpt_command(i: &[u8]) -> KResult<&[u8], (Path, Vec<Param>)> {
     wrap_cbs_result(_rcpt_command(CBS(i)))
 }
 
