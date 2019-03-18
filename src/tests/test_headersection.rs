@@ -1,4 +1,4 @@
-use rustyknife::headersection::*;
+use crate::headersection::*;
 
 fn hs(i: &[u8]) -> Vec<HeaderField> {
     let (rem, parsed) = header_section(i).unwrap();

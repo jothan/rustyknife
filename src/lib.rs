@@ -20,3 +20,6 @@ pub mod xforward;
 
 #[cfg(feature = "python")]
 mod pymod;
+
+#[cfg(test)]
+mod tests;

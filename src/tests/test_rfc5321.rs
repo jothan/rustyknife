@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use std::net::{IpAddr, Ipv4Addr};
 
-use rustyknife::rfc5321::*;
+use crate::rfc5321::*;
 
 #[test]
 fn empty_from() {

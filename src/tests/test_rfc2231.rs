@@ -1,4 +1,4 @@
-use rustyknife::rfc2231::*;
+use crate::rfc2231::*;
 
 #[test]
 fn rfc2047() {
