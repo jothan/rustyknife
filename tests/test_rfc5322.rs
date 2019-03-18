@@ -1,4 +1,5 @@
 use rustyknife::rfc5322::*;
+use rustyknife::rfc5321::{LocalPart, DomainPart, Mailbox as SMTPMailbox};
 
 fn parse_single<'a, E, F>(syntax: F, input: &'a [u8]) -> Mailbox
     where F: Fn(&'a [u8]) -> Result<(&'a [u8], Vec<Address>), E>,
