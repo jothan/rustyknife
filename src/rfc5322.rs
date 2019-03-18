@@ -272,7 +272,8 @@ named!(domain_literal<CBS, DomainPart>,
         ({
             let mut out : Vec<u8> = a.iter().flat_map(|(x, y)| x.into_iter().chain(y.0.into_iter())).cloned().collect();
             out.extend_from_slice(&b);
-            DomainPart::AddressLiteral(AddressLiteral::FreeForm(String::from_utf8(out).unwrap()))
+            let literal = AddressLiteral::FreeForm(String::from_utf8(out).unwrap());
+            DomainPart::AddressLiteral(literal.upgrade().unwrap_or(literal))
         })
     )
 );

@@ -84,6 +84,23 @@ pub enum AddressLiteral {
     FreeForm(String),
 }
 
+impl AddressLiteral {
+    /// Try to upgrade a `FreeForm` to the more formal subtypes.
+    pub fn upgrade(&self) -> Result<Self, ()> {
+        if let AddressLiteral::FreeForm(s) = self {
+            let (rem, parsed) = _inner_address_literal(CBS(s.as_bytes())).map_err(|_| ())?;
+
+            if rem.is_empty() {
+                Ok(parsed)
+            } else {
+                Err(())
+            }
+        } else {
+            Err(())
+        }
+    }
+}
+
 impl From<&AddressLiteral> for String {
     fn from(lit: &AddressLiteral) -> String {
         match lit {
@@ -262,14 +279,16 @@ named!(general_address_literal<CBS, AddressLiteral>,
     )
 );
 
-named!(address_literal<CBS, DomainPart>,
+named!(_inner_address_literal<CBS, AddressLiteral>,
+    alt!(_ipv4_literal | _ipv6_literal | general_address_literal)
+);
+
+named!(address_literal<CBS, AddressLiteral>,
     do_parse!(
         tag!("[") >>
-        lit: alt!(
-            _ipv4_literal | _ipv6_literal | general_address_literal
-        ) >>
+        lit: _inner_address_literal >>
         tag!("]") >>
-        (DomainPart::AddressLiteral(lit))
+        (lit)
     )
 );
 
@@ -277,7 +296,7 @@ named!(mailbox<CBS, Mailbox>,
     do_parse!(
         lp: local_part >>
         tag!("@") >>
-        dp: alt!(domain | address_literal) >>
+        dp: alt!(domain | map!(address_literal, DomainPart::AddressLiteral)) >>
         (Mailbox(lp, dp))
     )
 );
