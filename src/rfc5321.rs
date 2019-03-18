@@ -404,15 +404,40 @@ named!(_rcpt_command<CBS, (Path, Vec<EsmtpParam>)>,
     )
 );
 
+/// Parse an SMTP MAIL FROM command.
+///
+/// Returns a tuple with the reverse path and ESMTP parameters.
+/// # Examples
+/// ```
+/// use rustyknife::rfc5321::{mail_command, EsmtpParam};
+///
+/// let (_, (rp, params)) = mail_command(b"MAIL FROM:<bob@example.org> BODY=8BIT").unwrap();
+///
+/// assert_eq!(rp.to_string(), "<bob@example.org>");
+/// assert_eq!(params, [EsmtpParam("BODY".into(), Some("8BIT".into()))]);
+/// ```
 pub fn mail_command(i: &[u8]) -> KResult<&[u8], (ReversePath, Vec<EsmtpParam>)> {
     wrap_cbs_result(_mail_command(CBS(i)))
 }
 
+/// Parse an SMTP RCPT TO command.
+///
+/// Returns a tuple with the forward path and ESMTP parameters.
+/// # Examples
+/// ```
+/// use rustyknife::rfc5321::{rcpt_command, EsmtpParam};
+///
+/// let (_, (p, params)) = rcpt_command(b"RCPT TO:<bob@example.org> NOTIFY=NEVER").unwrap();
+///
+/// assert_eq!(p.to_string(), "<bob@example.org>");
+/// assert_eq!(params, [EsmtpParam("NOTIFY".into(), Some("NEVER".into()))]);
+/// ```
 pub fn rcpt_command(i: &[u8]) -> KResult<&[u8], (Path, Vec<EsmtpParam>)> {
     wrap_cbs_result(_rcpt_command(CBS(i)))
 }
 
 /// Validates an email address.
+///
 /// Does not accept the empty address.
 pub fn validate_address(i: &[u8]) -> bool {
     exact!(CBS(i), mailbox).is_ok()
