@@ -1,5 +1,6 @@
 //! Parser for SMTP syntax.
 
+use std::fmt::{self, Display};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::str::{self, FromStr};
 
@@ -34,11 +35,11 @@ pub enum LocalPart {
     Quoted(String),
 }
 
-impl From<&LocalPart> for String {
-    fn from(lp: &LocalPart) -> String {
-        match lp {
-            LocalPart::Atom(a) => a.clone(),
-            LocalPart::Quoted(q) => quote_localpart(q),
+impl Display for LocalPart {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            LocalPart::Atom(a) => write!(f, "{}", a),
+            LocalPart::Quoted(q) => write!(f, "{}", quote_localpart(q)),
         }
     }
 }
@@ -65,11 +66,11 @@ pub enum DomainPart {
     AddressLiteral(AddressLiteral),
 }
 
-impl From<&DomainPart> for String {
-    fn from(dp: &DomainPart) -> String {
-        match dp {
-            DomainPart::Domain(d) => d.clone(),
-            DomainPart::AddressLiteral(a) => a.into(),
+impl Display for DomainPart {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            DomainPart::Domain(d) => write!(f, "{}", d),
+            DomainPart::AddressLiteral(a) => write!(f, "{}", a),
         }
     }
 }
@@ -101,15 +102,15 @@ impl AddressLiteral {
     }
 }
 
-impl From<&AddressLiteral> for String {
-    fn from(lit: &AddressLiteral) -> String {
-        match lit {
+impl Display for AddressLiteral {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
             AddressLiteral::IpAddr(ip) => match ip {
-                IpAddr::V4(ipv4) => format!("[{}]", ipv4),
-                IpAddr::V6(ipv6) => format!("[IPv6:{}]", ipv6),
+                IpAddr::V4(ipv4) => write!(f, "[{}]", ipv4),
+                IpAddr::V6(ipv6) => write!(f, "[IPv6:{}]", ipv6),
             },
-            AddressLiteral::Tagged(tag, value) => format!("[{}:{}]", tag, value),
-            AddressLiteral::FreeForm(value) => format!("[{}]", value),
+            AddressLiteral::Tagged(tag, value) => write!(f, "[{}:{}]", tag, value),
+            AddressLiteral::FreeForm(value) => write!(f, "[{}]", value),
         }
     }
 }
@@ -117,9 +118,9 @@ impl From<&AddressLiteral> for String {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Mailbox(pub LocalPart, pub DomainPart);
 
-impl From<&Mailbox> for String {
-    fn from(mbox: &Mailbox) -> String {
-        format!("{}@{}", String::from(&mbox.0), String::from(&mbox.1))
+impl Display for Mailbox {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}@{}", self.0, self.1)
     }
 }
 
