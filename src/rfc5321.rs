@@ -22,6 +22,15 @@ pub enum Path {
     PostMaster,
 }
 
+impl Display for Path {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Path::Mailbox(m) => write!(f, "<{}>", m),
+            Path::PostMaster => write!(f, "<postmaster>"),
+        }
+    }
+}
+
 /// Represents a reverse path from the `"MAIL FROM"` command.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ReversePath {
@@ -29,6 +38,15 @@ pub enum ReversePath {
     Mailbox(Mailbox),
     /// MAIL FROM: \<\>
     Null,
+}
+
+impl Display for ReversePath {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ReversePath::Mailbox(m) => write!(f, "<{}>", m),
+            ReversePath::Null => write!(f, "<>"),
+        }
+    }
 }
 
 /// The local part of an address preceding the `"@"` in an email address.
