@@ -7,7 +7,7 @@ use std::mem;
 
 use crate::rfc2047::encoded_word;
 use crate::rfc5234::*;
-pub use crate::rfc5321::{Mailbox as SMTPMailbox, LocalPart, DomainPart, AddressLiteral};
+use crate::rfc5321::{Mailbox as SMTPMailbox, LocalPart, DomainPart, AddressLiteral};
 use crate::util::*;
 
 named!(quoted_pair<CBS, CBS>,
