@@ -441,6 +441,14 @@ pub fn rcpt_command(i: &[u8]) -> KResult<&[u8], (Path, Vec<EsmtpParam>)> {
 /// Validates an email address.
 ///
 /// Does not accept the empty address.
+/// # Examples
+/// ```
+/// use rustyknife::rfc5321::validate_address;
+///
+/// assert!(validate_address(b"bob@example.org"));
+/// assert!(validate_address(b"bob@[aoeu:192.0.2.1]"));
+/// assert!(!validate_address(b""));
+/// ```
 pub fn validate_address(i: &[u8]) -> bool {
     exact!(CBS(i), mailbox).is_ok()
 }
