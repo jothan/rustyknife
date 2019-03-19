@@ -13,22 +13,26 @@ use crate::rfc5322::{atext as atom};
 #[derive(Clone, Debug, PartialEq)]
 pub struct Param(pub String, pub Option<String>);
 
+/// Path with source route.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Path(pub Mailbox, pub Vec<String>);
+
 /// Represents a forward path from the `"RCPT TO"` command.
 #[derive(Clone, Debug, PartialEq)]
-pub enum Path {
+pub enum ForwardPath {
     /// RCPT TO: \<person@example.org\>
-    Mailbox(Mailbox),
-    /// - RCPT TO: \<postmaster\>
-    /// - RCPT TO: \<postmaster@domain.example.org\>
+    Path(Path),
+    /// - `PostMaster(None)` = RCPT TO: \<postmaster\>
+    /// - `PostMaster(Some("domain.example.org"))` = RCPT TO: \<postmaster@domain.example.org\>
     PostMaster(Option<String>),
 }
 
-impl Display for Path {
+impl Display for ForwardPath {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Path::Mailbox(m) => write!(f, "<{}>", m),
-            Path::PostMaster(None) => write!(f, "<postmaster>"),
-            Path::PostMaster(Some(d)) => write!(f, "<postmaster@{}>", d),
+            ForwardPath::Path(p) => write!(f, "<{}>", p.0),
+            ForwardPath::PostMaster(None) => write!(f, "<postmaster>"),
+            ForwardPath::PostMaster(Some(d)) => write!(f, "<postmaster@{}>", d),
         }
     }
 }
@@ -37,7 +41,7 @@ impl Display for Path {
 #[derive(Clone, Debug, PartialEq)]
 pub enum ReversePath {
     /// MAIL FROM: \<person@example.org\>
-    Mailbox(Mailbox),
+    Path(Path),
     /// MAIL FROM: \<\>
     Null,
 }
@@ -45,7 +49,7 @@ pub enum ReversePath {
 impl Display for ReversePath {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ReversePath::Mailbox(m) => write!(f, "<{}>", m),
+            ReversePath::Path(p) => write!(f, "<{}>", p.0),
             ReversePath::Null => write!(f, "<>"),
         }
     }
@@ -250,19 +254,23 @@ named!(domain<CBS, String>,
          |domain| str::from_utf8(domain.0).unwrap().into())
 );
 
-named!(at_domain<CBS, ()>,
+named!(at_domain<CBS, String>,
     do_parse!(
         tag!("@") >>
-        domain >>
-        ()
+        d: domain >>
+        (d)
     )
 );
 
-named!(a_d_l<CBS, ()>,
+named!(a_d_l<CBS, Vec<String>>,
     do_parse!(
-        at_domain >>
-        many0!(do_parse!(tag!(",") >> at_domain >> ())) >>
-        ()
+        f: at_domain >>
+        cont: many0!(do_parse!(tag!(",") >> d: at_domain >> (d))) >>
+        ({
+            let mut cont = cont;
+            cont.insert(0, f);
+            cont
+        })
     )
 );
 
@@ -373,18 +381,18 @@ named!(mailbox<CBS, Mailbox>,
     )
 );
 
-named!(path<CBS, Mailbox>,
+named!(path<CBS, Path>,
     do_parse!(
         tag!("<") >>
-        opt!(do_parse!(a_d_l >> tag!(":") >> ())) >>
+        path: opt!(do_parse!(p: a_d_l >> tag!(":") >> (p))) >>
         m: mailbox >>
         tag!(">") >>
-        (m)
+        (Path(m, path.unwrap_or_default()))
     )
 );
 
 named!(reverse_path<CBS, ReversePath>,
-    alt!(map!(path, ReversePath::Mailbox) |
+    alt!(map!(path, ReversePath::Path) |
          map!(tag!("<>"), |_| ReversePath::Null))
 );
 
@@ -398,13 +406,13 @@ named!(_mail_command<CBS, (ReversePath, Vec<Param>)>,
     )
 );
 
-named!(_rcpt_command<CBS, (Path, Vec<Param>)>,
+named!(_rcpt_command<CBS, (ForwardPath, Vec<Param>)>,
     do_parse!(
         tag_no_case!("RCPT TO:") >>
         addr: alt!(
-            map!(tag_no_case!("<postmaster>"), |_| Path::PostMaster(None)) |
-            do_parse!(tag_no_case!("<postmaster@") >> d: domain >> tag!(">") >> (Path::PostMaster(Some(d.to_string())))) |
-            map!(path, Path::Mailbox)
+            map!(tag_no_case!("<postmaster>"), |_| ForwardPath::PostMaster(None)) |
+            do_parse!(tag_no_case!("<postmaster@") >> d: domain >> tag!(">") >> (ForwardPath::PostMaster(Some(d.to_string())))) |
+            map!(path, ForwardPath::Path)
         ) >>
         params: opt!(do_parse!(tag!(" ") >> p: _esmtp_params >> (p))) >>
         crlf >>
@@ -440,7 +448,7 @@ pub fn mail_command(i: &[u8]) -> KResult<&[u8], (ReversePath, Vec<Param>)> {
 /// assert_eq!(p.to_string(), "<bob@example.org>");
 /// assert_eq!(params, [Param("NOTIFY".into(), Some("NEVER".into()))]);
 /// ```
-pub fn rcpt_command(i: &[u8]) -> KResult<&[u8], (Path, Vec<Param>)> {
+pub fn rcpt_command(i: &[u8]) -> KResult<&[u8], (ForwardPath, Vec<Param>)> {
     wrap_cbs_result(_rcpt_command(CBS(i)))
 }
 
