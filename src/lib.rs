@@ -16,6 +16,7 @@ pub mod rfc2231;
 pub mod rfc5321;
 pub mod rfc5322;
 pub mod rfc3461;
+pub mod types;
 pub mod headersection;
 pub mod xforward;
 

@@ -66,11 +66,26 @@ macro_rules! nom_fromstr {
             }
         }
         impl <'a> std::convert::TryFrom<&'a [u8]> for $type {
-            type Error = nom::Err<CBS<'a>, u32>;
+            type Error = nom::Err<&'a [u8], u32>;
 
             fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-                exact!(CBS(value), $func).map(|(_, r)| r)
+                wrap_cbs_result(exact!(CBS(value), $func)).map(|(_, r)| r)
             }
+        }
+    }
+}
+
+macro_rules! nom_from_smtp {
+    ( $smtp_func:path ) => {
+        pub fn from_smtp(value: &[u8]) -> Result<Self, nom::Err<&[u8], u32>> {
+            wrap_cbs_result(exact!(CBS(value), $smtp_func)).map(|(_, r)| r)
+        }
+    }
+}
+macro_rules! nom_from_imf {
+    ( $imf_func:path ) => {
+        pub fn from_imf(value: &[u8]) -> Result<Self, nom::Err<&[u8], u32>> {
+            wrap_cbs_result(exact!(CBS(value), $imf_func)).map(|(_, r)| r)
         }
     }
 }

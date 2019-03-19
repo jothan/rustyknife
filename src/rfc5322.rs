@@ -7,7 +7,7 @@ use std::mem;
 
 use crate::rfc2047::encoded_word;
 use crate::rfc5234::*;
-use crate::rfc5321::{Mailbox as SMTPMailbox, LocalPart, Domain, DomainPart, AddressLiteral, DotString, QuotedString};
+use crate::types::{self, *};
 use crate::util::*;
 
 named!(quoted_pair<CBS, CBS>,
@@ -49,7 +49,7 @@ named!(fws<CBS, Vec<u8>>,
 );
 
 
-named!(pub ofws<CBS, Vec<u8>>,
+named!(pub(crate) ofws<CBS, Vec<u8>>,
        map!(opt!(fws), |i| i.unwrap_or_default())
 );
 
@@ -135,7 +135,7 @@ named!(_inner_quoted_string<CBS, Vec<QContent>>,
     )
 );
 
-named!(pub quoted_string<CBS, QuotedString>,
+named!(pub(crate) quoted_string<CBS, QuotedString>,
     do_parse!(
         opt!(cfws) >>
         qc: _inner_quoted_string >>
@@ -147,7 +147,7 @@ named!(pub quoted_string<CBS, QuotedString>,
 #[derive(Clone, Debug, PartialEq)]
 pub struct Mailbox {
     pub dname: Option<String>,
-    pub address: SMTPMailbox,
+    pub address: types::Mailbox,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -197,11 +197,11 @@ fn concat_qs<A: Iterator<Item=QContent>>(input: A) -> String {
     out
 }
 
-named!(pub atext<CBS, CBS>,
+named!(pub(crate) atext<CBS, CBS>,
     take_while1!(|c: u8| b"!#$%&'*+-/=?^_`{|}~".contains(&c) || (b'0'..=b'9').contains(&c) || (b'A'..=b'Z').contains(&c) || (b'a'..=b'z').contains(&c))
 );
 
-named!(dot_atom<CBS, CBS>,
+named!(pub(crate) dot_atom<CBS, CBS>,
     do_parse!(
         opt!(cfws) >>
         a: recognize!(pair!(atext, many0!(pair!(tag!("."), atext)))) >>
@@ -210,7 +210,7 @@ named!(dot_atom<CBS, CBS>,
     )
 );
 
-named!(pub atom<CBS, CBS>,
+named!(pub(crate) atom<CBS, CBS>,
     do_parse!(
         opt!(cfws) >>
         a: atext >>
@@ -252,7 +252,7 @@ named!(display_name<CBS, String>,
     map!(many1!(word), |words| _concat_atom_and_qs(words.into_iter().map(Into::into)))
 );
 
-named!(local_part<CBS, LocalPart>,
+named!(pub(crate) local_part<CBS, LocalPart>,
     alt!(map!(dot_atom, |a| DotString(ascii_to_string(a).into()).into()) |
          map!(quoted_string, LocalPart::Quoted))
 );
@@ -261,7 +261,7 @@ named!(dtext<CBS, CBS>,
     take_while1!(|c: u8| (33..=90).contains(&c) || (94..=126).contains(&c))
 );
 
-named!(domain_literal<CBS, DomainPart>,
+named!(pub(crate) domain_literal<CBS, AddressLiteral>,
     do_parse!(
         opt!(cfws) >>
         tag!("[") >>
@@ -273,25 +273,29 @@ named!(domain_literal<CBS, DomainPart>,
             let mut out : Vec<u8> = a.iter().flat_map(|(x, y)| x.into_iter().chain(y.0.into_iter())).cloned().collect();
             out.extend_from_slice(&b);
             let literal = AddressLiteral::FreeForm(String::from_utf8(out).unwrap());
-            DomainPart::Address(literal.upgrade().unwrap_or(literal))
+            literal.upgrade().unwrap_or(literal)
         })
     )
 );
 
-named!(domain<CBS, DomainPart>,
-    alt!(map!(dot_atom, |x| DomainPart::Domain(Domain(ascii_to_string(x).into()))) | domain_literal)
+named!(pub(crate) _domain<CBS, Domain>,
+    map!(dot_atom, |x| Domain(ascii_to_string(x).into()))
 );
 
-named!(addr_spec<CBS, SMTPMailbox>,
+named!(pub(crate) domain<CBS, DomainPart>,
+    alt!(map!(_domain, DomainPart::Domain) | map!(domain_literal, DomainPart::Address))
+);
+
+named!(addr_spec<CBS, types::Mailbox>,
     do_parse!(
         lp: local_part >>
         tag!("@") >>
         domain: domain >>
-        (SMTPMailbox(lp, domain))
+        (types::Mailbox(lp, domain))
     )
 );
 
-named!(angle_addr<CBS, SMTPMailbox>,
+named!(angle_addr<CBS, types::Mailbox>,
     do_parse!(
         opt!(cfws) >>
         tag!("<") >>

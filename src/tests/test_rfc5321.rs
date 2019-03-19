@@ -2,6 +2,11 @@ use std::str::FromStr;
 use std::net::{IpAddr, Ipv4Addr};
 
 use crate::rfc5321::*;
+use crate::types::*;
+
+fn dp<T: Into<String>>(value: T) -> DomainPart {
+    DomainPart::Domain(Domain(value.into()))
+}
 
 #[test]
 fn empty_from() {
@@ -31,7 +36,7 @@ fn invalid_rcpt() {
 #[test]
 fn esmtp_param() {
     let (_, (path, params)) = rcpt_command(b"RCPT TO:<mrbob?@example.org> ORCPT=rfc822;mrbob+AD@example.org\r\n").unwrap();
-    assert_eq!(path, ForwardPath::Path(Path(Mailbox(DotString("mrbob?".into()).into(), "example.org".parse().unwrap()), vec![])));
+    assert_eq!(path, ForwardPath::Path(Path(Mailbox(DotString("mrbob?".into()).into(), dp("example.org")), vec![])));
     assert_eq!(params, [Param("ORCPT".into(), Some("rfc822;mrbob+AD@example.org".into()))]);
 }
 
@@ -49,7 +54,7 @@ fn address_literal_domain() {
 fn esmtp_from() {
     let (_, (path, params)) = mail_command(b"MAIL FROM:<bob@example.com> RET=FULL ENVID=abc123\r\n").unwrap();
     assert_eq!(path, ReversePath::Path(
-        Path(Mailbox(DotString("bob".into()).into(), "example.com".parse().unwrap()),
+        Path(Mailbox(DotString("bob".into()).into(), dp("example.com")),
         vec![])));
     assert_eq!(params, [Param("RET".into(), Some("FULL".into())),
                         Param("ENVID".into(), Some("abc123".into()))]);
@@ -59,7 +64,7 @@ fn esmtp_from() {
 fn quoted_from() {
     let (_, (path, params)) = mail_command(b"MAIL FROM:<\"bob the \\\"great \\\\ powerful\\\"\"@example.com>\r\n").unwrap();
     assert_eq!(path, ReversePath::Path(Path(
-        Mailbox(QuotedString("bob the \"great \\ powerful\"".into()).into(), "example.com".parse().unwrap()),
+        Mailbox(QuotedString("bob the \"great \\ powerful\"".into()).into(), dp("example.com")),
         vec![])));
     assert_eq!(params, []);
 }
@@ -71,7 +76,7 @@ fn postmaster_rcpt() {
     assert_eq!(params, []);
 
     let (_, (path, params)) = rcpt_command(b"RCPT TO:<pOstmaster@Domain.example.org>\r\n").unwrap();
-    assert_eq!(path, ForwardPath::PostMaster(Some("Domain.example.org".parse().unwrap())));
+    assert_eq!(path, ForwardPath::PostMaster(Some(Domain::from_smtp(b"Domain.example.org").unwrap())));
     assert_eq!(params, []);
 }
 
