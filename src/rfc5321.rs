@@ -15,6 +15,8 @@ pub struct Param(pub String, pub Option<String>);
 nom_fromstr!(Param, esmtp_param);
 
 /// Path with source route.
+///
+/// The source route is absent when `self.1.is_empty()`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Path(pub Mailbox, pub Vec<String>);
 nom_fromstr!(Path, path);
@@ -22,10 +24,10 @@ nom_fromstr!(Path, path);
 /// Represents a forward path from the `"RCPT TO"` command.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ForwardPath {
-    /// RCPT TO: \<person@example.org\>
+    /// `"<person@example.org>"`
     Path(Path),
-    /// - `PostMaster(None)` = RCPT TO: \<postmaster\>
-    /// - `PostMaster(Some("domain.example.org"))` = RCPT TO: \<postmaster@domain.example.org\>
+    /// - `PostMaster(None)` = `"<postmaster>"`
+    /// - `PostMaster(Some("domain.example.org"))` = `"<postmaster@domain.example.org>"`
     PostMaster(Option<String>),
 }
 nom_fromstr!(ForwardPath, _forward_path);
@@ -115,11 +117,12 @@ pub enum AddressLiteral {
     /// An IPv4 or IPv6 address literal.
     /// # Examples
     /// ```
+    /// use std::convert::TryFrom;
     /// use std::net::{Ipv4Addr, Ipv6Addr};
     /// use rustyknife::rfc5321::AddressLiteral;
     ///
-    /// let ipv4 : AddressLiteral = "[192.0.2.1]".parse().unwrap();
-    /// let ipv6 : AddressLiteral = "[IPv6:2001:db8::1]".parse().unwrap();
+    /// let ipv4 = AddressLiteral::try_from(b"[192.0.2.1]".as_ref()).unwrap();
+    /// let ipv6 = AddressLiteral::try_from(b"[IPv6:2001:db8::1]".as_ref()).unwrap();
     ///
     /// assert_eq!(ipv4, AddressLiteral::IP("192.0.2.1".parse().unwrap()));
     /// assert_eq!(ipv6, AddressLiteral::IP("2001:db8::1".parse().unwrap()));
@@ -128,9 +131,10 @@ pub enum AddressLiteral {
     /// An address literal in the form tag:value.
     /// # Examples
     /// ```
+    /// use std::convert::TryFrom;
     /// use rustyknife::rfc5321::AddressLiteral;
     ///
-    /// let lit : AddressLiteral = "[x400:cn=bob,dc=example,dc=org]".parse().unwrap();
+    /// let lit = AddressLiteral::try_from(b"[x400:cn=bob,dc=example,dc=org]".as_ref()).unwrap();
     /// assert_eq!(lit, AddressLiteral::Tagged("x400".into(), "cn=bob,dc=example,dc=org".into()));
     /// ```
     Tagged(String, String),
