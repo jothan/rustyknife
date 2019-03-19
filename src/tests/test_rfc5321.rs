@@ -59,7 +59,7 @@ fn esmtp_from() {
 fn quoted_from() {
     let (_, (path, params)) = mail_command(b"MAIL FROM:<\"bob the \\\"great \\\\ powerful\\\"\"@example.com>\r\n").unwrap();
     assert_eq!(path, ReversePath::Path(Path(
-        Mailbox(LocalPart::Quoted("bob the \"great \\ powerful\"".into()), "example.com".parse().unwrap()),
+        Mailbox(QuotedString("bob the \"great \\ powerful\"".into()).into(), "example.com".parse().unwrap()),
         vec![])));
     assert_eq!(params, []);
 }

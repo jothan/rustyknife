@@ -159,7 +159,7 @@ named!(extended_other_values<CBS, Vec<u8>>,
 );
 
 named!(value<CBS, Cow<'_, str>>,
-   alt!(map!(token, |x| ascii_to_string(x)) | map!(quoted_string, Cow::from))
+   alt!(map!(token, |x| ascii_to_string(x)) | map!(quoted_string, |qs| Cow::from(qs.0)))
 );
 
 

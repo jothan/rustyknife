@@ -7,7 +7,7 @@ use std::mem;
 
 use crate::rfc2047::encoded_word;
 use crate::rfc5234::*;
-use crate::rfc5321::{Mailbox as SMTPMailbox, LocalPart, Domain, DomainPart, AddressLiteral};
+use crate::rfc5321::{Mailbox as SMTPMailbox, LocalPart, Domain, DomainPart, AddressLiteral, QuotedString};
 use crate::util::*;
 
 named!(quoted_pair<CBS, CBS>,
@@ -135,12 +135,12 @@ named!(_inner_quoted_string<CBS, Vec<QContent>>,
     )
 );
 
-named!(pub quoted_string<CBS, String>,
+named!(pub quoted_string<CBS, QuotedString>,
     do_parse!(
         opt!(cfws) >>
         qc: _inner_quoted_string >>
         opt!(cfws) >>
-        (concat_qs(qc.into_iter()))
+        (QuotedString(concat_qs(qc.into_iter())))
     )
 );
 
@@ -227,7 +227,7 @@ named!(word<CBS, Text>,
     alt!(
         map!(_padded_encoded_word, Text::Literal) |
         map!(atom, |x| Text::Atom(str::from_utf8(&x).unwrap())) |
-        map!(quoted_string, Text::Literal)
+        map!(quoted_string, |qs| Text::Literal(qs.0))
     )
 );
 

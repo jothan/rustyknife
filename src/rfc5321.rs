@@ -70,32 +70,44 @@ impl Display for ReversePath {
 #[derive(Clone, Debug, PartialEq)]
 pub enum LocalPart {
     Atom(String),
-    Quoted(String),
+    Quoted(QuotedString),
+}
+
+impl From<QuotedString> for LocalPart {
+    fn from(value: QuotedString) -> LocalPart {
+        LocalPart::Quoted(value)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct QuotedString(pub(crate) String);
+string_newtype!(QuotedString);
+
+impl QuotedString {
+    fn quoted(&self) -> String {
+        let mut out = String::with_capacity(self.len());
+
+        for c in self.chars() {
+            match c {
+                '"' | '\\' => {
+                    out.push('\\');
+                    out.push(c);
+                }
+                _ => out.push(c)
+            }
+        }
+
+        out
+    }
 }
 
 impl Display for LocalPart {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             LocalPart::Atom(a) => write!(f, "{}", a),
-            LocalPart::Quoted(q) => write!(f, "{}", quote_localpart(q)),
+            LocalPart::Quoted(q) => write!(f, "{}", q.quoted()),
         }
     }
-}
-
-fn quote_localpart(input: &str) -> String {
-    let mut out = String::with_capacity(input.len());
-
-    for c in input.chars() {
-        match c {
-            '"' | '\\' => {
-                out.push('\\');
-                out.push(c);
-            }
-            _ => out.push(c)
-        }
-    }
-
-    out
 }
 
 /// The domain part of an address following the `"@"` in an email address.
@@ -311,12 +323,12 @@ named!(qcontent_smtp<CBS, char>,
     alt!(qtext_smtp | quoted_pair_smtp)
 );
 
-named!(quoted_string<CBS, String>,
+named!(quoted_string<CBS, QuotedString>,
     do_parse!(
         tag!("\"") >>
         qc: many0!(qcontent_smtp) >>
         tag!("\"") >>
-        (qc.into_iter().collect())
+        (QuotedString(qc.into_iter().collect()))
     )
 );
 
