@@ -89,7 +89,7 @@ named!(comment<CBS, Vec<CommentContent>>,
 );
 
 named!(cfws<CBS, CBS>,
-    alt!(recognize!(pair!(many1!(pair!(opt!(fws), comment)), opt!(fws))) | recognize!(fws))
+    alt!(recognize!(pair!(many1!(pair!(ofws, comment)), ofws)) | recognize!(fws))
 );
 
 named!(qtext<CBS, CBS>,
