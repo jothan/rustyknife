@@ -61,7 +61,11 @@ fn quoted_from() {
 #[test]
 fn postmaster_rcpt() {
     let (_, (path, params)) = rcpt_command(b"RCPT TO:<pOstmaster>\r\n").unwrap();
-    assert_eq!(path, Path::PostMaster);
+    assert_eq!(path, Path::PostMaster(None));
+    assert_eq!(params, []);
+
+    let (_, (path, params)) = rcpt_command(b"RCPT TO:<pOstmaster@Domain.example.org>\r\n").unwrap();
+    assert_eq!(path, Path::PostMaster(Some("Domain.example.org".into())));
     assert_eq!(params, []);
 }
 

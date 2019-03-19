@@ -98,7 +98,8 @@ impl ToPyObject for Path {
     fn to_object(&self, py: Python) -> PyObject {
         match self {
             Path::Mailbox(p) => p.to_string().into_object(py),
-            Path::PostMaster => "postmaster".to_object(py),
+            Path::PostMaster(None) => "postmaster".to_object(py),
+            Path::PostMaster(Some(d)) => format!("postmaster@{}", d).to_object(py),
         }
     }
 }

@@ -18,15 +18,17 @@ pub struct Param(pub String, pub Option<String>);
 pub enum Path {
     /// RCPT TO: \<person@example.org\>
     Mailbox(Mailbox),
-    /// RCPT TO: \<postmaster\>
-    PostMaster,
+    /// - RCPT TO: \<postmaster\>
+    /// - RCPT TO: \<postmaster@domain.example.org\>
+    PostMaster(Option<String>),
 }
 
 impl Display for Path {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Path::Mailbox(m) => write!(f, "<{}>", m),
-            Path::PostMaster => write!(f, "<postmaster>"),
+            Path::PostMaster(None) => write!(f, "<postmaster>"),
+            Path::PostMaster(Some(d)) => write!(f, "<postmaster@{}>", d),
         }
     }
 }
@@ -243,10 +245,9 @@ named!(sub_domain<CBS, CBS>,
     ))
 );
 
-named!(domain<CBS, DomainPart>,
+named!(domain<CBS, String>,
     map!(recognize!(do_parse!(sub_domain >> many0!(do_parse!(tag!(".") >> sub_domain >> ())) >> ())),
-         |domain| DomainPart::Domain(ascii_to_string(domain).into())
-    )
+         |domain| str::from_utf8(domain.0).unwrap().into())
 );
 
 named!(at_domain<CBS, ()>,
@@ -367,7 +368,7 @@ named!(mailbox<CBS, Mailbox>,
     do_parse!(
         lp: local_part >>
         tag!("@") >>
-        dp: alt!(domain | map!(address_literal, DomainPart::Address)) >>
+        dp: alt!(map!(domain, DomainPart::Domain) | map!(address_literal, DomainPart::Address)) >>
         (Mailbox(lp, dp))
     )
 );
@@ -401,7 +402,8 @@ named!(_rcpt_command<CBS, (Path, Vec<Param>)>,
     do_parse!(
         tag_no_case!("RCPT TO:") >>
         addr: alt!(
-            map!(tag_no_case!("<postmaster>"), |_| Path::PostMaster) |
+            map!(tag_no_case!("<postmaster>"), |_| Path::PostMaster(None)) |
+            do_parse!(tag_no_case!("<postmaster@") >> d: domain >> tag!(">") >> (Path::PostMaster(Some(d.to_string())))) |
             map!(path, Path::Mailbox)
         ) >>
         params: opt!(do_parse!(tag!(" ") >> p: _esmtp_params >> (p))) >>
