@@ -14,6 +14,8 @@ use crate::rfc5322::{atext as atom};
 pub struct Param(pub String, pub Option<String>);
 nom_fromstr!(Param, esmtp_param);
 
+#[derive(Clone, PartialEq)]
+pub struct Domain(pub(crate) String);
 string_newtype!(Domain);
 nom_fromstr!(Domain, domain);
 
@@ -83,7 +85,12 @@ impl From<DotString> for LocalPart {
     }
 }
 
+#[derive(Clone, PartialEq)]
+pub struct QuotedString(pub(crate) String);
 string_newtype!(QuotedString);
+
+#[derive(Clone, PartialEq)]
+pub struct DotString(pub(crate) String);
 string_newtype!(DotString);
 
 impl QuotedString {
