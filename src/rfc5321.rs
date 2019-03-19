@@ -12,10 +12,12 @@ use crate::rfc5322::{atext as atom};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Param(pub String, pub Option<String>);
+nom_fromstr!(Param, esmtp_param);
 
 /// Path with source route.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Path(pub Mailbox, pub Vec<String>);
+nom_fromstr!(Path, path);
 
 /// Represents a forward path from the `"RCPT TO"` command.
 #[derive(Clone, Debug, PartialEq)]
@@ -26,6 +28,7 @@ pub enum ForwardPath {
     /// - `PostMaster(Some("domain.example.org"))` = RCPT TO: \<postmaster@domain.example.org\>
     PostMaster(Option<String>),
 }
+nom_fromstr!(ForwardPath, _forward_path);
 
 impl Display for ForwardPath {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -45,6 +48,7 @@ pub enum ReversePath {
     /// MAIL FROM: \<\>
     Null,
 }
+nom_fromstr!(ReversePath, reverse_path);
 
 impl Display for ReversePath {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -161,18 +165,7 @@ impl AddressLiteral {
     }
 }
 
-impl FromStr for AddressLiteral {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (rem, parsed) = address_literal(CBS(s.as_bytes())).map_err(|_| ())?;
-        if rem.is_empty() {
-            Ok(parsed)
-        } else {
-            Err(())
-        }
-    }
-}
+nom_fromstr!(AddressLiteral, address_literal);
 
 impl Display for AddressLiteral {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -193,6 +186,8 @@ impl Display for AddressLiteral {
 /// - `self.1` is the remote/domain part.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Mailbox(pub LocalPart, pub DomainPart);
+
+nom_fromstr!(Mailbox, mailbox);
 
 impl Display for Mailbox {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -406,17 +401,21 @@ named!(_mail_command<CBS, (ReversePath, Vec<Param>)>,
     )
 );
 
+named!(_forward_path<CBS, ForwardPath>,
+    alt!(
+        map!(tag_no_case!("<postmaster>"), |_| ForwardPath::PostMaster(None)) |
+        do_parse!(tag_no_case!("<postmaster@") >> d: domain >> tag!(">") >> (ForwardPath::PostMaster(Some(d.to_string())))) |
+        map!(path, ForwardPath::Path)
+    )
+);
+
 named!(_rcpt_command<CBS, (ForwardPath, Vec<Param>)>,
     do_parse!(
         tag_no_case!("RCPT TO:") >>
-        addr: alt!(
-            map!(tag_no_case!("<postmaster>"), |_| ForwardPath::PostMaster(None)) |
-            do_parse!(tag_no_case!("<postmaster@") >> d: domain >> tag!(">") >> (ForwardPath::PostMaster(Some(d.to_string())))) |
-            map!(path, ForwardPath::Path)
-        ) >>
+        path: _forward_path >>
         params: opt!(do_parse!(tag!(" ") >> p: _esmtp_params >> (p))) >>
         crlf >>
-        (addr, params.unwrap_or_default())
+        (path, params.unwrap_or_default())
     )
 );
 

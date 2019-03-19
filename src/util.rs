@@ -55,3 +55,22 @@ pub fn strip_crlf(i: &[u8]) -> &[u8] {
         i
     }
 }
+
+macro_rules! nom_fromstr {
+    ( $type:ty, $func:ident ) => {
+        impl std::str::FromStr for $type {
+            type Err = ();
+
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                exact!(CBS(s.as_bytes()), $func).map(|(_, r)| r).map_err(|_| ())
+            }
+        }
+        impl <'a> std::convert::TryFrom<&'a [u8]> for $type {
+            type Error = nom::Err<CBS<'a>, u32>;
+
+            fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
+                exact!(CBS(value), $func).map(|(_, r)| r)
+            }
+        }
+    }
+}

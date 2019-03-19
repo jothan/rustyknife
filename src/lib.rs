@@ -8,6 +8,7 @@
 #[macro_use]
 extern crate nom;
 
+#[macro_use]
 mod util;
 mod rfc5234;
 pub mod rfc2047;
