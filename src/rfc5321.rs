@@ -14,11 +14,16 @@ use crate::rfc5322::{atext as atom};
 pub struct Param(pub String, pub Option<String>);
 nom_fromstr!(Param, esmtp_param);
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct Domain(pub(crate) String);
+nom_fromstr!(Domain, domain);
+string_newtype!(Domain);
+
 /// Path with source route.
 ///
 /// The source route is absent when `self.1.is_empty()`.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Path(pub Mailbox, pub Vec<String>);
+pub struct Path(pub Mailbox, pub Vec<Domain>);
 nom_fromstr!(Path, path);
 
 /// Represents a forward path from the `"RCPT TO"` command.
@@ -28,7 +33,7 @@ pub enum ForwardPath {
     Path(Path),
     /// - `PostMaster(None)` = `"<postmaster>"`
     /// - `PostMaster(Some("domain.example.org"))` = `"<postmaster@domain.example.org>"`
-    PostMaster(Option<String>),
+    PostMaster(Option<Domain>),
 }
 nom_fromstr!(ForwardPath, _forward_path);
 
@@ -97,10 +102,11 @@ fn quote_localpart(input: &str) -> String {
 #[derive(Clone, Debug, PartialEq)]
 pub enum DomainPart {
     /// A DNS domain name such as `"example.org"`.
-    Domain(String),
+    Domain(Domain),
     /// A network address literal such as `"[192.0.2.1]"`.
     Address(AddressLiteral),
 }
+nom_fromstr!(DomainPart, _domain_part);
 
 impl Display for DomainPart {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -248,12 +254,12 @@ named!(sub_domain<CBS, CBS>,
     ))
 );
 
-named!(domain<CBS, String>,
+named!(domain<CBS, Domain>,
     map!(recognize!(do_parse!(sub_domain >> many0!(do_parse!(tag!(".") >> sub_domain >> ())) >> ())),
-         |domain| str::from_utf8(domain.0).unwrap().into())
+         |domain| Domain(str::from_utf8(domain.0).unwrap().into()))
 );
 
-named!(at_domain<CBS, String>,
+named!(at_domain<CBS, Domain>,
     do_parse!(
         tag!("@") >>
         d: domain >>
@@ -261,7 +267,7 @@ named!(at_domain<CBS, String>,
     )
 );
 
-named!(a_d_l<CBS, Vec<String>>,
+named!(a_d_l<CBS, Vec<Domain>>,
     do_parse!(
         f: at_domain >>
         cont: many0!(do_parse!(tag!(",") >> d: at_domain >> (d))) >>
@@ -371,11 +377,15 @@ named!(address_literal<CBS, AddressLiteral>,
     )
 );
 
+named!(_domain_part<CBS, DomainPart>,
+    alt!(map!(domain, DomainPart::Domain) | map!(address_literal, DomainPart::Address))
+);
+
 named!(mailbox<CBS, Mailbox>,
     do_parse!(
         lp: local_part >>
         tag!("@") >>
-        dp: alt!(map!(domain, DomainPart::Domain) | map!(address_literal, DomainPart::Address)) >>
+        dp:  _domain_part >>
         (Mailbox(lp, dp))
     )
 );
@@ -408,7 +418,7 @@ named!(_mail_command<CBS, (ReversePath, Vec<Param>)>,
 named!(_forward_path<CBS, ForwardPath>,
     alt!(
         map!(tag_no_case!("<postmaster>"), |_| ForwardPath::PostMaster(None)) |
-        do_parse!(tag_no_case!("<postmaster@") >> d: domain >> tag!(">") >> (ForwardPath::PostMaster(Some(d.to_string())))) |
+        do_parse!(tag_no_case!("<postmaster@") >> d: domain >> tag!(">") >> (ForwardPath::PostMaster(Some(d)))) |
         map!(path, ForwardPath::Path)
     )
 );

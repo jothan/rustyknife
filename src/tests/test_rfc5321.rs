@@ -31,7 +31,7 @@ fn invalid_rcpt() {
 #[test]
 fn esmtp_param() {
     let (_, (path, params)) = rcpt_command(b"RCPT TO:<mrbob?@example.org> ORCPT=rfc822;mrbob+AD@example.org\r\n").unwrap();
-    assert_eq!(path, ForwardPath::Path(Path(Mailbox(LocalPart::Atom("mrbob?".into()), DomainPart::Domain("example.org".into())), vec![])));
+    assert_eq!(path, ForwardPath::Path(Path(Mailbox(LocalPart::Atom("mrbob?".into()), "example.org".parse().unwrap()), vec![])));
     assert_eq!(params, [Param("ORCPT".into(), Some("rfc822;mrbob+AD@example.org".into()))]);
 }
 
@@ -49,7 +49,7 @@ fn address_literal_domain() {
 fn esmtp_from() {
     let (_, (path, params)) = mail_command(b"MAIL FROM:<bob@example.com> RET=FULL ENVID=abc123\r\n").unwrap();
     assert_eq!(path, ReversePath::Path(
-        Path(Mailbox(LocalPart::Atom("bob".into()), DomainPart::Domain("example.com".into())),
+        Path(Mailbox(LocalPart::Atom("bob".into()), "example.com".parse().unwrap()),
         vec![])));
     assert_eq!(params, [Param("RET".into(), Some("FULL".into())),
                         Param("ENVID".into(), Some("abc123".into()))]);
@@ -59,7 +59,7 @@ fn esmtp_from() {
 fn quoted_from() {
     let (_, (path, params)) = mail_command(b"MAIL FROM:<\"bob the \\\"great \\\\ powerful\\\"\"@example.com>\r\n").unwrap();
     assert_eq!(path, ReversePath::Path(Path(
-        Mailbox(LocalPart::Quoted("bob the \"great \\ powerful\"".into()), DomainPart::Domain("example.com".into())),
+        Mailbox(LocalPart::Quoted("bob the \"great \\ powerful\"".into()), "example.com".parse().unwrap()),
         vec![])));
     assert_eq!(params, []);
 }
@@ -71,7 +71,7 @@ fn postmaster_rcpt() {
     assert_eq!(params, []);
 
     let (_, (path, params)) = rcpt_command(b"RCPT TO:<pOstmaster@Domain.example.org>\r\n").unwrap();
-    assert_eq!(path, ForwardPath::PostMaster(Some("Domain.example.org".into())));
+    assert_eq!(path, ForwardPath::PostMaster(Some("Domain.example.org".parse().unwrap())));
     assert_eq!(params, []);
 }
 

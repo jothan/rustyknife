@@ -74,3 +74,24 @@ macro_rules! nom_fromstr {
         }
     }
 }
+
+macro_rules! string_newtype {
+    ( $type:ty ) => {
+        impl std::fmt::Display for $type {
+            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+        impl std::convert::AsRef<[u8]> for $type {
+            fn as_ref(&self) -> &[u8] {
+                self.0.as_bytes()
+            }
+        }
+        impl std::ops::Deref for $type {
+            type Target = str;
+            fn deref(&self) -> &Self::Target {
+                &self.0
+            }
+        }
+    }
+}
