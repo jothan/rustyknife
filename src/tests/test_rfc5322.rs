@@ -1,5 +1,5 @@
 use crate::rfc5322::*;
-use crate::rfc5321::{LocalPart, Mailbox as SMTPMailbox};
+use crate::rfc5321::{DotString, Mailbox as SMTPMailbox};
 
 fn parse_single<'a, E, F>(syntax: F, input: &'a [u8]) -> Mailbox
     where F: Fn(&'a [u8]) -> Result<(&'a [u8], Vec<Address>), E>,
@@ -32,7 +32,7 @@ fn concat_qs() {
 fn simple_from() {
     let parsed = parse_single(from, b"John Doe <jdoe@machine.example>\r\n");
     assert_eq!(parsed.dname, Some("John Doe".into()));
-    assert_eq!(parsed.address, SMTPMailbox(LocalPart::Atom("jdoe".into()), "machine.example".parse().unwrap()))
+    assert_eq!(parsed.address, SMTPMailbox(DotString("jdoe".into()).into(), "machine.example".parse().unwrap()))
 }
 
 #[test]
@@ -41,7 +41,7 @@ fn simple_sender() {
     assert_eq!(rem.len(), 0);
     if let Address::Mailbox(Mailbox{dname, address}) = parsed {
         assert_eq!(dname, Some("Michael Jones".into()));
-        assert_eq!(address, SMTPMailbox(LocalPart::Atom("mjones".into()), "machine.example".parse().unwrap()))
+        assert_eq!(address, SMTPMailbox(DotString("mjones".into()).into(), "machine.example".parse().unwrap()))
     } else {
         unreachable!();
     }
@@ -51,7 +51,7 @@ fn simple_sender() {
 fn simple_reply_to() {
     let parsed = parse_single(reply_to, b"\"Mary Smith: Personal Account\" <smith@home.example>\r\n");
     assert_eq!(parsed.dname, Some("Mary Smith: Personal Account".into()));
-    assert_eq!(parsed.address, SMTPMailbox(LocalPart::Atom("smith".into()), "home.example".parse().unwrap()))
+    assert_eq!(parsed.address, SMTPMailbox(DotString("smith".into()).into(), "home.example".parse().unwrap()))
 }
 
 #[test]
@@ -62,11 +62,11 @@ fn group_reply_to() {
         dname: "A Group".into(),
         members: vec![
             Mailbox { dname: Some("Chris Jones".into()),
-                      address: SMTPMailbox(LocalPart::Atom("c".into()), "public.example".parse().unwrap())},
+                      address: SMTPMailbox(DotString("c".into()).into(), "public.example".parse().unwrap())},
             Mailbox { dname: None,
-                      address: SMTPMailbox(LocalPart::Atom("joe".into()), "example.org".parse().unwrap())},
+                      address: SMTPMailbox(DotString("joe".into()).into(), "example.org".parse().unwrap())},
             Mailbox { dname: Some("John".into()),
-                      address: SMTPMailbox(LocalPart::Atom("jdoe".into()), "one.test".parse().unwrap())},
+                      address: SMTPMailbox(DotString("jdoe".into()).into(), "one.test".parse().unwrap())},
         ]
     })]);
 }
@@ -77,11 +77,11 @@ fn multi_reply_to() {
     assert_eq!(rem.len(), 0);
     assert_eq!(parsed, [
         Address::Mailbox(Mailbox { dname: Some("Mary Smith".into()),
-                                   address: SMTPMailbox(LocalPart::Atom("mary".into()), "x.test".parse().unwrap())}),
+                                   address: SMTPMailbox(DotString("mary".into()).into(), "x.test".parse().unwrap())}),
         Address::Mailbox(Mailbox { dname: None,
-                                   address: SMTPMailbox(LocalPart::Atom("jdoe".into()), "example.org".parse().unwrap())}),
+                                   address: SMTPMailbox(DotString("jdoe".into()).into(), "example.org".parse().unwrap())}),
         Address::Mailbox(Mailbox { dname: Some("Who?".into()),
-                                   address: SMTPMailbox(LocalPart::Atom("one".into()), "y.test".parse().unwrap())}),
+                                   address: SMTPMailbox(DotString("one".into()).into(), "y.test".parse().unwrap())}),
     ]);
 }
 
@@ -89,7 +89,7 @@ fn multi_reply_to() {
 fn folded_qs() {
     let parsed = parse_single(reply_to, b"\"Mary\r\n Smith\"\r\n <mary@\r\n x.test(comment)>\r\n");
     assert_eq!(parsed.dname, Some("Mary Smith".into()));
-    assert_eq!(parsed.address, SMTPMailbox(LocalPart::Atom("mary".into()), "x.test".parse().unwrap()));
+    assert_eq!(parsed.address, SMTPMailbox(DotString("mary".into()).into(), "x.test".parse().unwrap()));
 }
 
 #[test]

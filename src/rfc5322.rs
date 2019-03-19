@@ -7,7 +7,7 @@ use std::mem;
 
 use crate::rfc2047::encoded_word;
 use crate::rfc5234::*;
-use crate::rfc5321::{Mailbox as SMTPMailbox, LocalPart, Domain, DomainPart, AddressLiteral, QuotedString};
+use crate::rfc5321::{Mailbox as SMTPMailbox, LocalPart, Domain, DomainPart, AddressLiteral, DotString, QuotedString};
 use crate::util::*;
 
 named!(quoted_pair<CBS, CBS>,
@@ -253,7 +253,7 @@ named!(display_name<CBS, String>,
 );
 
 named!(local_part<CBS, LocalPart>,
-    alt!(map!(dot_atom, |a| LocalPart::Atom(ascii_to_string(a).into())) |
+    alt!(map!(dot_atom, |a| DotString(ascii_to_string(a).into()).into()) |
          map!(quoted_string, LocalPart::Quoted))
 );
 

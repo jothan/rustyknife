@@ -14,10 +14,8 @@ use crate::rfc5322::{atext as atom};
 pub struct Param(pub String, pub Option<String>);
 nom_fromstr!(Param, esmtp_param);
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct Domain(pub(crate) String);
-nom_fromstr!(Domain, domain);
 string_newtype!(Domain);
+nom_fromstr!(Domain, domain);
 
 /// Path with source route.
 ///
@@ -69,7 +67,7 @@ impl Display for ReversePath {
 /// The local part of an address preceding the `"@"` in an email address.
 #[derive(Clone, Debug, PartialEq)]
 pub enum LocalPart {
-    Atom(String),
+    DotString(DotString),
     Quoted(QuotedString),
 }
 
@@ -79,9 +77,14 @@ impl From<QuotedString> for LocalPart {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct QuotedString(pub(crate) String);
+impl From<DotString> for LocalPart {
+    fn from(value: DotString) -> LocalPart {
+        LocalPart::DotString(value)
+    }
+}
+
 string_newtype!(QuotedString);
+string_newtype!(DotString);
 
 impl QuotedString {
     fn quoted(&self) -> String {
@@ -104,7 +107,7 @@ impl QuotedString {
 impl Display for LocalPart {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            LocalPart::Atom(a) => write!(f, "{}", a),
+            LocalPart::DotString(a) => write!(f, "{}", a),
             LocalPart::Quoted(q) => write!(f, "{}", q.quoted()),
         }
     }
@@ -333,7 +336,7 @@ named!(quoted_string<CBS, QuotedString>,
 );
 
 named!(local_part<CBS, LocalPart>,
-    alt!(map!(dot_string, |s| LocalPart::Atom(ascii_to_string(s).into())) |
+    alt!(map!(dot_string, |s| DotString(ascii_to_string(s).into()).into()) |
          map!(quoted_string, LocalPart::Quoted))
 );
 
