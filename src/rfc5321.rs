@@ -86,7 +86,7 @@ fn quote_localpart(input: &str) -> String {
 pub enum DomainPart {
     /// A DNS domain name such as `"example.org"`.
     Domain(String),
-    /// An address literal.
+    /// A network address literal such as `"[192.0.2.1]"`.
     Address(AddressLiteral),
 }
 
@@ -181,6 +181,10 @@ impl Display for AddressLiteral {
     }
 }
 
+/// A valid SMTP address.
+///
+/// - `self.0` is the local part.
+/// - `self.1` is the remote/domain part.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Mailbox(pub LocalPart, pub DomainPart);
 
