@@ -75,7 +75,7 @@ intopyobject!(ESMTPParam);
 impl ToPyObject for ESMTPParam {
     fn to_object(&self, py: Python) -> PyObject {
         PyTuple::new(py, &[self.0.to_object(py),
-                           self.1.to_object(py)]).into_object(py)
+                           self.1.as_ref().map(|v| &v.0).to_object(py)]).into_object(py)
     }
 }
 

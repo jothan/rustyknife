@@ -12,8 +12,18 @@ use crate::types::*;
 use crate::util::*;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Param(pub String, pub Option<String>);
+pub struct Param(pub Keyword, pub Option<Value>);
 nom_fromstr!(Param, esmtp_param);
+
+#[derive(Clone, PartialEq)]
+pub struct Keyword(pub(crate) String);
+string_newtype!(Keyword);
+nom_fromstr!(Keyword, esmtp_keyword);
+
+#[derive(Clone, PartialEq)]
+pub struct Value(pub(crate) String);
+string_newtype!(Value);
+nom_fromstr!(Value, esmtp_value);
 
 /// Path with source route.
 ///
@@ -67,20 +77,20 @@ named!(_alphanum<CBS, CBS>,
     verify!(take!(1), |x: CBS| is_alphanumeric(x.0[0]))
 );
 
-named!(esmtp_keyword<CBS, &'_ str>,
-    map!(recognize!(do_parse!(_alphanum >> many0!(_alphanum) >> ())), |x| std::str::from_utf8(&x).unwrap())
+named!(esmtp_keyword<CBS, Keyword>,
+    map!(recognize!(do_parse!(_alphanum >> many0!(_alphanum) >> ())), |x| Keyword(std::str::from_utf8(&x).unwrap().into()))
 );
 
-named!(esmtp_value<CBS, &'_ str>,
+named!(esmtp_value<CBS, Value>,
     map!(take_while1!(|c| (33..=60).contains(&c) || (62..=126).contains(&c)),
-         |x| std::str::from_utf8(&x).unwrap())
+         |x| Value(std::str::from_utf8(&x).unwrap().into()))
 );
 
 named!(esmtp_param<CBS, Param>,
     do_parse!(
         name: esmtp_keyword >>
         value: opt!(do_parse!(tag!("=") >>  v: esmtp_value >> (v))) >>
-        (Param(name.into(), value.map(|v| v.into())))
+        (Param(name, value))
     )
 );
 

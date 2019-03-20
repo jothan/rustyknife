@@ -108,6 +108,11 @@ macro_rules! string_newtype {
                 &self.0
             }
         }
+        impl From<$type> for String {
+            fn from(value: $type) -> String {
+                value.0
+            }
+        }
 
         impl std::fmt::Debug for $type {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
