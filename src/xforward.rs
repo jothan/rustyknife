@@ -1,4 +1,6 @@
-//! Postfix XFORWARD SMTP extension
+//! Postfix [XFORWARD] SMTP extension parser.
+//!
+//! [XFORWARD]: http://www.postfix.org/XFORWARD_README.html
 
 use nom::*;
 
@@ -6,6 +8,9 @@ use crate::rfc5234::wsp;
 use crate::rfc3461::xtext;
 use crate::util::*;
 
+/// XFORWARD parameter name and value.
+///
+/// `"[UNAVAILABLE]"` is represented with a value of `None`.
 pub struct Param(pub &'static str, pub Option<String>);
 
 
@@ -54,6 +59,14 @@ named!(params<CBS, Vec<Param>>,
     )
 );
 
+/// Parse a XFORWARD b`"attr1=value attr2=value"` string.
+///
+/// Returns a vector of [`Param`].
+///
+/// The parameter names must be valid and are normalized to
+/// lowercase. The values are xtext decoded and a value of
+/// `[UNAVAILABLE]` is translated to `None`. No other validation is
+/// done.
 pub fn xforward_params(i: &[u8]) -> KResult<&[u8], Vec<Param>> {
     wrap_cbs_result(params(CBS(i)))
 }
