@@ -4,6 +4,7 @@
 
 #![warn(rust_2018_idioms)]
 #![allow(elided_lifetimes_in_paths)]
+#![warn(missing_docs)]
 
 #[macro_use]
 extern crate nom;
