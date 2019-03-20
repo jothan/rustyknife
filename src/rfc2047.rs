@@ -66,6 +66,20 @@ fn decode_charset((charset, bytes): (Cow<'_, str>, Vec<u8>)) -> String
     encoding_from_whatwg_label(&charset).unwrap_or(ASCII).decode(&bytes, DecoderTrap::Replace).unwrap()
 }
 
-named!(pub encoded_word<CBS, String>,
+named!(pub(crate) _internal_encoded_word<CBS, String>,
     map!(_encoded_word, decode_charset)
 );
+
+
+/// Decode an encoded word.
+///
+/// # Examples
+/// ```
+/// use rustyknife::rfc2047::encoded_word;
+///
+/// let (_, decoded) = encoded_word(b"=?x-sjis?B?lEWWQI7Kg4GM9ZTygs6CtSiPzik=?=").unwrap();
+/// assert_eq!(decoded, "忍法写メ光飛ばし(笑)");
+/// ```
+pub fn encoded_word(i: &[u8]) -> KResult<&[u8], String> {
+    wrap_cbs_result(_internal_encoded_word(CBS(i)))
+}

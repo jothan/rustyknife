@@ -8,7 +8,7 @@
 use std::str;
 use std::mem;
 
-use crate::rfc2047::encoded_word;
+use crate::rfc2047::{_internal_encoded_word as encoded_word};
 use crate::rfc5234::*;
 use crate::types::{self, *};
 use crate::util::*;
