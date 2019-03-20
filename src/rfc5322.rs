@@ -253,7 +253,7 @@ named!(display_name<CBS, String>,
 );
 
 named!(pub(crate) local_part<CBS, LocalPart>,
-    alt!(map!(dot_atom, |a| DotString(ascii_to_string(a).into()).into()) |
+    alt!(map!(dot_atom, |a| DotAtom(ascii_to_string(a).into()).into()) |
          map!(quoted_string, LocalPart::Quoted))
 );
 

@@ -36,7 +36,7 @@ fn invalid_rcpt() {
 #[test]
 fn esmtp_param() {
     let (_, (path, params)) = rcpt_command(b"RCPT TO:<mrbob?@example.org> ORCPT=rfc822;mrbob+AD@example.org\r\n").unwrap();
-    assert_eq!(path, ForwardPath::Path(Path(Mailbox(DotString("mrbob?".into()).into(), dp("example.org")), vec![])));
+    assert_eq!(path, ForwardPath::Path(Path(Mailbox(DotAtom("mrbob?".into()).into(), dp("example.org")), vec![])));
     assert_eq!(params, [Param::new("ORCPT", Some("rfc822;mrbob+AD@example.org")).unwrap()]);
 }
 
@@ -44,7 +44,7 @@ fn esmtp_param() {
 fn address_literal_domain() {
     let (_, (path, params)) = rcpt_command(b"RCPT TO:<bob@[127.0.0.1]>\r\n").unwrap();
     assert_eq!(path, ForwardPath::Path(
-        Path(Mailbox(DotString("bob".into()).into(),
+        Path(Mailbox(DotAtom("bob".into()).into(),
                      DomainPart::Address(AddressLiteral::IP(IpAddr::V4(Ipv4Addr::from_str("127.0.0.1").unwrap())))),
              vec![])));
     assert_eq!(params, []);
@@ -54,7 +54,7 @@ fn address_literal_domain() {
 fn esmtp_from() {
     let (_, (path, params)) = mail_command(b"MAIL FROM:<bob@example.com> RET=FULL ENVID=abc123\r\n").unwrap();
     assert_eq!(path, ReversePath::Path(
-        Path(Mailbox(DotString("bob".into()).into(), dp("example.com")),
+        Path(Mailbox(DotAtom("bob".into()).into(), dp("example.com")),
         vec![])));
     assert_eq!(params, [Param::new("RET", Some("FULL")).unwrap(),
                         Param::new("ENVID", Some("abc123")).unwrap()]);
