@@ -1,5 +1,6 @@
 //! Parser for SMTP syntax.
 
+use std::convert::TryFrom;
 use std::fmt::{self, Display};
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::{self, FromStr};
@@ -11,15 +12,49 @@ use crate::rfc5322::{atext as atom};
 use crate::types::*;
 use crate::util::*;
 
+/// ESMTP parameter.
+///
+/// Represents an ESMTP parameter.
+/// # Examples
+/// ```
+/// use std::convert::TryFrom;
+/// use rustyknife::rfc5321::Param;
+///
+/// // Parse a flag that may be present on a MAIL command.
+/// assert_eq!(Param::try_from(b"BODY=8BIT".as_ref()).unwrap(),
+///            Param::new("BODY", Some("8BIT")).unwrap());
+///
+/// // Parse a flag that may be present on an EXPN command.
+/// assert_eq!(Param::try_from(b"SMTPUTF8".as_ref()).unwrap(),
+///            Param::new("SMTPUTF8", None).unwrap());
+/// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct Param(pub Keyword, pub Option<Value>);
 nom_fromstr!(Param, esmtp_param);
 
+impl Param {
+    pub fn new<T: AsRef<[u8]>>(keyword: T, value: Option<T>) -> Result<Self, ()> {
+        let value = match value {
+            Some(v) => Some(Value::try_from(v.as_ref()).map_err(|_| ())?),
+            None => None,
+        };
+        Ok(Param(Keyword::try_from(keyword.as_ref()).map_err(|_| ())?, value))
+    }
+}
+
+/// ESMTP parameter keyword.
+///
+/// Used as the left side in an ESMTP parameter.  For example, it
+/// represents the "BODY" string in a parameter "BODY=8BIT".
 #[derive(Clone, PartialEq)]
 pub struct Keyword(pub(crate) String);
 string_newtype!(Keyword);
 nom_fromstr!(Keyword, esmtp_keyword);
 
+/// ESMTP parameter value.
+///
+/// Used as the right side in an ESMTP parameter.  For example, it
+/// represents the "8BIT" string in a parameter "BODY=8BIT".
 #[derive(Clone, PartialEq)]
 pub struct Value(pub(crate) String);
 string_newtype!(Value);
@@ -310,7 +345,7 @@ named!(_rcpt_command<CBS, (ForwardPath, Vec<Param>)>,
 /// let (_, (rp, params)) = mail_command(b"MAIL FROM:<bob@example.org> BODY=8BIT\r\n").unwrap();
 ///
 /// assert_eq!(rp.to_string(), "<bob@example.org>");
-/// assert_eq!(params, [Param("BODY".into(), Some("8BIT".into()))]);
+/// assert_eq!(params, [Param::new("BODY", Some("8BIT")).unwrap()]);
 /// ```
 pub fn mail_command(i: &[u8]) -> KResult<&[u8], (ReversePath, Vec<Param>)> {
     wrap_cbs_result(_mail_command(CBS(i)))
@@ -326,7 +361,7 @@ pub fn mail_command(i: &[u8]) -> KResult<&[u8], (ReversePath, Vec<Param>)> {
 /// let (_, (p, params)) = rcpt_command(b"RCPT TO:<bob@example.org> NOTIFY=NEVER\r\n").unwrap();
 ///
 /// assert_eq!(p.to_string(), "<bob@example.org>");
-/// assert_eq!(params, [Param("NOTIFY".into(), Some("NEVER".into()))]);
+/// assert_eq!(params, [Param::new("NOTIFY", Some("NEVER")).unwrap()]);
 /// ```
 pub fn rcpt_command(i: &[u8]) -> KResult<&[u8], (ForwardPath, Vec<Param>)> {
     wrap_cbs_result(_rcpt_command(CBS(i)))

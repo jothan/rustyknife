@@ -37,7 +37,7 @@ fn invalid_rcpt() {
 fn esmtp_param() {
     let (_, (path, params)) = rcpt_command(b"RCPT TO:<mrbob?@example.org> ORCPT=rfc822;mrbob+AD@example.org\r\n").unwrap();
     assert_eq!(path, ForwardPath::Path(Path(Mailbox(DotString("mrbob?".into()).into(), dp("example.org")), vec![])));
-    assert_eq!(params, [Param("ORCPT".into(), Some("rfc822;mrbob+AD@example.org".into()))]);
+    assert_eq!(params, [Param::new("ORCPT", Some("rfc822;mrbob+AD@example.org")).unwrap()]);
 }
 
 #[test]
@@ -56,8 +56,8 @@ fn esmtp_from() {
     assert_eq!(path, ReversePath::Path(
         Path(Mailbox(DotString("bob".into()).into(), dp("example.com")),
         vec![])));
-    assert_eq!(params, [Param("RET".into(), Some("FULL".into())),
-                        Param("ENVID".into(), Some("abc123".into()))]);
+    assert_eq!(params, [Param::new("RET", Some("FULL")).unwrap(),
+                        Param::new("ENVID", Some("abc123")).unwrap()]);
 }
 
 #[test]
