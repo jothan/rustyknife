@@ -265,7 +265,7 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     /// content_disposition(input, all=False)
     #[pyfn(m, "content_disposition", input, all=false)]
     fn py_content_disposition(input: &PyBytes, all: bool) -> PyResult<(String, Vec<(String, String)>)> {
-        convert_result(content_disposition(&fix_bare_cr(input.as_bytes())), all)
+        convert_result(content_disposition(&fix_bare_cr(input.as_bytes())), all).map(|(cd, params)| (cd.to_string().to_lowercase(), params))
     }
 
     /// content_transfer_encoding(input, all=False)
@@ -282,7 +282,7 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     ///
     #[pyfn(m, "content_transfer_encoding", input, all=false)]
     fn py_content_transfer_encoding(input: &PyBytes, all: bool) -> PyResult<String> {
-        convert_result(content_transfer_encoding(&fix_bare_cr(input.as_bytes())), all).map(std::borrow::Cow::into_owned)
+        convert_result(content_transfer_encoding(&fix_bare_cr(input.as_bytes())), all).map(|cte| cte.to_string().to_lowercase())
     }
 
     Ok(())
