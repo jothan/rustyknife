@@ -281,8 +281,12 @@ named!(_x_token<CBS, &'_ str>,
 
 #[derive(Debug, PartialEq)]
 pub enum ContentDisposition {
+    /// "inline"
     Inline,
+    /// "attachment"
     Attachment,
+    /// Value prefixed with "X-". The prefix is not stored in the
+    /// string.
     Extended(String),
 }
 
@@ -316,11 +320,18 @@ named!(_content_disposition<CBS, (ContentDisposition, Vec<(String, String)>)>,
 
 #[derive(Debug, PartialEq)]
 pub enum ContentTransferEncoding {
+    /// "7bit"
     SevenBit,
+    /// "8bit"
     EightBit,
+    /// "binary"
     Binary,
+    /// "base64"
     Base64,
+    /// "quoted-printable"
     QuotedPrintable,
+    /// Value prefixed with "X-". The prefix is not stored in the
+    /// string.
     Extended(String),
 }
 

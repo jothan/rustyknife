@@ -1,6 +1,9 @@
-//! Parsers for Internet Message Format messages.
+//! Parsers for [Internet Message Format] messages.
 //!
-//! Comments are ignored. RFC2047 decoding is applied where appropriate.
+//! Comments are ignored. [RFC2047] decoding is applied where appropriate.
+//!
+//! [Internet Message Format]: https://tools.ietf.org/html/rfc5322
+//! [RFC2047]: https://tools.ietf.org/html/rfc2047
 
 use std::str;
 use std::mem;
@@ -144,21 +147,30 @@ named!(pub(crate) quoted_string<CBS, QuotedString>,
     )
 );
 
+/// A single mailbox with an optional display name.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Mailbox {
+    /// The display name.
     pub dname: Option<String>,
+    /// The address of this mailbox.
     pub address: types::Mailbox,
 }
 
+/// A group of many [`Mailbox`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct Group {
+    /// This group's display name.
     pub dname: String,
+    /// The members of this group. May be empty.
     pub members: Vec<Mailbox>,
 }
 
+/// An address is either a single [`Mailbox`] or a [`Group`].
 #[derive(Clone, Debug, PartialEq)]
 pub enum Address {
+    /// Single [`Mailbox`].
     Mailbox(Mailbox),
+    /// [`Group`] of many [`Mailbox`].
     Group(Group),
 }
 

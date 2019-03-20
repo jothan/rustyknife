@@ -10,10 +10,10 @@ use crate::rfc5322::ofws;
 
 /// Used to represent a split header.
 ///
-/// - The Ok variant is used when a valid header with a name was
+/// - The [`Ok`] variant is used when a valid header with a name was
 /// found. This variant contains a tuple with the header name and
 /// value.
-/// - The Err variant is returned when the the first line of a header
+/// - The [`Err`] variant is returned when the the first line of a header
 /// does not contain a colon or contains 8bit bytes on the left hand
 /// side of the colon.
 pub type HeaderField<'a> = Result<(&'a[u8], &'a[u8]), &'a[u8]>;
