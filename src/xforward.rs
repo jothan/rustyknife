@@ -1,4 +1,4 @@
-//! Postfix [XFORWARD] SMTP extension parser.
+//! Postfix [XFORWARD] SMTP extension parser
 //!
 //! [XFORWARD]: http://www.postfix.org/XFORWARD_README.html
 

@@ -1,9 +1,9 @@
 //! Parsers for [Internet Message Format] messages.
 //!
-//! Comments are ignored. [RFC2047] decoding is applied where appropriate.
+//! Comments are ignored. [RFC 2047] decoding is applied where appropriate.
 //!
 //! [Internet Message Format]: https://tools.ietf.org/html/rfc5322
-//! [RFC2047]: https://tools.ietf.org/html/rfc2047
+//! [RFC 2047]: https://tools.ietf.org/html/rfc2047
 
 use std::str;
 use std::mem;
@@ -425,19 +425,33 @@ named!(_unstructured<CBS, String>,
     )
 );
 
-// Updated from RFC6854
+/// Parse the content of a `"From:"` header.
+///
+/// Returns a list of addresses, since [RFC 6854] allows multiple mail
+/// authors.
+///
+/// [RFC 6854]: https://tools.ietf.org/html/rfc6854
 pub fn from(i: &[u8]) -> KResult<&[u8], Vec<Address>> {
     wrap_cbs_result(address_list_crlf(CBS(i)))
 }
 
+/// Parse the content of a `"Sender:"` header.
+///
+/// Returns a single address.
 pub fn sender(i: &[u8]) -> KResult<&[u8], Address> {
     wrap_cbs_result(address_crlf(CBS(i)))
 }
 
+/// Parse the content of a `"Reply-To:"` header.
+///
+/// Returns a list of addresses.
 pub fn reply_to(i: &[u8]) -> KResult<&[u8], Vec<Address>> {
     wrap_cbs_result(address_list_crlf(CBS(i)))
 }
 
+/// Parse an unstructured header such as `"Subject:"`.
+///
+/// Returns a fully decoded string.
 pub fn unstructured(i: &[u8]) -> KResult<&[u8], String> {
     wrap_cbs_result(_unstructured(CBS(i)))
 }

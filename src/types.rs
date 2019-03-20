@@ -1,4 +1,4 @@
-//! Types shared by SMTP and Internet Message Format.
+//! Types shared by SMTP and Internet Message Format
 //!
 //! IMF allows comments and folding spaces in many places but is very
 //! close to the SMTP syntax.
@@ -89,9 +89,9 @@ impl QuotedString {
 /// An atom is a string that may not contain spaces or some special
 /// characters such as `':'`.
 ///
-/// See [RFC5322] for the full syntax.
+/// See [RFC 5322] for the full syntax.
 ///
-/// [RFC5322]: https://tools.ietf.org/html/rfc5322#section-3.2.3
+/// [RFC 5322]: https://tools.ietf.org/html/rfc5322#section-3.2.3
 #[derive(Clone, PartialEq)]
 pub struct DotAtom(pub(crate) String);
 string_newtype!(DotAtom);

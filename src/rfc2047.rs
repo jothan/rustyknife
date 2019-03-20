@@ -1,4 +1,7 @@
-//! Header extensions for non-ASCII text
+//! [Header extensions for non-ASCII text]
+//!
+//! [Header extensions for non-ASCII text]: https://tools.ietf.org/html/rfc2047
+
 
 use std::borrow::Cow;
 

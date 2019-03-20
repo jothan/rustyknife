@@ -1,4 +1,4 @@
-//! Robust parser for extracting a header section from a mail message.
+//! Robust parser for extracting a header section from a mail message
 //!
 //! Headers must be separated by CRLF. Loosely based on RFC5322 but
 //! tolerates bytes above 127. The header section is considered to be

@@ -1,4 +1,6 @@
-//! SMTP DSN (delivery status notification) extension.
+//! [SMTP DSN] (delivery status notification) extension
+//!
+//! [SMTP DSN]: https://tools.ietf.org/html/rfc3461
 
 use std::borrow::Cow;
 use std::str;
@@ -62,11 +64,11 @@ pub enum DSNRet {
 pub struct DSNMailParams {
     /// A mail transaction identifier provided by the sender.
     ///
-    /// None if not specified.
+    /// `None` if not specified.
     pub envid: Option<String>,
     /// The DSN return type desired by the sender.
     ///
-    /// None if not specified.
+    /// `None` if not specified.
     pub ret: Option<DSNRet>,
 }
 

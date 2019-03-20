@@ -1,4 +1,6 @@
-//! Parser for SMTP syntax.
+//! Parsers for [SMTP] command syntax
+//!
+//! [SMTP]: https://tools.ietf.org/html/rfc5321
 
 use std::convert::TryFrom;
 use std::fmt::{self, Display};

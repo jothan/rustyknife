@@ -1,6 +1,9 @@
-//! Encoded MIME parameters
+//! [Encoded MIME parameters]
 //!
 //! Implements RFC 2045 syntax extended with RFC 2231
+//!
+//! [Encoded MIME parameters]: https://tools.ietf.org/html/rfc2231
+
 
 use std::borrow::Cow;
 use std::fmt::{self, Display};
@@ -279,6 +282,7 @@ named!(_x_token<CBS, &'_ str>,
     )
 );
 
+/// Value from a MIME `"Content-Disposition:"` header.
 #[derive(Debug, PartialEq)]
 pub enum ContentDisposition {
     /// "inline"
@@ -318,6 +322,7 @@ named!(_content_disposition<CBS, (ContentDisposition, Vec<(String, String)>)>,
     )
 );
 
+/// Value from a MIME `"Content-Transfer-Encoding:"` header.
 #[derive(Debug, PartialEq)]
 pub enum ContentTransferEncoding {
     /// "7bit"
