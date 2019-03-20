@@ -8,15 +8,15 @@ use crate::util::*;
 use crate::rfc5234::*;
 use crate::rfc5322::ofws;
 
-#[derive(Debug, PartialEq)]
-pub enum HeaderField<'a> {
-    /// Header name and value of a valid header.
-    Valid(&'a[u8], &'a[u8]),
-
-    /// Header part that does not contain a colon or contains 8bit
-    /// bytes on the left hand side of the colon.
-    Invalid(&'a[u8])
-}
+/// Used to represent a split header.
+///
+/// - The Ok variant is used when a valid header with a name was
+/// found. This variant contains a tuple with the header name and
+/// value.
+/// - The Err variant is returned when the the first line of a header
+/// does not contain a colon or contains 8bit bytes on the left hand
+/// side of the colon.
+pub type HeaderField<'a> = Result<(&'a[u8], &'a[u8]), &'a[u8]>;
 
 named!(field_name<CBS, CBS>,
        take_while1!(|c: u8| (33..=57).contains(&c) || (59..=126).contains(&c))
@@ -35,7 +35,7 @@ named!(optional_field<CBS, HeaderField>,
         tag!(":") >>
         value: unstructured >>
         crlf >>
-        (HeaderField::Valid(name.0, value.0))
+        (Ok((name.0, value.0)))
     )
 );
 
@@ -44,7 +44,7 @@ named!(invalid_field<CBS, HeaderField>,
     do_parse!(
         i: take_until1!("\r\n") >>
         crlf >>
-        (HeaderField::Invalid(i.0))
+        (Err(i.0))
     )
 );
 
@@ -56,6 +56,10 @@ named!(fields<CBS, Vec<HeaderField>>,
     )
 );
 
+/// Zero copy mail message header splitter.
+///
+/// Returns the remaining input (the message body) and a vector of
+/// [HeaderField] on success.
 pub fn header_section(i: &[u8]) -> KResult<&[u8], Vec<HeaderField>> {
     wrap_cbs_result(fields(CBS(i)))
 }

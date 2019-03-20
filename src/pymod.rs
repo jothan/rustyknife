@@ -5,7 +5,7 @@ use crate::rfc2231::{content_type, content_disposition, content_transfer_encodin
 use crate::rfc3461::{orcpt_address, dsn_mail_params, DSNMailParams, DSNRet};
 use crate::rfc5321::{Param as ESMTPParam, mail_command, rcpt_command, validate_address, ForwardPath, ReversePath};
 use crate::rfc5322::{Address, Mailbox, Group, from, sender, reply_to, unstructured};
-use crate::headersection::{HeaderField, header_section};
+use crate::headersection::{header_section};
 use crate::xforward::{Param as XFORWARDParam, xforward_params};
 use crate::util::{KResult, string_to_ascii};
 
@@ -43,23 +43,6 @@ impl ToPyObject for Group {
 impl ToPyObject for Mailbox {
     fn to_object(&self, py: Python) -> PyObject {
         PyTuple::new(py, &[self.dname.to_object(py), self.address.to_string().into_object(py)]).into_object(py)
-    }
-}
-
-impl<'a> IntoPyObject for HeaderField<'a> {
-    fn into_object(self, py: Python) -> PyObject {
-        self.to_object(py)
-    }
-}
-
-impl<'a> ToPyObject for HeaderField<'a> {
-    fn to_object(&self, py: Python) -> PyObject {
-        match self {
-            HeaderField::Valid(name, value) => PyTuple::new(py, &[PyBytes::new(py, name).into_object(py),
-                                                                  PyBytes::new(py, value).into_object(py)]).into_object(py),
-            HeaderField::Invalid(value) => PyTuple::new(py, &[py.None(),
-                                                              PyBytes::new(py, value).into_object(py)]).into_object(py),
-        }
     }
 }
 
@@ -128,10 +111,18 @@ fn convert_result<O, E: Debug> (input: KResult<&[u8], O, E>, match_all: bool) ->
 }
 
 fn header_section_slice(py: Python, input: &[u8]) -> PyResult<PyObject> {
-    let res = header_section(input)
-        .map(|(rem, out)| (rem, (out, input.len().checked_sub(rem.len()).unwrap()).into_object(py)));
+    let (rem, out) = header_section(input)
+        .map_err(|err| PyErr::new::<exc::ValueError, _>(format!("{:?}.", err)))?;
 
-    convert_result(res, false)
+    let header_end = input.len().checked_sub(rem.len()).unwrap();
+    let headers : Vec<_> = out.into_iter().map(|h| {
+        match h {
+            Ok((name, value)) => (PyBytes::new(py, name), PyBytes::new(py, value)).into_object(py),
+            Err(invalid) => (py.None(), PyBytes::new(py, invalid)).into_object(py),
+        }
+    }).collect();
+
+    Ok((headers, header_end).into_object(py))
 }
 
 fn fix_bare_cr(input: &[u8]) -> Vec<u8> {
