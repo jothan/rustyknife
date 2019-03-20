@@ -3,6 +3,7 @@
 //! Implements RFC 2045 syntax extended with RFC 2231
 
 use std::borrow::Cow;
+use std::fmt::{self, Display};
 use std::str;
 use std::collections::HashMap;
 
@@ -271,22 +272,39 @@ named!(_content_type<CBS, (String, Vec<(String, String)>)>,
 
 
 named!(_x_token<CBS, &'_ str>,
-    map!(recognize!(do_parse!(
+    do_parse!(
         tag_no_case!("x-") >>
-        token >>
-        ()
-    )), |x| str::from_utf8(&x).unwrap())
-);
-
-named!(_disposition<CBS, String>,
-    alt!(
-        map!(tag_no_case!("inline"), |_| String::from("inline")) |
-        map!(tag_no_case!("attachment"), |_| String::from("attachment")) |
-        map!(_x_token, |x| x.to_lowercase())
+        token: token >>
+        (str::from_utf8(&token).unwrap())
     )
 );
 
-named!(_content_disposition<CBS, (String, Vec<(String, String)>)>,
+#[derive(Debug, PartialEq)]
+pub enum ContentDisposition {
+    Inline,
+    Attachment,
+    Extended(String),
+}
+
+impl Display for ContentDisposition {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ContentDisposition::Inline => write!(f, "inline"),
+            ContentDisposition::Attachment => write!(f, "attachment"),
+            ContentDisposition::Extended(s) => write!(f, "x-{}", s),
+        }
+    }
+}
+
+named!(_disposition<CBS, ContentDisposition>,
+    alt!(
+        map!(tag_no_case!("inline"), |_| ContentDisposition::Inline) |
+        map!(tag_no_case!("attachment"), |_| ContentDisposition::Attachment) |
+        map!(_x_token, |x| ContentDisposition::Extended(x.into()))
+    )
+);
+
+named!(_content_disposition<CBS, (ContentDisposition, Vec<(String, String)>)>,
     do_parse!(
         ofws >>
         disp: _disposition >>
@@ -296,16 +314,41 @@ named!(_content_disposition<CBS, (String, Vec<(String, String)>)>,
     )
 );
 
-named!(_content_transfer_encoding<CBS, Cow<'_, str>>,
+#[derive(Debug, PartialEq)]
+pub enum ContentTransferEncoding {
+    SevenBit,
+    EightBit,
+    Binary,
+    Base64,
+    QuotedPrintable,
+    Extended(String),
+}
+
+impl Display for ContentTransferEncoding {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            CTE::SevenBit => write!(f, "7bit"),
+            CTE::EightBit => write!(f, "8bit"),
+            CTE::Binary => write!(f, "binary"),
+            CTE::Base64 => write!(f, "base64"),
+            CTE::QuotedPrintable => write!(f, "quoted-printable"),
+            CTE::Extended(s) => write!(f, "x-{}", s),
+        }
+    }
+}
+
+use self::ContentTransferEncoding as CTE;
+
+named!(_content_transfer_encoding<CBS, ContentTransferEncoding>,
     do_parse!(
         ofws >>
         cte: alt!(
-            map!(tag_no_case!("7bit"), |_| Cow::from("7bit")) |
-            map!(tag_no_case!("8bit"), |_| Cow::from("8bit")) |
-            map!(tag_no_case!("binary"), |_| Cow::from("binary")) |
-            map!(tag_no_case!("base64"), |_| Cow::from("base64")) |
-            map!(tag_no_case!("quoted-printable"), |_| Cow::from("quoted-printable")) |
-            map!(_x_token, |x| Cow::from(x.to_lowercase()))
+            map!(tag_no_case!("7bit"), |_| CTE::SevenBit) |
+            map!(tag_no_case!("8bit"), |_| CTE::EightBit) |
+            map!(tag_no_case!("binary"), |_| CTE::Binary) |
+            map!(tag_no_case!("base64"), |_| CTE::Base64) |
+            map!(tag_no_case!("quoted-printable"), |_| CTE::QuotedPrintable) |
+            map!(_x_token, |x| CTE::Extended(x.into()))
         ) >>
         ofws >>
         (cte)
@@ -316,11 +359,11 @@ pub fn content_type(i: &[u8]) -> KResult<&[u8], (String, Vec<(String, String)>)>
     wrap_cbs_result(_content_type(CBS(i)))
 }
 
-pub fn content_disposition(i: &[u8]) -> KResult<&[u8], (String, Vec<(String, String)>)> {
+pub fn content_disposition(i: &[u8]) -> KResult<&[u8], (ContentDisposition, Vec<(String, String)>)> {
     wrap_cbs_result(_content_disposition(CBS(i)))
 }
 
-pub fn content_transfer_encoding<'a>(i: &'a [u8]) -> KResult<&'a[u8], Cow<'a, str>> {
+pub fn content_transfer_encoding<'a>(i: &'a [u8]) -> KResult<&'a[u8], CTE> {
     // Strip CRLF manually, needed because of the bad interaction of
     // FWS with an optional CRLF.
     wrap_cbs_result(_content_transfer_encoding(CBS(strip_crlf(i))))

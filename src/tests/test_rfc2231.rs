@@ -1,4 +1,6 @@
 use crate::rfc2231::*;
+use crate::rfc2231::{ContentTransferEncoding as CTE, ContentDisposition as CD};
+
 
 #[test]
 fn rfc2047() {
@@ -39,7 +41,7 @@ fn attmsg1() {
 fn attmsg2() {
     let (rem, (disp, params)) = content_disposition(b" attachment;\r\n filename*0*=windows-1252''%5B%54%68%65%20%4C%69%73%74%73%65%72%76%65%5D%20;\r\n filename*1*=%48%61%76%65%20%79%6F%75%20%65%76%65%72%20%73%65%65%6E%20%73;\r\n filename*2*=%6F%6D%65%74%68%69%6E%67%20%79%6F%75%20%63%6F%75%6C%64%6E%92;\r\n filename*3*=%74%20%65%78%70%6C%61%69%6E%3F%2E%65%6D%6C").unwrap();
     assert_eq!(rem.len(), 0);
-    assert_eq!(disp, "attachment");
+    assert_eq!(disp, CD::Attachment);
     assert_eq!(params, [("filename".into(), "[The Listserve] Have you ever seen something you couldn’t explain?.eml".into())]);
 }
 
@@ -55,7 +57,7 @@ fn attmsg3() {
 fn attmsg4() {
     let (rem, (disp, params)) = content_disposition(b"attachment;\r\n filename*0*=windows-1252''%5B%64%65%63%6F%75%70%65%20%43%4E%43%5D%20%52%65;\r\n filename*1*=%3A%20%48%5F%53%5F%20%65%6E%76%6F%79%65%72%20%64%65%20%AB%20;\r\n filename*2*=%67%72%6F%73%20%BB%20%66%69%63%68%69%65%72%73%2E%65%6D%6C").unwrap();
     assert_eq!(rem.len(), 0);
-    assert_eq!(disp, "attachment");
+    assert_eq!(disp, CD::Attachment);
     assert_eq!(params, [("filename".into(), "[decoupe CNC] Re: H_S_ envoyer de « gros » fichiers.eml".into())]);
 }
 
@@ -92,7 +94,7 @@ fn cd_mixed() {
     for input in CASES.iter() {
         let (rem, (disp, params)) = content_disposition(input).unwrap();
         assert_eq!(rem.len(), 0);
-        assert_eq!(disp, std::str::from_utf8(*input).unwrap());
+        assert_eq!(disp.to_string(), std::str::from_utf8(*input).unwrap());
         assert_eq!(params, []);
     }
 }
@@ -103,12 +105,12 @@ fn cte_base64() {
     for input in CASES.iter() {
         let (rem, parsed) = content_transfer_encoding(input).unwrap();
         assert_eq!(rem.len(), 0);
-        assert_eq!(parsed, "base64");
+        assert_eq!(parsed, CTE::Base64);
     }
 
     let (rem, parsed) = content_transfer_encoding(b" base64 aoeu").unwrap();
     assert_eq!(rem.len(), 4);
-    assert_eq!(parsed, "base64");
+    assert_eq!(parsed, CTE::Base64);
 }
 
 #[test]
@@ -117,7 +119,7 @@ fn cte_mixed() {
     for input in CASES.iter() {
         let (rem, parsed) = content_transfer_encoding(input).unwrap();
         assert_eq!(rem.len(), 0);
-        assert_eq!(parsed, std::str::from_utf8(*input).unwrap());
+        assert_eq!(parsed.to_string(), std::str::from_utf8(*input).unwrap());
     }
 }
 
@@ -143,18 +145,18 @@ macro_rules! green_tc {
     )
 }
 
-green_tc!(attfnboth, b"attachment; filename=\"foo-ae.html\"; filename*=UTF-8''foo-%c3%a4.html;", "attachment", "foo-ä.html");
-green_tc!(attfnboth2, b"attachment; filename*=UTF-8''foo-%c3%a4.html; filename=\"foo-ae.html\"", "attachment", "foo-ä.html");
-green_tc!(attfnboth3, b"attachment; filename*0*=ISO-8859-15''euro-sign%3d%a4; filename*=ISO-8859-1''currency-sign%3d%a4", "attachment", "euro-sign=€");
-green_tc!(attfncontenc, b"attachment; filename*0*=UTF-8''foo-%c3%a4; filename*1=\".html\"","attachment", "foo-ä.html");
-green_tc!(attfncontord, b"attachment; filename*1=\"bar\"; filename*0=\"foo\"", "attachment", "foobar");
-green_tc!(attwithasciifnescapedchar, b"inline; filename=\"f\\oo.html\"", "inline", "foo.html");
-green_tc!(attwithfn2231abspathdisguised, b"attachment; filename*=UTF-8''%5cfoo.html", "attachment", "\\foo.html");
-green_tc!(attwithfn2231utf8, b"attachment; filename*=UTF-8''foo-%c3%a4-%e2%82%ac.html", "attachment", "foo-ä-€.html");
-green_tc!(attwithfntokensq, b"attachment; filename='foo.bar'", "attachment", "'foo.bar'");
-green_tc!(attwithisofnplain, b"attachment; filename=\"foo-\xe4.html\"", "attachment", "foo-\u{fffd}.html");
-green_tc!(attwithquotedsemicolon, b"attachment; filename=\"Here's a semicolon;.html\"", "attachment", "Here's a semicolon;.html");
-green_tc!(inlwithasciifilename, b"inline; filename=\"foo.html\"", "inline", "foo.html");
+green_tc!(attfnboth, b"attachment; filename=\"foo-ae.html\"; filename*=UTF-8''foo-%c3%a4.html;", CD::Attachment, "foo-ä.html");
+green_tc!(attfnboth2, b"attachment; filename*=UTF-8''foo-%c3%a4.html; filename=\"foo-ae.html\"", CD::Attachment, "foo-ä.html");
+green_tc!(attfnboth3, b"attachment; filename*0*=ISO-8859-15''euro-sign%3d%a4; filename*=ISO-8859-1''currency-sign%3d%a4", CD::Attachment, "euro-sign=€");
+green_tc!(attfncontenc, b"attachment; filename*0*=UTF-8''foo-%c3%a4; filename*1=\".html\"", CD::Attachment, "foo-ä.html");
+green_tc!(attfncontord, b"attachment; filename*1=\"bar\"; filename*0=\"foo\"", CD::Attachment, "foobar");
+green_tc!(attwithasciifnescapedchar, b"inline; filename=\"f\\oo.html\"", CD::Inline, "foo.html");
+green_tc!(attwithfn2231abspathdisguised, b"attachment; filename*=UTF-8''%5cfoo.html",CD::Attachment, "\\foo.html");
+green_tc!(attwithfn2231utf8, b"attachment; filename*=UTF-8''foo-%c3%a4-%e2%82%ac.html", CD::Attachment, "foo-ä-€.html");
+green_tc!(attwithfntokensq, b"attachment; filename='foo.bar'", CD::Attachment, "'foo.bar'");
+green_tc!(attwithisofnplain, b"attachment; filename=\"foo-\xe4.html\"", CD::Attachment, "foo-\u{fffd}.html");
+green_tc!(attwithquotedsemicolon, b"attachment; filename=\"Here's a semicolon;.html\"", CD::Attachment, "Here's a semicolon;.html");
+green_tc!(inlwithasciifilename, b"inline; filename=\"foo.html\"", CD::Inline, "foo.html");
 
 #[test]
 #[should_panic]
