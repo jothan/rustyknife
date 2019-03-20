@@ -35,6 +35,7 @@ pub struct Param(pub Keyword, pub Option<Value>);
 nom_fromstr!(Param, esmtp_param);
 
 impl Param {
+    /// Build a new parameter from string values with syntax checking.
     pub fn new<T: AsRef<[u8]>>(keyword: T, value: Option<T>) -> Result<Self, ()> {
         let value = match value {
             Some(v) => Some(Value::try_from(v.as_ref()).map_err(|_| ())?),

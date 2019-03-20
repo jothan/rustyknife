@@ -1,8 +1,10 @@
 //! Robust parser for extracting a header section from a mail message
 //!
-//! Headers must be separated by CRLF. Loosely based on RFC5322 but
+//! Headers must be separated by CRLF. Loosely based on [RFC 5322] but
 //! tolerates bytes above 127. The header section is considered to be
 //! everything above a double CRLF.
+//!
+//! [RFC 5322]: https://tools.ietf.org/html/rfc5322
 
 use crate::util::*;
 use crate::rfc5234::*;
@@ -56,7 +58,7 @@ named!(fields<CBS, Vec<HeaderField>>,
     )
 );
 
-/// Zero copy mail message header splitter.
+/// Zero copy mail message header splitter
 ///
 /// Returns the remaining input (the message body) and a vector of
 /// [HeaderField] on success.

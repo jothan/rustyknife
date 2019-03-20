@@ -1,8 +1,9 @@
 //! [Encoded MIME parameters]
 //!
-//! Implements RFC 2045 syntax extended with RFC 2231
+//! Implements [RFC 2045] syntax extended with RFC 2231
 //!
 //! [Encoded MIME parameters]: https://tools.ietf.org/html/rfc2231
+//! [RFC 2045]: https://tools.ietf.org/html/rfc2045
 
 
 use std::borrow::Cow;
@@ -282,7 +283,7 @@ named!(_x_token<CBS, &'_ str>,
     )
 );
 
-/// Value from a MIME `"Content-Disposition:"` header.
+/// Value from a MIME `"Content-Disposition"` header.
 #[derive(Debug, PartialEq)]
 pub enum ContentDisposition {
     /// "inline"
@@ -322,7 +323,7 @@ named!(_content_disposition<CBS, (ContentDisposition, Vec<(String, String)>)>,
     )
 );
 
-/// Value from a MIME `"Content-Transfer-Encoding:"` header.
+/// Value from a MIME `"Content-Transfer-Encoding"` header.
 #[derive(Debug, PartialEq)]
 pub enum ContentTransferEncoding {
     /// "7bit"
@@ -371,14 +372,23 @@ named!(_content_transfer_encoding<CBS, ContentTransferEncoding>,
     )
 );
 
+/// Parse a MIME `"Content-Type"` header.
+///
+/// Returns a tuple of the MIME type and parameters.
 pub fn content_type(i: &[u8]) -> KResult<&[u8], (String, Vec<(String, String)>)> {
     wrap_cbs_result(_content_type(CBS(i)))
 }
 
+/// Parse a MIME `"Content-Disposition"` header.
+///
+/// Returns a tuple of [`ContentDisposition`] and parameters.
 pub fn content_disposition(i: &[u8]) -> KResult<&[u8], (ContentDisposition, Vec<(String, String)>)> {
     wrap_cbs_result(_content_disposition(CBS(i)))
 }
 
+/// Parse a MIME `"Content-Transfer-Encoding"` header.
+///
+/// Returns a [`ContentTransferEncoding`].
 pub fn content_transfer_encoding<'a>(i: &'a [u8]) -> KResult<&'a[u8], CTE> {
     // Strip CRLF manually, needed because of the bad interaction of
     // FWS with an optional CRLF.
