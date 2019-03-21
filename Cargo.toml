@@ -10,6 +10,10 @@ license = "GPL-3.0+"
 readme = "README.md"
 categories = ["email", "parsing", "network-programming", "encoding"]
 
+[badges]
+travis-ci = { repository = "zerospam/rustyknife" }
+codecov = { repository = "zerospam/rustyknife", service = "github" }
+
 [features]
 default = ["quoted-string-rfc2047", "python"]
 quoted-string-rfc2047 = []
