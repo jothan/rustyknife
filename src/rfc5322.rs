@@ -213,12 +213,12 @@ named!(pub(crate) atext<CBS, CBS>,
     take_while1!(|c: u8| b"!#$%&'*+-/=?^_`{|}~".contains(&c) || (b'0'..=b'9').contains(&c) || (b'A'..=b'Z').contains(&c) || (b'a'..=b'z').contains(&c))
 );
 
-named!(pub(crate) dot_atom<CBS, CBS>,
+named!(pub(crate) dot_atom<CBS, DotAtom>,
     do_parse!(
         opt!(cfws) >>
         a: recognize!(pair!(atext, many0!(pair!(tag!("."), atext)))) >>
         opt!(cfws) >>
-        (a)
+        (DotAtom(str::from_utf8(a.0).unwrap().into()))
     )
 );
 
@@ -265,7 +265,7 @@ named!(display_name<CBS, String>,
 );
 
 named!(pub(crate) local_part<CBS, LocalPart>,
-    alt!(map!(dot_atom, |a| DotAtom(ascii_to_string(a).into()).into()) |
+    alt!(map!(dot_atom, |a| a.into()) |
          map!(quoted_string, LocalPart::Quoted))
 );
 
@@ -291,14 +291,14 @@ named!(pub(crate) domain_literal<CBS, AddressLiteral>,
 );
 
 named!(pub(crate) _domain<CBS, Domain>,
-    map!(dot_atom, |x| Domain(ascii_to_string(x).into()))
+    map!(dot_atom, |a| Domain(a.0))
 );
 
 named!(pub(crate) domain<CBS, DomainPart>,
     alt!(map!(_domain, DomainPart::Domain) | map!(domain_literal, DomainPart::Address))
 );
 
-named!(addr_spec<CBS, types::Mailbox>,
+named!(pub(crate) addr_spec<CBS, types::Mailbox>,
     do_parse!(
         lp: local_part >>
         tag!("@") >>

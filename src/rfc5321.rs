@@ -184,12 +184,12 @@ named!(a_d_l<CBS, Vec<Domain>>,
     )
 );
 
-named!(dot_string<CBS, CBS>,
-    recognize!(do_parse!(
+named!(pub(crate) dot_string<CBS, DotAtom>,
+    map!(recognize!(do_parse!(
         atom >>
         many0!(do_parse!(tag!(".") >> atom >> ())) >>
         ()
-    ))
+    )), |a| DotAtom(str::from_utf8(a.0).unwrap().into()))
 );
 
 #[inline]
@@ -226,7 +226,7 @@ named!(pub(crate) quoted_string<CBS, QuotedString>,
 );
 
 named!(pub(crate) local_part<CBS, LocalPart>,
-    alt!(map!(dot_string, |s| DotAtom(ascii_to_string(s).into()).into()) |
+    alt!(map!(dot_string, |s| s.into()) |
          map!(quoted_string, LocalPart::Quoted))
 );
 
@@ -286,7 +286,7 @@ named!(pub(crate) _domain_part<CBS, DomainPart>,
     alt!(map!(domain, DomainPart::Domain) | map!(address_literal, DomainPart::Address))
 );
 
-named!(mailbox<CBS, Mailbox>,
+named!(pub(crate) mailbox<CBS, Mailbox>,
     do_parse!(
         lp: local_part >>
         tag!("@") >>

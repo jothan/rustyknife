@@ -96,6 +96,11 @@ impl QuotedString {
 pub struct DotAtom(pub(crate) String);
 string_newtype!(DotAtom);
 
+impl DotAtom {
+    nom_from_smtp!(smtp::dot_string);
+    nom_from_imf!(imf::dot_atom);
+}
+
 impl Display for LocalPart {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -221,6 +226,11 @@ impl Display for AddressLiteral {
 /// - `self.1` is the remote/domain part.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Mailbox(pub LocalPart, pub DomainPart);
+
+impl Mailbox {
+    nom_from_smtp!(smtp::mailbox);
+    nom_from_imf!(imf::addr_spec);
+}
 
 impl Display for Mailbox {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
