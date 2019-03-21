@@ -1,6 +1,7 @@
 language: rust
 dist: xenial
 cache: cargo
+sudo: required
 
 rust:
   - nightly
@@ -11,6 +12,18 @@ env:
     - FEATURES="--features nom-verbose-errors"
     - FEATURES="--no-default-features"
     - FEATURES="--no-default-features --features quoted-string-rfc2047"
+
+addons:
+  apt:
+    packages:
+      # For codecov
+      - libcurl4-openssl-dev
+      - libelf-dev
+      - libdw-dev
+      - cmake
+      - gcc
+      - binutils-dev
+      - libiberty-dev
 
 cache:
   directories:
