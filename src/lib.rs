@@ -1,6 +1,19 @@
-//! Pick apart evil emails with a rusty knife.
+//! Email parsing library with a focus on reliably handling malformed data
 //!
-//! Collection of nom parsers for email with a Python interface.
+//! Features:
+//! * Python interface
+//! * Email header parsing
+//! * ESMTP command parsing
+//! * Unit testing with a high coverage
+//! * Supports internationalized email headers through [RFC 2047] and [RFC 2231] decoding
+//! * Used to parse the content of millions of emails every day
+//!
+//! Roadmap:
+//! * [SMTPUTF8] support
+//! * [UTF-8 Internationalized Email Headers] support
+//! * Decoding of all common ESMTP extensions
+//! * Support more email content syntax
+//!
 //! # Examples
 //! ## Email header decoding
 //! ```
@@ -27,7 +40,7 @@
 //!        ]
 //!    })]);
 //! ```
-//! ## SMTP command parsing
+//! ## ESMTP command parsing
 //! ```
 //! use rustyknife::types::{Mailbox, QuotedString, Domain};
 //! use rustyknife::rfc5321::{mail_command, Path, ReversePath, Param};
@@ -48,7 +61,10 @@
 //! assert_eq!(decoded, "忍法写メ光飛ばし(笑)");
 //!
 //! ```
-
+//! [RFC 2047]: https://tools.ietf.org/html/rfc2047
+//! [RFC 2231]: https://tools.ietf.org/html/rfc2231
+//! [SMTPUTF8]: https://tools.ietf.org/html/rfc6531
+//! [UTF-8 Internationalized Email Headers]: https://tools.ietf.org/html/rfc6532
 
 #![warn(rust_2018_idioms)]
 #![allow(elided_lifetimes_in_paths)]
