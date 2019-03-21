@@ -1,0 +1,28 @@
+language: rust
+dist: xenial
+cache: cargo
+
+rust:
+  - stable
+  - nightly
+
+env:
+  matrix:
+    - FEATURES="--features nom-verbose-errors"
+    - FEATURES="--no-default-features"
+    - FEATURES="--no-default-features --features quoted-string-rfc2047"
+
+matrix:
+  include:
+    - rust: stable
+      env: FEATURES='--default-features quoted-string-rfc2047'
+    - rust: nightly
+      env: FEATURES=''
+
+cache:
+  directories:
+    - /home/travis/.cargo
+
+script:
+  - eval cargo build --verbose $FEATURES
+  - eval cargo test --verbose $FEATURES
