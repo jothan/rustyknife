@@ -1,4 +1,10 @@
+# rustyknife
+
 Email parsing library with a focus on reliably handling malformed data
+
+[![crates.io](http://meritbadge.herokuapp.com/rustyknife)](https://crates.io/crates/rustyknife)
+[![Build Status](https://travis-ci.com/zerospam/rustyknife.svg?branch=master)](https://travis-ci.com/zerospam/rustyknife)
+[![codecov](https://codecov.io/gh/zerospam/rustyknife/branch/master/graph/badge.svg)](https://codecov.io/gh/zerospam/rustyknife)
 
 Features:
 * Python interface
