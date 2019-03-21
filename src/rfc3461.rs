@@ -144,5 +144,5 @@ pub fn dsn_mail_params<'a>(input: &[Param<'a>]) -> Result<(DSNMailParams, Vec<Pa
 /// ```
 pub fn orcpt_address(input: &[u8]) -> KResult<&[u8], (String, String)>
 {
-    wrap_cbs_result(_original_recipient_address(CBS(input))).map(|(rem, (tp, addr))| (rem, (tp.into(), addr.into())))
+    wrap_cbs_result(_original_recipient_address(CBS(input))).map(|(rem, (tp, addr))| (rem, (tp.into(), addr)))
 }

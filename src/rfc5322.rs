@@ -282,7 +282,7 @@ named!(pub(crate) domain_literal<CBS, AddressLiteral>,
         tag!("]") >>
         opt!(cfws) >>
         ({
-            let mut out : Vec<u8> = a.iter().flat_map(|(x, y)| x.into_iter().chain(y.0.into_iter())).cloned().collect();
+            let mut out : Vec<u8> = a.iter().flat_map(|(x, y)| x.iter().chain(y.0.iter())).cloned().collect();
             out.extend_from_slice(&b);
             let literal = AddressLiteral::FreeForm(String::from_utf8(out).unwrap());
             literal.upgrade().unwrap_or(literal)
@@ -419,7 +419,7 @@ named!(_unstructured<CBS, String>,
         )) >>
         b: many0!(wsp) >>
         ({
-            let iter =  a.into_iter().flat_map(|x| x.into_iter()).chain(std::iter::once(Text::Literal(ascii_to_string_vec(b))));
+            let iter =  a.into_iter().flat_map(IntoIterator::into_iter).chain(std::iter::once(Text::Literal(ascii_to_string_vec(b))));
             _concat_atom_and_qs(iter)
         })
     )

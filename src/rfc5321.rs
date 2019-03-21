@@ -205,8 +205,7 @@ named!(quoted_pair_smtp<CBS, char>,
     do_parse!(
         tag!("\\") >>
         c: map!(verify!(take!(1), |x: CBS| {
-            let c = &x.0[0];
-            (32..=126).contains(c)
+            (32..=126).contains(&x.0[0])
         }), |x| x.0[0]) >>
         (c as char)
     )
