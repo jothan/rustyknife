@@ -13,7 +13,7 @@ fn rfc2047() {
 
 
 #[test]
-#[ignore]
+#[should_panic]
 // I am not sure if this should be supported
 fn header_lf() {
     let (rem, (mtype, params)) = content_type(b"application/pdf; name=\n\t\"=?Windows-1252?Q?Fiche_d=92information_relative_=E0_la_garantie_facultati?=\n =?Windows-1252?Q?ve.pdf?=\"\n").unwrap();

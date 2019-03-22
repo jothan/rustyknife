@@ -1,19 +1,19 @@
-extern crate rustyknife;
-
 use std::env;
 use std::os::unix::ffi::OsStrExt;
 
 use rustyknife::rfc5321::command;
 
 fn main() -> Result<(), String> {
-    // Interpret each separate argument as a line.
-    let mut s : Vec<u8> = Vec::new();
-    for x in env::args_os().skip(1) {
-        s.extend(x.as_os_str().as_bytes().iter()); s.extend(b"\r\n");
-    };
-    println!("input: {:?}\n", String::from_utf8_lossy(&s));
+    // Interpret each separate argument as a line ending in CRLF.
+    let input : Vec<u8> = env::args_os().skip(1).fold(Vec::new(), |mut acc, x| {
+        acc.extend(x.as_bytes());
+        acc.extend(b"\r\n");
+        acc
+    });
 
-    let mut rem : &[u8] = &s;
+    println!("input: {:?}\n", String::from_utf8_lossy(&input));
+
+    let mut rem : &[u8] = &input;
     while !rem.is_empty() {
         let (res, parsed) = command(rem).map_err(|e| e.to_string())?;
 
