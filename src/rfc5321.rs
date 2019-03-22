@@ -397,6 +397,43 @@ named!(_vrfy_command<CBS, SMTPString>,
         (s))
 );
 
+/// The base SMTP command set
+///
+/// The data on each variant corresponds to the return type of the
+/// *_command functions.
+#[derive(Debug)]
+#[allow(missing_docs)]
+pub enum Command {
+    EHLO(DomainPart),
+    HELO(Domain),
+    MAIL(ReversePath, Vec<Param>),
+    RCPT(ForwardPath, Vec<Param>),
+    DATA,
+    RSET,
+    NOOP(Option<SMTPString>),
+    QUIT,
+    VRFY(SMTPString),
+}
+
+named!(_command<CBS, Command>,
+    alt!(
+        map!(_ehlo_command, Command::EHLO) |
+        map!(_helo_command, Command::HELO) |
+        map!(_mail_command, |(a, p)| Command::MAIL(a, p)) |
+        map!(_rcpt_command, |(a, p)| Command::RCPT(a, p)) |
+        map!(_data_command, |_| Command::DATA) |
+        map!(_rset_command, |_| Command::RSET) |
+        map!(_noop_command, Command::NOOP) |
+        map!(_quit_command, |_| Command::QUIT) |
+        map!(_vrfy_command, Command::VRFY)
+    )
+);
+
+/// Parse any basic SMTP command.
+pub fn command(i: &[u8]) -> KResult<&[u8], Command> {
+    wrap_cbs_result(_command(CBS(i)))
+}
+
 /// Parse an SMTP EHLO command.
 pub fn ehlo_command(i: &[u8]) -> KResult<&[u8], DomainPart> {
     wrap_cbs_result(_ehlo_command(CBS(i)))
