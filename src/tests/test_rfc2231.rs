@@ -2,8 +2,7 @@ use crate::rfc2231::*;
 use crate::rfc2231::{ContentTransferEncoding as CTE, ContentDisposition as CD};
 
 
-#[cfg(not(feature = "quoted-string-rfc2047"))]
-#[should_panic]
+#[cfg_attr(not(feature = "quoted-string-rfc2047"), should_panic)]
 #[test]
 fn rfc2047() {
     let (rem, (mtype, params)) = content_type(b" message/external-body; name=\"a =?utf-8?b?w6l0w6kgYmxvcXXDqQ==?= par ZEROSPAM.eml\"").unwrap();
@@ -23,8 +22,7 @@ fn header_lf() {
     assert_eq!(params, [("name".into(), "Fiche d’information relative à la garantie facultative.pdf".into())]);
 }
 
-#[cfg(not(feature = "quoted-string-rfc2047"))]
-#[should_panic]
+#[cfg_attr(not(feature = "quoted-string-rfc2047"), should_panic)]
 #[test]
 fn header_crlf() {
     let (rem, (mtype, params)) = content_type(b"application/pdf; name=\r\n\t\"=?Windows-1252?Q?Fiche_d=92information_relative_=E0_la_garantie_facultati?=\r\n =?Windows-1252?Q?ve.pdf?=\"\r\n").unwrap();
@@ -33,8 +31,7 @@ fn header_crlf() {
     assert_eq!(params, [("name".into(), "Fiche d’information relative à la garantie facultative.pdf".into())]);
 }
 
-#[cfg(not(feature = "quoted-string-rfc2047"))]
-#[should_panic]
+#[cfg_attr(not(feature = "quoted-string-rfc2047"), should_panic)]
 #[test]
 fn attmsg1() {
     let (rem, (mtype, params)) = content_type(b"message/rfc822;\r\n name=\"=?windows-1252?Q?=5BThe_Listserve=5D_Have_you_ever_seen_somet?=\r\n =?windows-1252?Q?hing_you_couldn=92t_explain=3F=2Eeml?=\"").unwrap();
@@ -51,8 +48,7 @@ fn attmsg2() {
     assert_eq!(params, [("filename".into(), "[The Listserve] Have you ever seen something you couldn’t explain?.eml".into())]);
 }
 
-#[cfg(not(feature = "quoted-string-rfc2047"))]
-#[should_panic]
+#[cfg_attr(not(feature = "quoted-string-rfc2047"), should_panic)]
 #[test]
 fn attmsg3() {
     let (rem, (mtype, params)) = content_type(b"message/rfc822;\r\n name=\"[decoupe CNC] Re: H_S_ envoyer de =?windows-1252?Q?=AB_gros_=BB_fic?=\r\n =?windows-1252?Q?hiers=2Eeml?=\"").unwrap();
