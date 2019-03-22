@@ -70,6 +70,11 @@ nom_fromstr!(Value, esmtp_value);
 pub struct Path(pub Mailbox, pub Vec<Domain>);
 nom_fromstr!(Path, path);
 
+/// A generic SMTP string built from an atom or a quoted string
+#[derive(Clone, PartialEq)]
+pub struct SMTPString(pub(crate) String);
+string_newtype!(SMTPString);
+
 /// Represents a forward path from the `"RCPT TO"` command.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ForwardPath {
@@ -337,6 +342,43 @@ named!(_rcpt_command<CBS, (ForwardPath, Vec<Param>)>,
     )
 );
 
+named!(_data_command<CBS, ()>,
+    map!(tag_no_case!("DATA\r\n"), |_| ())
+);
+
+named!(_rset_command<CBS, ()>,
+    map!(tag_no_case!("RSET\r\n"), |_| ())
+);
+
+named!(_smtp_string<CBS, SMTPString>,
+    alt!(map!(atom, |a| SMTPString(str::from_utf8(a.0).unwrap().into())) |
+         map!(quoted_string, |qs| SMTPString(qs.into())))
+);
+
+named!(_noop_command<CBS, Option<SMTPString>>,
+    do_parse!(
+        tag_no_case!("NOOP") >>
+        s1: opt!(do_parse!(
+            tag!(" ") >>
+            s2: _smtp_string >>
+            (s2))) >>
+        tag!("\r\n") >>
+        (s1))
+);
+
+named!(_quit_command<CBS, ()>,
+    map!(tag_no_case!("QUIT\r\n"), |_| ())
+);
+
+named!(_vrfy_command<CBS, SMTPString>,
+    do_parse!(
+        tag_no_case!("VRFY") >>
+        tag!(" ") >>
+        s: _smtp_string >>
+        tag!("\r\n") >>
+        (s))
+);
+
 /// Parse an SMTP MAIL FROM command.
 ///
 /// Returns a tuple with the reverse path and ESMTP parameters.
@@ -367,6 +409,31 @@ pub fn mail_command(i: &[u8]) -> KResult<&[u8], (ReversePath, Vec<Param>)> {
 /// ```
 pub fn rcpt_command(i: &[u8]) -> KResult<&[u8], (ForwardPath, Vec<Param>)> {
     wrap_cbs_result(_rcpt_command(CBS(i)))
+}
+
+/// Parse an SMTP DATA command.
+pub fn data_command(i: &[u8]) -> KResult<&[u8], ()> {
+    wrap_cbs_result(_data_command(CBS(i)))
+}
+
+/// Parse an SMTP RSET command.
+pub fn rset_command(i: &[u8]) -> KResult<&[u8], ()> {
+    wrap_cbs_result(_rset_command(CBS(i)))
+}
+
+/// Parse an SMTP NOOP command.
+pub fn noop_command(i: &[u8]) -> KResult<&[u8], Option<SMTPString>> {
+    wrap_cbs_result(_noop_command(CBS(i)))
+}
+
+/// Parse an SMTP QUIT command.
+pub fn quit_command(i: &[u8]) -> KResult<&[u8], ()> {
+    wrap_cbs_result(_quit_command(CBS(i)))
+}
+
+/// Parse an SMTP VRFY command.
+pub fn vrfy_command(i: &[u8]) -> KResult<&[u8], SMTPString> {
+    wrap_cbs_result(_vrfy_command(CBS(i)))
 }
 
 /// Validates an email address.
