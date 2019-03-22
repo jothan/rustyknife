@@ -314,6 +314,24 @@ named!(reverse_path<CBS, ReversePath>,
          map!(tag!("<>"), |_| ReversePath::Null))
 );
 
+named!(_ehlo_command<CBS, DomainPart>,
+    do_parse!(
+        tag_no_case!("EHLO ") >>
+        dp: _domain_part >>
+        tag!("\r\n") >>
+        (dp)
+    )
+);
+
+named!(_helo_command<CBS, Domain>,
+    do_parse!(
+        tag_no_case!("HELO ") >>
+        d: domain >>
+        tag!("\r\n") >>
+        (d)
+    )
+);
+
 named!(_mail_command<CBS, (ReversePath, Vec<Param>)>,
     do_parse!(
         tag_no_case!("MAIL FROM:") >>
@@ -378,6 +396,16 @@ named!(_vrfy_command<CBS, SMTPString>,
         tag!("\r\n") >>
         (s))
 );
+
+/// Parse an SMTP EHLO command.
+pub fn ehlo_command(i: &[u8]) -> KResult<&[u8], DomainPart> {
+    wrap_cbs_result(_ehlo_command(CBS(i)))
+}
+
+/// Parse an SMTP HELO command.
+pub fn helo_command(i: &[u8]) -> KResult<&[u8], Domain> {
+    wrap_cbs_result(_helo_command(CBS(i)))
+}
 
 /// Parse an SMTP MAIL FROM command.
 ///
