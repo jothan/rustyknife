@@ -6,6 +6,10 @@
 
 Email parsing library with a focus on reliably handling malformed data
 
+Documentation:
+  - [master branch]
+  - [Python module]
+
 Features:
 * Python interface
 * Email header parsing
@@ -70,3 +74,5 @@ assert_eq!(decoded, "忍法写メ光飛ばし(笑)");
 [RFC 2231]: https://tools.ietf.org/html/rfc2231
 [SMTPUTF8]: https://tools.ietf.org/html/rfc6531
 [UTF-8 Internationalized Email Headers]: https://tools.ietf.org/html/rfc6532
+[master branch]: https://zerospam.github.io/rustyknife/rustyknife/index.html
+[Python module]: https://zerospam.github.io/rustyknife/sphinx/index.html
