@@ -205,7 +205,7 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     ///
     /// :param input: Full SMTP MAIL command
     ///
-    ///  b'MAIL FROM:<user@example.org> BODY=7BIT\r\n'
+    ///  b'MAIL FROM:<user@example.org> BODY=7BIT\\r\\n'
     /// :type input: bytes
     /// :return: (address, [(param, param_value), ...])
     #[pyfn(m, "mail_command")]
@@ -218,7 +218,7 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     ///
     /// :param input: Full SMTP RCPT command
     ///
-    ///  b'RCPT TO:<user@example.org> ORCPT=rfc822;user@example.org\r\n'
+    ///  b'RCPT TO:<user@example.org> ORCPT=rfc822;user@example.org\\r\\n'
     /// :type input: bytes
     /// :return: (address, [(param, param_value), ...])
     #[pyfn(m, "rcpt_command")]
