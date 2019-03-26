@@ -165,7 +165,7 @@ green_tc!(inlwithasciifilename, b"inline; filename=\"foo.html\"", CD::Inline, "f
 #[test]
 #[should_panic]
 fn inlonlyquoted() {
-    content_disposition(b"Content-Disposition: \"inline\"").unwrap();
+    content_disposition(b"\"inline\"").unwrap();
 }
 
 #[test]
