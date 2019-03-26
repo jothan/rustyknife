@@ -76,8 +76,10 @@ named!(regular_parameter_name<CBS, Name>,
     )
 );
 
-named!(token<CBS, CBS>,
-    take_while1!(|c| (33..=126).contains(&c) && !b"()<>@,;:\\\"/[]?=".contains(&c))
+named!(token<CBS, &str>,
+    map!(take_while1!(|c| (33..=126).contains(&c) && !b"()<>@,;:\\\"/[]?=".contains(&c)),
+         |t| std::str::from_utf8(&t).unwrap()
+    )
 );
 
 fn is_attribute_char(c: u8) -> bool {
@@ -164,7 +166,7 @@ named!(extended_other_values<CBS, Vec<u8>>,
 );
 
 named!(value<CBS, Cow<'_, str>>,
-   alt!(map!(token, |x| ascii_to_string(x)) | map!(quoted_string, |qs| Cow::from(qs.0)))
+   alt!(map!(token, Cow::from) | map!(quoted_string, |qs| Cow::from(qs.0)))
 );
 
 
@@ -275,11 +277,11 @@ named!(_content_type<CBS, (String, Vec<(String, String)>)>,
 );
 
 
-named!(_x_token<CBS, &'_ str>,
+named!(_x_token<CBS, &str>,
     do_parse!(
         tag_no_case!("x-") >>
         token: token >>
-        (str::from_utf8(&token).unwrap())
+        (token)
     )
 );
 
@@ -293,6 +295,8 @@ pub enum ContentDisposition {
     /// Value prefixed with "X-". The prefix is not stored in the
     /// string.
     Extended(String),
+    /// Any syntaxically valid token that is not any known disposition.
+    Token(String),
 }
 
 impl Display for ContentDisposition {
@@ -301,6 +305,7 @@ impl Display for ContentDisposition {
             ContentDisposition::Inline => write!(f, "inline"),
             ContentDisposition::Attachment => write!(f, "attachment"),
             ContentDisposition::Extended(s) => write!(f, "x-{}", s),
+            ContentDisposition::Token(t) => write!(f, "{}", t),
         }
     }
 }
@@ -309,7 +314,8 @@ named!(_disposition<CBS, ContentDisposition>,
     alt!(
         map!(tag_no_case!("inline"), |_| ContentDisposition::Inline) |
         map!(tag_no_case!("attachment"), |_| ContentDisposition::Attachment) |
-        map!(_x_token, |x| ContentDisposition::Extended(x.into()))
+        map!(_x_token, |x| ContentDisposition::Extended(x.into())) |
+        map!(token, |t| ContentDisposition::Token(t.into()))
     )
 );
 
@@ -339,6 +345,8 @@ pub enum ContentTransferEncoding {
     /// Value prefixed with "X-". The prefix is not stored in the
     /// string.
     Extended(String),
+    /// Any syntaxically valid token that is not any known encoding.
+    Token(String),
 }
 
 impl Display for ContentTransferEncoding {
@@ -350,6 +358,7 @@ impl Display for ContentTransferEncoding {
             CTE::Base64 => write!(f, "base64"),
             CTE::QuotedPrintable => write!(f, "quoted-printable"),
             CTE::Extended(s) => write!(f, "x-{}", s),
+            CTE::Token(t) => write!(f, "{}", t),
         }
     }
 }
@@ -365,7 +374,8 @@ named!(_content_transfer_encoding<CBS, ContentTransferEncoding>,
             map!(tag_no_case!("binary"), |_| CTE::Binary) |
             map!(tag_no_case!("base64"), |_| CTE::Base64) |
             map!(tag_no_case!("quoted-printable"), |_| CTE::QuotedPrintable) |
-            map!(_x_token, |x| CTE::Extended(x.into()))
+            map!(_x_token, |x| CTE::Extended(x.into())) |
+            map!(token, |t| CTE::Token(t.into()))
         ) >>
         ofws >>
         (cte)
