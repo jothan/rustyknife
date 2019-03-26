@@ -390,7 +390,5 @@ pub fn content_disposition(i: &[u8]) -> KResult<&[u8], (ContentDisposition, Vec<
 ///
 /// Returns a [`ContentTransferEncoding`].
 pub fn content_transfer_encoding<'a>(i: &'a [u8]) -> KResult<&'a[u8], CTE> {
-    // Strip CRLF manually, needed because of the bad interaction of
-    // FWS with an optional CRLF.
-    wrap_cbs_result(_content_transfer_encoding(CBS(strip_crlf(i))))
+    wrap_cbs_result(_content_transfer_encoding(CBS(i)))
 }

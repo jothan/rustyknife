@@ -47,15 +47,6 @@ pub fn convert_context(c: nom::Context<CBS>) -> nom::Context<&[u8]> {
     }
 }
 
-/// Strip an optionnal CRLF.
-pub fn strip_crlf(i: &[u8]) -> &[u8] {
-    if i.ends_with(b"\r\n") {
-        &i[0..i.len()-2]
-    } else {
-        i
-    }
-}
-
 macro_rules! nom_fromstr {
     ( $type:ty, $func:ident ) => {
         impl std::str::FromStr for $type {

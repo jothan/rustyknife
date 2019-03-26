@@ -105,7 +105,7 @@ fn cd_mixed() {
 
 #[test]
 fn cte_base64() {
-    const CASES : &[&[u8]] = &[b"Base64", b"base64", b" base64 \r\n", b" base64\r\n", b" base64 \r\n "];
+    const CASES : &[&[u8]] = &[b"Base64", b"base64", b" base64 ", b" base64", b"base64 ", b" base64 \r\n "];
     for input in CASES.iter() {
         let (rem, parsed) = content_transfer_encoding(input).unwrap();
         assert_eq!(rem.len(), 0);
