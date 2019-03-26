@@ -105,7 +105,7 @@ impl Display for LocalPart {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             LocalPart::DotAtom(a) => write!(f, "{}", a),
-            LocalPart::Quoted(q) => write!(f, "{}", q.quoted()),
+            LocalPart::Quoted(q) => write!(f, "\"{}\"", q.quoted()),
         }
     }
 }
