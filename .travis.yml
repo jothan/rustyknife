@@ -58,7 +58,6 @@ after_success:
       fi
       if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_RUST_VERSION" == "nightly" && "$FEATURES" == "" ]]; then
           cargo doc &&
-          ln -s target/debug/librustyknife.so rustyknife.so &&
           /usr/share/sphinx/scripts/python3/sphinx-build sphinx/source target/doc/sphinx &&
           sudo pip install ghp-import &&
           ghp-import -n target/doc &&
