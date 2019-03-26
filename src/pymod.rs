@@ -125,18 +125,6 @@ fn header_section_slice(py: Python, input: &[u8]) -> PyResult<PyObject> {
     Ok((headers, header_end).into_object(py))
 }
 
-fn fix_bare_cr(input: &[u8]) -> Vec<u8> {
-    // Remove bare CR and make sure every LF is preceeded by CR.
-    input.iter().cloned().filter(|c| *c != b'\r')
-        .fold(Vec::with_capacity(input.len()), |mut acc, c| {
-            match c {
-                b'\n' => acc.extend_from_slice(b"\r\n"),
-                _ => acc.push(c),
-            }
-            acc
-        })
-}
-
 #[pymodule]
 fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     /// from_(input)
@@ -256,16 +244,13 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     /// content_type(input, all=False)
     #[pyfn(m, "content_type", input, all=false)]
     fn py_content_type(input: &PyBytes, all: bool) -> PyResult<(String, Vec<(String, String)>)> {
-        // FIXME: Figure out how to better handle a bare LF in
-        // quoted-string without duplicating the rest of the RFC5322
-        // syntax
-        convert_result(content_type(&fix_bare_cr(input.as_bytes())), all)
+        convert_result(content_type(input.as_bytes()), all)
     }
 
     /// content_disposition(input, all=False)
     #[pyfn(m, "content_disposition", input, all=false)]
     fn py_content_disposition(input: &PyBytes, all: bool) -> PyResult<(String, Vec<(String, String)>)> {
-        convert_result(content_disposition(&fix_bare_cr(input.as_bytes())), all).map(|(cd, params)| (cd.to_string().to_lowercase(), params))
+        convert_result(content_disposition(input.as_bytes()), all).map(|(cd, params)| (cd.to_string().to_lowercase(), params))
     }
 
     /// content_transfer_encoding(input, all=False)
@@ -282,7 +267,7 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     ///
     #[pyfn(m, "content_transfer_encoding", input, all=false)]
     fn py_content_transfer_encoding(input: &PyBytes, all: bool) -> PyResult<String> {
-        convert_result(content_transfer_encoding(&fix_bare_cr(input.as_bytes())), all).map(|cte| cte.to_string().to_lowercase())
+        convert_result(content_transfer_encoding(input.as_bytes()), all).map(|cte| cte.to_string().to_lowercase())
     }
 
     Ok(())
