@@ -56,8 +56,8 @@ after_success:
         bash <(curl -s https://codecov.io/bash) &&
         echo "Uploaded code coverage"
       fi
-      if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_RUST_VERSION" == "nightly" && "$FEATURES" == "--no-default-features --features quoted-string-rfc2047" ]]; then
-          cargo doc $FEATURES &&
+      if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_RUST_VERSION" == "nightly" && "$FEATURES" == "" ]]; then
+          cargo doc --no-default-features --features quoted-string-rfc2047 &&
           /usr/share/sphinx/scripts/python3/sphinx-build sphinx/source target/doc/sphinx &&
           sudo pip install ghp-import &&
           ghp-import -n target/doc &&
