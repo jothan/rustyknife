@@ -60,12 +60,15 @@ pub struct QuotedString(pub(crate) String);
 string_newtype!(QuotedString);
 
 impl QuotedString {
-    /// Returns this string with double quotes and backslash
-    /// characters escaped with a backslash.
+    /// Returns this string enclosed in double quotes.
+    ///
+    /// Double quote and backslash characters are escaped with a
+    /// backslash.
     ///
     /// No attempt is made to reencode values outside the ASCII range.
     pub fn quoted(&self) -> String {
-        let mut out = String::with_capacity(self.len());
+        let mut out = String::with_capacity(self.len()+2);
+        out.push('"');
 
         for c in self.chars() {
             match c {
@@ -76,6 +79,7 @@ impl QuotedString {
                 _ => out.push(c)
             }
         }
+        out.push('"');
 
         out
     }
@@ -105,7 +109,7 @@ impl Display for LocalPart {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             LocalPart::DotAtom(a) => write!(f, "{}", a),
-            LocalPart::Quoted(q) => write!(f, "\"{}\"", q.quoted()),
+            LocalPart::Quoted(q) => write!(f, "{}", q.quoted()),
         }
     }
 }
