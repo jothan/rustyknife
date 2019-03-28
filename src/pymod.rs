@@ -13,7 +13,7 @@ use memmap::Mmap;
 
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyTuple, PyDict};
-use pyo3::types::exceptions as exc;
+use pyo3::exceptions as exc;
 
 macro_rules! intopyobject {
     ( $e:ident ) => {
