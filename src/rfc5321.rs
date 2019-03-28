@@ -397,6 +397,26 @@ named!(_vrfy_command<CBS, SMTPString>,
         (s))
 );
 
+named!(_expn_command<CBS, SMTPString>,
+    do_parse!(
+        tag_no_case!("EXPN") >>
+        tag!(" ") >>
+        s: _smtp_string >>
+        tag!("\r\n") >>
+        (s))
+);
+
+named!(_help_command<CBS, Option<SMTPString>>,
+    do_parse!(
+        tag_no_case!("NOOP") >>
+        s1: opt!(do_parse!(
+            tag!(" ") >>
+            s2: _smtp_string >>
+            (s2))) >>
+        tag!("\r\n") >>
+        (s1))
+);
+
 /// The base SMTP command set
 ///
 /// The data on each variant corresponds to the return type of the
@@ -413,6 +433,8 @@ pub enum Command {
     NOOP(Option<SMTPString>),
     QUIT,
     VRFY(SMTPString),
+    EXPN(SMTPString),
+    HELP(Option<SMTPString>),
 }
 
 named!(_command<CBS, Command>,
@@ -425,7 +447,9 @@ named!(_command<CBS, Command>,
         map!(_rset_command, |_| Command::RSET) |
         map!(_noop_command, Command::NOOP) |
         map!(_quit_command, |_| Command::QUIT) |
-        map!(_vrfy_command, Command::VRFY)
+        map!(_vrfy_command, Command::VRFY) |
+        map!(_expn_command, Command::EXPN) |
+        map!(_help_command, Command::HELP)
     )
 );
 
@@ -499,6 +523,16 @@ pub fn quit_command(i: &[u8]) -> KResult<&[u8], ()> {
 /// Parse an SMTP VRFY command.
 pub fn vrfy_command(i: &[u8]) -> KResult<&[u8], SMTPString> {
     wrap_cbs_result(_vrfy_command(CBS(i)))
+}
+
+/// Parse an SMTP EXPN command.
+pub fn expn_command(i: &[u8]) -> KResult<&[u8], SMTPString> {
+    wrap_cbs_result(_expn_command(CBS(i)))
+}
+
+/// Parse an SMTP HELP command.
+pub fn help_command(i: &[u8]) -> KResult<&[u8], Option<SMTPString>> {
+    wrap_cbs_result(_help_command(CBS(i)))
 }
 
 /// Validates an email address.
