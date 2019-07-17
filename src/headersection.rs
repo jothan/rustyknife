@@ -6,6 +6,12 @@
 //!
 //! [RFC 5322]: https://tools.ietf.org/html/rfc5322
 
+use nom::branch::alt;
+use nom::multi::many0;
+use nom::sequence::{terminated, separated_pair};
+use nom::bytes::complete::{tag, take_while1, take_until};
+use nom::combinator::{opt, map, map_opt};
+
 use crate::util::*;
 use crate::rfc5234::*;
 use crate::rfc5322::ofws;
@@ -20,34 +26,15 @@ use crate::rfc5322::ofws;
 /// side of the colon.
 pub type HeaderField<'a> = Result<(&'a[u8], &'a[u8]), &'a[u8]>;
 
-named!(field_name<CBS, CBS>,
-       take_while1!(|c: u8| (33..=57).contains(&c) || (59..=126).contains(&c))
-);
+fn field_name(input: &[u8]) -> NomResult<&[u8]> {
+    take_while1(|c: u8| (33..=57).contains(&c) || (59..=126).contains(&c))(input)
+}
 
 named!(unstructured<CBS, CBS>,
     recognize!(do_parse!(
         many0!(do_parse!(ofws >> alt!(recognize!(many1!(vchar)) | take_until1!("\r\n")) >> ())) >>
         many0!(wsp) >> ()
     ))
-);
-
-named!(optional_field<CBS, HeaderField>,
-    do_parse!(
-        name: field_name >>
-        tag!(":") >>
-        value: unstructured >>
-        crlf >>
-        (Ok((name.0, value.0)))
-    )
-);
-
-// Extension to be able to walk through crap.
-named!(invalid_field<CBS, HeaderField>,
-    do_parse!(
-        i: take_until1!("\r\n") >>
-        crlf >>
-        (Err(i.0))
-    )
 );
 
 named!(fields<CBS, Vec<HeaderField>>,
@@ -58,10 +45,29 @@ named!(fields<CBS, Vec<HeaderField>>,
     )
 );
 
+fn optional_field(input: &[u8]) -> NomResult<HeaderField> {
+    terminated(
+        map(separated_pair(field_name, tag(":"), unstructured),
+            |(name, value)| Ok((name, value))),
+        crlf)(input)
+}
+
+// Extension to be able to walk through crap.
+fn invalid_field(input: &[u8]) -> NomResult<HeaderField> {
+    map_opt(terminated(take_until("\r\n"), crlf),
+            |i| if !i.is_empty() {
+                Some(Err(i))
+            } else {
+                None
+            }
+    )(input)
+}
+
 /// Zero copy mail message header splitter
 ///
 /// Returns the remaining input (the message body) and a vector of
 /// [HeaderField] on success.
-pub fn header_section(i: &[u8]) -> KResult<&[u8], Vec<HeaderField>> {
-    wrap_cbs_result(fields(CBS(i)))
+pub fn header_section(input: &[u8]) -> NomResult<Vec<HeaderField>> {
+    terminated(many0(alt((optional_field, invalid_field))),
+               opt(crlf))(input)
 }

@@ -15,7 +15,12 @@ use encoding::label::encoding_from_whatwg_label;
 use encoding::types::EncodingRef;
 use encoding::DecoderTrap;
 use encoding::all::ASCII;
-use nom::is_digit;
+use nom::character::is_digit;
+use nom::bytes::complete::tag;
+use nom::branch::alt;
+use nom::combinator::{map, opt};
+use nom::multi::many0;
+use nom::sequence::{pair, preceded, separated_pair, terminated, tuple};
 
 use crate::util::*;
 use crate::rfc3461::hexpair;
@@ -55,26 +60,20 @@ named!(_equals<CBS, ()>,
     )
 );
 
-named!(parameter<CBS, Parameter>,
-    alt!(regular_parameter | extended_parameter)
-);
+fn parameter(input: &[u8]) -> NomResult<Parameter> {
+    alt((regular_parameter, extended_parameter))(input)
+}
 
-named!(regular_parameter<CBS, Parameter>,
-    do_parse!(
-        name: regular_parameter_name >>
-        _equals >>
-        value: value >>
-        (Parameter{name, value: Value::Regular(value)})
-    )
-);
+fn regular_parameter(input: &[u8]) -> NomResult<Parameter> {
+    map(separated_pair(regular_parameter_name, _equals, value),
+        |(name, value)| Parameter{name, value: Value::Regular(value)})(input)
+}
 
-named!(regular_parameter_name<CBS, Name>,
-    do_parse!(
-        name: attribute >>
-        section: opt!(section) >>
-        (Name{name: std::str::from_utf8(&name).unwrap(), section})
-    )
-);
+fn regular_parameter_name(input: &[u8]) -> NomResult<Name> {
+    map(pair(attribute, opt(section)),
+        |(name, section)| Name{name: std::str::from_utf8(name).unwrap(), section}
+    )(input)
+}
 
 named!(token<CBS, &str>,
     map!(take_while1!(|c| (33..=126).contains(&c) && !b"()<>@,;:\\\"/[]?=".contains(&c)),
@@ -88,7 +87,7 @@ fn is_attribute_char(c: u8) -> bool {
 
 #[inline]
 named!(attribute_char<CBS, u8>,
-    map!(verify!(take!(1), |x: CBS| is_attribute_char(x.0[0])), |c| c[0])
+    map!(verify!(take!(1), |x: CBS| is_attribute_char(x[0])), |c| c[0])
 );
 
 named!(attribute<CBS, CBS>,
@@ -106,27 +105,24 @@ named!(initial_section<CBS, u32>,
 named!(other_sections<CBS, u32>,
     do_parse!(
         tag!("*") >>
-        s: verify!(take_while_m_n!(1, 9, is_digit), |x: CBS| x.0[0] != b'0') >>
+        s: verify!(take_while_m_n!(1, 9, is_digit), |x: CBS| x[0] != b'0') >>
         (str::from_utf8(&s).unwrap().parse().unwrap())
     )
 );
 
-named!(extended_parameter<CBS, Parameter>,
-   alt!(
-       do_parse!(
-           name: extended_initial_name >>
-           _equals >>
-           value: extended_initial_value >>
-           (Parameter{name, value: Value::Extended(value)})
-       ) |
-       do_parse!(
-           name: extended_other_names >>
-           _equals >>
-           value: extended_other_values >>
-           (Parameter{name, value: Value::Extended(ExtendedValue::Other(value))})
-       )
-   )
-);
+fn extended_parameter(input: &[u8]) -> NomResult<Parameter> {
+    alt((
+        map(separated_pair(extended_initial_name,
+                           _equals,
+                           extended_initial_value),
+            |(name, value)| Parameter{name, value: Value::Extended(value)}),
+
+        map(separated_pair(extended_other_names,
+                           _equals,
+                           extended_other_values),
+            |(name, value)| Parameter{name, value: Value::Extended(ExtendedValue::Other(value))}),
+   ))(input)
+}
 
 named!(extended_initial_name<CBS, Name>,
     do_parse!(
@@ -146,16 +142,15 @@ named!(extended_other_names<CBS, Name>,
     )
 );
 
-named!(extended_initial_value<CBS, ExtendedValue>,
-    do_parse!(
-        e: opt!(attribute) >>
-        tag!("'") >>
-        l: opt!(attribute) >>
-        tag!("'") >>
-        v: extended_other_values >>
-        (ExtendedValue::Initial{encoding: e.map(|x| x.0), language: l.map(|x| x.0), value: v})
-    )
-);
+fn extended_initial_value(input: &[u8]) -> NomResult<ExtendedValue> {
+    let (rem, (e, l, v)) = tuple((
+        terminated(opt(attribute), tag("'")),
+        terminated(opt(attribute), tag("'")),
+        extended_other_values
+    ))(input)?;
+
+    Ok((rem, ExtendedValue::Initial{encoding: e, language: l, value: v}))
+}
 
 named!(ext_octet<CBS, u8>,
     do_parse!(tag!("%") >> h: hexpair >> (h))
@@ -174,14 +169,10 @@ named!(_mime_type<CBS, CBS>,
     recognize!(do_parse!(token >> tag!("/") >> token >> ()))
 );
 
-named!(_parameter_list<CBS, Vec<Parameter>>,
-    do_parse!(
-        p: many0!(do_parse!(tag!(";") >> ofws >> p: parameter >> (p))) >>
-        opt!(tag!(";")) >>
-        opt!(crlf) >>
-        (p)
-    )
-);
+fn _parameter_list(input: &[u8]) -> NomResult<Vec<Parameter>> {
+    terminated(many0(preceded(pair(tag(";"), ofws), parameter)),
+               pair(opt(tag(";")), opt(crlf)))(input)
+}
 
 #[derive(Debug)]
 enum Segment<'a> {
@@ -266,7 +257,10 @@ fn decode_parameter_list(input: Vec<Parameter>) -> Vec<(String, String)> {
     simple.into_iter().collect()
 }
 
-named!(_content_type<CBS, (String, Vec<(String, String)>)>,
+/// Parse a MIME `"Content-Type"` header.
+///
+/// Returns a tuple of the MIME type and parameters.
+named!(pub content_type<CBS, (String, Vec<(String, String)>)>,
     do_parse!(
         ofws >>
         mt: _mime_type >>
@@ -319,7 +313,10 @@ named!(_disposition<CBS, ContentDisposition>,
     )
 );
 
-named!(_content_disposition<CBS, (ContentDisposition, Vec<(String, String)>)>,
+/// Parse a MIME `"Content-Disposition"` header.
+///
+/// Returns a tuple of [`ContentDisposition`] and parameters.
+named!(pub content_disposition<CBS, (ContentDisposition, Vec<(String, String)>)>,
     do_parse!(
         ofws >>
         disp: _disposition >>
@@ -365,7 +362,10 @@ impl Display for ContentTransferEncoding {
 
 use self::ContentTransferEncoding as CTE;
 
-named!(_content_transfer_encoding<CBS, ContentTransferEncoding>,
+/// Parse a MIME `"Content-Transfer-Encoding"` header.
+///
+/// Returns a [`ContentTransferEncoding`].
+named!(pub content_transfer_encoding<CBS, ContentTransferEncoding>,
     do_parse!(
         ofws >>
         cte: alt!(
@@ -381,24 +381,3 @@ named!(_content_transfer_encoding<CBS, ContentTransferEncoding>,
         (cte)
     )
 );
-
-/// Parse a MIME `"Content-Type"` header.
-///
-/// Returns a tuple of the MIME type and parameters.
-pub fn content_type(i: &[u8]) -> KResult<&[u8], (String, Vec<(String, String)>)> {
-    wrap_cbs_result(_content_type(CBS(i)))
-}
-
-/// Parse a MIME `"Content-Disposition"` header.
-///
-/// Returns a tuple of [`ContentDisposition`] and parameters.
-pub fn content_disposition(i: &[u8]) -> KResult<&[u8], (ContentDisposition, Vec<(String, String)>)> {
-    wrap_cbs_result(_content_disposition(CBS(i)))
-}
-
-/// Parse a MIME `"Content-Transfer-Encoding"` header.
-///
-/// Returns a [`ContentTransferEncoding`].
-pub fn content_transfer_encoding<'a>(i: &'a [u8]) -> KResult<&'a[u8], CTE> {
-    wrap_cbs_result(_content_transfer_encoding(CBS(i)))
-}

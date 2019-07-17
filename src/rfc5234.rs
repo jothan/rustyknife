@@ -9,12 +9,12 @@ named!(htab<CBS, CBS>,
 );
 
 named!(pub wsp<CBS, u8>,
-       map!(alt!(sp | htab), |x| x.0[0])
+       map!(alt!(sp | htab), |x| x[0])
 );
 
 #[inline]
 named!(pub vchar<CBS, u8>,
-       map!(verify!(take!(1), |c: CBS| !c.0.is_empty() && (0x21..=0x7e).contains(&c.0[0])), |x| x.0[0])
+       map!(verify!(take!(1), |c: CBS| !c.is_empty() && (0x21..=0x7e).contains(&c[0])), |x| x[0])
 );
 
 named!(pub crlf<CBS, CBS>,

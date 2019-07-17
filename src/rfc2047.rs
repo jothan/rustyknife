@@ -26,7 +26,7 @@ named!(_qp_encoded_text<CBS, Vec<u8>>,
     many0!(alt!(
         do_parse!(tag!("=") >> b: hexpair >> (b)) |
         map!(tag!("_"), |_| b' ') |
-        map!(take!(1), |x| x.0[0])
+        map!(take!(1), |x| x[0])
     ))
 );
 
@@ -57,7 +57,7 @@ named!(_encoded_word<CBS, (Cow<'_, str>, Vec<u8>)>,
         tag!("?") >>
         encoded_text: encoded_text >>
         tag!("?=") >>
-        (ascii_to_string(charset), decode_text(encoding.0, encoded_text.0).unwrap_or_else(|| encoded_text.0.to_vec()))
+        (ascii_to_string(charset), decode_text(encoding, encoded_text).unwrap_or_else(|| encoded_text.to_vec()))
     )
 );
 
@@ -81,5 +81,5 @@ named!(pub(crate) _internal_encoded_word<CBS, String>,
 /// assert_eq!(decoded, "忍法写メ光飛ばし(笑)");
 /// ```
 pub fn encoded_word(i: &[u8]) -> KResult<&[u8], String> {
-    wrap_cbs_result(_internal_encoded_word(CBS(i)))
+    _internal_encoded_word(i)
 }

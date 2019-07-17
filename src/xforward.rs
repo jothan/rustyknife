@@ -3,6 +3,9 @@
 //! [XFORWARD]: http://www.postfix.org/XFORWARD_README.html
 
 use nom::*;
+use nom::multi::{many0, many1};
+use nom::combinator::{opt, map};
+use nom::sequence::{pair, preceded};
 
 use crate::rfc5234::wsp;
 use crate::rfc3461::xtext;
@@ -12,7 +15,6 @@ use crate::util::*;
 ///
 /// `"[UNAVAILABLE]"` is represented with a value of `None`.
 pub struct Param(pub &'static str, pub Option<String>);
-
 
 named!(command<CBS, &'static str>,
      alt!(
@@ -43,22 +45,6 @@ named!(param<CBS, Param>,
     )
 );
 
-named!(params<CBS, Vec<Param>>,
-    do_parse!(
-        a: do_parse!(
-            opt!(many1!(wsp)) >>
-            p: param >>
-            (p)
-        ) >>
-        b: fold_many0!(do_parse!(
-            many1!(wsp) >>
-            p: param >>
-            (p)
-        ), vec![a], |mut acc: Vec<_>, item| {acc.push(item); acc}) >>
-        (b)
-    )
-);
-
 /// Parse a XFORWARD b`"attr1=value attr2=value"` string.
 ///
 /// Returns a vector of [`Param`].
@@ -67,6 +53,11 @@ named!(params<CBS, Vec<Param>>,
 /// lowercase. The values are xtext decoded and a value of
 /// `[UNAVAILABLE]` is translated to `None`. No other validation is
 /// done.
-pub fn xforward_params(i: &[u8]) -> KResult<&[u8], Vec<Param>> {
-    wrap_cbs_result(params(CBS(i)))
+pub fn xforward_params(input: &[u8]) -> NomResult<Vec<Param>> {
+    map(pair(preceded(opt(many1(wsp)), param),
+             many0(preceded(many1(wsp), param))),
+        |(prefix, mut params)| {
+            params.insert(0, prefix);
+            params
+        })(input)
 }

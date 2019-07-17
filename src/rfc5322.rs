@@ -8,6 +8,11 @@
 use std::str;
 use std::mem;
 
+use nom::bytes::complete::tag;
+use nom::multi::{fold_many0, many0};
+use nom::combinator::map;
+use nom::sequence::{delimited, pair, preceded};
+
 use crate::rfc2047::{_internal_encoded_word as encoded_word};
 use crate::rfc5234::*;
 use crate::types::{self, *};
@@ -31,7 +36,7 @@ enum CommentContent {
 }
 
 named!(ccontent<CBS, CommentContent>,
-       alt!(map!(alt!(ctext | quoted_pair), |x| CommentContent::Text(x.0.to_vec())) | map!(comment, CommentContent::Comment))
+       alt!(map!(alt!(ctext | quoted_pair), |x| CommentContent::Text(x.to_vec())) | map!(comment, CommentContent::Comment))
 );
 
 named!(fws<CBS, Vec<u8>>,
@@ -77,19 +82,16 @@ fn _concat_comment(comments: Vec<CommentContent>, extra: Option<CommentContent>)
     out
 }
 
-named!(comment<CBS, Vec<CommentContent>>,
-    do_parse!(
-        tag!("(") >>
-        a: fold_many0!(tuple!(ofws, ccontent), Vec::new(), |mut acc: Vec<_>, (fws, cc)| {
-            acc.push(CommentContent::Text(fws));
-            acc.push(cc);
-            acc
-        }) >>
-        b: ofws >>
-        tag!(")") >>
-        (_concat_comment(a, Some(CommentContent::Text(b))))
-    )
-);
+fn comment(input: &[u8]) -> NomResult<Vec<CommentContent>> {
+    map(delimited(tag("("),
+                  pair(fold_many0(pair(ofws, ccontent), Vec::new(), |mut acc, (fws, cc)| {
+                      acc.push(CommentContent::Text(fws));
+                      acc.push(cc);
+                      acc
+                  }), ofws),
+                  tag(")")),
+        |(a, b)| _concat_comment(a, Some(CommentContent::Text(b))))(input)
+}
 
 named!(cfws<CBS, CBS>,
     alt!(recognize!(pair!(many1!(pair!(ofws, comment)), ofws)) | recognize!(fws))
@@ -218,7 +220,7 @@ named!(pub(crate) dot_atom<CBS, DotAtom>,
         opt!(cfws) >>
         a: recognize!(pair!(atext, many0!(pair!(tag!("."), atext)))) >>
         opt!(cfws) >>
-        (DotAtom(str::from_utf8(a.0).unwrap().into()))
+        (DotAtom(str::from_utf8(a).unwrap().into()))
     )
 );
 
@@ -282,7 +284,7 @@ named!(pub(crate) domain_literal<CBS, AddressLiteral>,
         tag!("]") >>
         opt!(cfws) >>
         ({
-            let mut out : Vec<u8> = a.iter().flat_map(|(x, y)| x.iter().chain(y.0.iter())).cloned().collect();
+            let mut out : Vec<u8> = a.iter().flat_map(|(x, y)| x.iter().chain(y.iter())).cloned().collect();
             out.extend_from_slice(&b);
             let literal = AddressLiteral::FreeForm(String::from_utf8(out).unwrap());
             literal.upgrade().unwrap_or(literal)
@@ -330,14 +332,15 @@ named!(mailbox<CBS, Mailbox>,
     alt!(name_addr | map!(addr_spec, |a| Mailbox{dname: None, address: a}))
 );
 
-named!(mailbox_list<CBS, Vec<Mailbox>>,
-    do_parse!(
-        a: mailbox >>
-        b: fold_many0!(do_parse!(tag!(",") >> mbox: mailbox >> (mbox)), vec![a],
-                       |mut acc: Vec<_>, item| {acc.push(item); acc}) >>
-        (b)
-    )
-);
+pub fn mailbox_list(input: &[u8]) -> NomResult<Vec<Mailbox>> {
+    map(pair(mailbox,
+             many0(preceded(tag(","), mailbox))),
+        |(prefix, mut mbx)| {
+            mbx.insert(0, prefix);
+            mbx
+        }
+    )(input)
+}
 
 named!(group_list<CBS, Vec<Mailbox>>,
     alt!(mailbox_list | map!(cfws, |_| vec![]))
@@ -358,14 +361,15 @@ named!(address<CBS, Address>,
     alt!(map!(mailbox, Address::Mailbox) | map!(group, Address::Group))
 );
 
-named!(address_list<CBS, Vec<Address>>,
-    do_parse!(
-        a: address >>
-        b: fold_many0!(do_parse!(tag!(",") >> addr: address >> (addr)), vec![a],
-                       |mut acc: Vec<_>, item| {acc.push(item); acc}) >>
-        (b)
-    )
-);
+fn address_list(input: &[u8]) -> NomResult<Vec<Address>> {
+    map(pair(address,
+             many0(preceded(tag(","), address))),
+        |(prefix, mut list)| {
+            list.insert(0, prefix);
+            list
+        }
+    )(input)
+}
 
 named!(address_list_crlf<CBS, Vec<Address>>,
     do_parse!(
@@ -385,7 +389,7 @@ named!(address_crlf<CBS, Address>,
 
 #[inline]
 named!(_8bit_char<CBS, u8>,
-       map!(verify!(take!(1), |c: CBS| (0x80..=0xff).contains(&c.0[0])), |x| x.0[0])
+       map!(verify!(take!(1), |c: CBS| (0x80..=0xff).contains(&c[0])), |x| x[0])
 );
 
 named!(_unstructured<CBS, String>,
@@ -432,26 +436,26 @@ named!(_unstructured<CBS, String>,
 ///
 /// [RFC 6854]: https://tools.ietf.org/html/rfc6854
 pub fn from(i: &[u8]) -> KResult<&[u8], Vec<Address>> {
-    wrap_cbs_result(address_list_crlf(CBS(i)))
+    address_list_crlf(i)
 }
 
 /// Parse the content of a `"Sender:"` header.
 ///
 /// Returns a single address.
 pub fn sender(i: &[u8]) -> KResult<&[u8], Address> {
-    wrap_cbs_result(address_crlf(CBS(i)))
+    address_crlf(i)
 }
 
 /// Parse the content of a `"Reply-To:"` header.
 ///
 /// Returns a list of addresses.
 pub fn reply_to(i: &[u8]) -> KResult<&[u8], Vec<Address>> {
-    wrap_cbs_result(address_list_crlf(CBS(i)))
+    address_list_crlf(i)
 }
 
 /// Parse an unstructured header such as `"Subject:"`.
 ///
 /// Returns a fully decoded string.
 pub fn unstructured(i: &[u8]) -> KResult<&[u8], String> {
-    wrap_cbs_result(_unstructured(CBS(i)))
+    _unstructured(i)
 }
