@@ -7,10 +7,10 @@
 //! [RFC 5322]: https://tools.ietf.org/html/rfc5322
 
 use nom::branch::alt;
-use nom::multi::many0;
-use nom::sequence::{terminated, separated_pair};
+use nom::multi::{many0, many1};
+use nom::sequence::{pair, terminated, separated_pair};
 use nom::bytes::complete::{tag, take_while1, take_until};
-use nom::combinator::{opt, map, map_opt};
+use nom::combinator::{opt, map, map_opt, recognize};
 
 use crate::util::*;
 use crate::rfc5234::*;
@@ -30,20 +30,25 @@ fn field_name(input: &[u8]) -> NomResult<&[u8]> {
     take_while1(|c: u8| (33..=57).contains(&c) || (59..=126).contains(&c))(input)
 }
 
-named!(unstructured<CBS, CBS>,
-    recognize!(do_parse!(
-        many0!(do_parse!(ofws >> alt!(recognize!(many1!(vchar)) | take_until1!("\r\n")) >> ())) >>
-        many0!(wsp) >> ()
-    ))
-);
+fn until_crlf<'a>(input: &'a [u8]) -> NomResult<'a, &'a [u8]> {
+    map_opt(take_until("\r\n"),
+            |i: &[u8]| if !i.is_empty() {
+                Some(i)
+            } else {
+                None
+            })(input)
+}
 
-named!(fields<CBS, Vec<HeaderField>>,
-    do_parse!(
-        f: many0!(alt!(optional_field | invalid_field)) >>
-        opt!(crlf) >>
-        (f)
-    )
-);
+fn unstructured(input: &[u8]) -> NomResult<&[u8]> {
+    recognize(pair(
+        many0(pair(ofws, alt((recognize(many1(vchar)), until_crlf)))),
+        many0(wsp)))(input)
+}
+
+fn fields(input: &[u8]) -> NomResult<Vec<HeaderField>> {
+    terminated(many0(alt((optional_field, invalid_field))),
+               opt(crlf))(input)
+}
 
 fn optional_field(input: &[u8]) -> NomResult<HeaderField> {
     terminated(
@@ -54,13 +59,8 @@ fn optional_field(input: &[u8]) -> NomResult<HeaderField> {
 
 // Extension to be able to walk through crap.
 fn invalid_field(input: &[u8]) -> NomResult<HeaderField> {
-    map_opt(terminated(take_until("\r\n"), crlf),
-            |i| if !i.is_empty() {
-                Some(Err(i))
-            } else {
-                None
-            }
-    )(input)
+    map(terminated(until_crlf, crlf),
+        |v| Err(v))(input)
 }
 
 /// Zero copy mail message header splitter

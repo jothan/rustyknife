@@ -9,9 +9,9 @@ use std::str;
 use std::mem;
 
 use nom::bytes::complete::tag;
-use nom::multi::{fold_many0, many0};
-use nom::combinator::map;
-use nom::sequence::{delimited, pair, preceded};
+use nom::multi::{fold_many0, many0, many1};
+use nom::combinator::{map, opt};
+use nom::sequence::{delimited, pair, preceded, terminated};
 
 use crate::rfc2047::{_internal_encoded_word as encoded_word};
 use crate::rfc5234::*;
@@ -39,23 +39,17 @@ named!(ccontent<CBS, CommentContent>,
        alt!(map!(alt!(ctext | quoted_pair), |x| CommentContent::Text(x.to_vec())) | map!(comment, CommentContent::Comment))
 );
 
-named!(fws<CBS, Vec<u8>>,
-    do_parse!(
-        a: opt!(do_parse!(
-            w: many0!(wsp) >>
-            crlf >> //CRLF is "semantically invisible"
-            (w)
-        )) >>
-        b: many1!(wsp) >>
-        ({
-            let mut out = Vec::with_capacity(b.len());
-            if let Some(x) = a { out.extend_from_slice(&x) };
-            out.extend_from_slice(&b);
-            out
-        })
-    )
-);
-
+fn fws(input: &[u8]) -> NomResult<Vec<u8>> {
+    //CRLF is "semantically invisible"
+    map(pair(opt(terminated(many0(wsp), crlf)),
+             many1(wsp)),
+        |(a, b)| {
+            match a {
+                Some(mut a) => { a.extend(b); a },
+                None => b,
+            }
+        })(input)
+}
 
 named!(pub(crate) ofws<CBS, Vec<u8>>,
        map!(opt!(fws), |i| i.unwrap_or_default())
