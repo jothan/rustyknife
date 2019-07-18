@@ -8,11 +8,11 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::{self, FromStr};
 
 use nom::branch::alt;
-use nom::bytes::complete::{tag, tag_no_case, take, take_while1};
+use nom::bytes::complete::{tag, tag_no_case, take, take_while1, take_while_m_n};
 use nom::character::{is_alphanumeric, is_digit, is_hex_digit};
-use nom::combinator::{map, opt, recognize, verify};
+use nom::combinator::{map, map_res, opt, recognize, verify};
 use nom::error::ParseError;
-use nom::multi::{many0, many1};
+use nom::multi::{many0, many1, many_m_n};
 use nom::sequence::{delimited, pair, preceded, separated_pair, terminated};
 
 use crate::rfc5322::{atext as atom};
@@ -155,7 +155,7 @@ fn ldh_str(input: &[u8]) -> NomResult<&[u8]> {
 }
 
 fn let_dig(input: &[u8]) -> NomResult<&[u8]> {
-    verify(take(1usize), |c: CBS| is_alphanumeric(c[0]))(input)
+    verify(take(1usize), |c: &[u8]| is_alphanumeric(c[0]))(input)
 }
 
 fn sub_domain(input: &[u8]) -> NomResult<&[u8]> {
@@ -176,33 +176,22 @@ fn a_d_l(input: &[u8]) -> NomResult<Vec<Domain>> {
         |(a, mut b)| { b.insert(0, a); b })(input)
 }
 
-named!(pub(crate) dot_string<CBS, DotAtom>,
-    map!(recognize!(do_parse!(
-        atom >>
-        many0!(do_parse!(tag!(".") >> atom >> ())) >>
-        ()
-    )), |a| DotAtom(str::from_utf8(a).unwrap().into()))
-);
+pub(crate) fn dot_string(input: &[u8]) -> NomResult<DotAtom> {
+    map(recognize(pair(atom, many0(pair(tag("."), atom)))),
+        |a| DotAtom(str::from_utf8(a).unwrap().into()))(input)
+}
 
-#[inline]
-named!(qtext_smtp<CBS, u8>,
-   map!(verify!(take!(1), |x: CBS| {
-       let c = &x[0];
-       (32..=33).contains(c) || (35..=91).contains(c) || (93..=126).contains(c)
-   }), |x| x[0] as u8)
-);
+fn qtext_smtp(input: &[u8]) -> NomResult<u8> {
+    map(verify(take(1usize), |x: &[u8]| {
+        let c = &x[0];
+        (32..=33).contains(c) || (35..=91).contains(c) || (93..=126).contains(c)
+    }), |x: &[u8]| x[0])(input)
+}
 
-#[inline]
-named!(quoted_pair_smtp<CBS, u8>,
-    do_parse!(
-        tag!("\\") >>
-        c: map!(verify!(take!(1), |x: CBS| {
-            (32..=126).contains(&x[0])
-        }), |x| x[0]) >>
-        (c as u8)
-    )
-);
-
+fn quoted_pair_smtp(input: &[u8]) -> NomResult<u8> {
+    map(preceded(tag("\\"), verify(take(1usize), |x: &[u8]| (32..=126).contains(&x[0]))),
+        |x: &[u8]| x[0])(input)
+}
 fn qcontent_smtp(input: &[u8]) -> NomResult<u8> {
     alt((qtext_smtp, quoted_pair_smtp))(input)
 }
@@ -215,53 +204,40 @@ pub(crate) fn quoted_string(input: &[u8]) -> NomResult<QuotedString> {
         |qs| QuotedString(String::from_utf8(qs).unwrap()))(input)
 }
 
-named!(pub(crate) local_part<CBS, LocalPart>,
-    alt!(map!(dot_string, |s| s.into()) |
-         map!(quoted_string, LocalPart::Quoted))
-);
+pub(crate) fn local_part(input: &[u8]) -> NomResult<LocalPart> {
+    alt((map(dot_string, |s| s.into()),
+         map(quoted_string, LocalPart::Quoted)))(input)
+}
 
-named!(_ip_int<CBS, u8>,
-    map_res!(take_while_m_n!(1, 3, is_digit),
-             |ip : CBS| str::from_utf8(ip).unwrap().parse()
-    )
-);
+fn _ip_int(input: &[u8]) -> NomResult<u8> {
+    map_res(take_while_m_n(1, 3, is_digit),
+            |ip| str::from_utf8(ip).unwrap().parse())(input)
+}
 
-named!(_ipv4_literal<CBS, AddressLiteral>,
-    do_parse!(
-        a: _ip_int >>
-        b: many_m_n!(3, 3, do_parse!(tag!(".") >> i: _ip_int >> (i))) >>
-        (AddressLiteral::IP(Ipv4Addr::new(a, b[0], b[1], b[2]).into()))
-    )
-);
+fn _ipv4_literal(input: &[u8]) -> NomResult<AddressLiteral> {
+    map(pair(_ip_int, many_m_n(3, 3, preceded(tag("."), _ip_int))),
+        |(a, b)| (AddressLiteral::IP(Ipv4Addr::new(a, b[0], b[1], b[2]).into())))(input)
+}
 
-named!(_ipv6_literal<CBS, AddressLiteral>,
-    map_res!(do_parse!(
-        tag_no_case!("IPv6:") >>
-        addr: take_while1!(|c| is_hex_digit(c) || b":.".contains(&c))  >>
-        (addr)),
-        |addr : CBS| {
-            Ipv6Addr::from_str(str::from_utf8(addr).unwrap()).map(|ip| AddressLiteral::IP(ip.into()))
-        }
-    )
-);
+fn _ipv6_literal(input: &[u8]) -> NomResult<AddressLiteral> {
+    map_res(preceded(tag_no_case("IPv6:"), take_while1(|c| is_hex_digit(c) || b":.".contains(&c))),
+            |addr| Ipv6Addr::from_str(str::from_utf8(addr).unwrap()).map(|ip| AddressLiteral::IP(ip.into())))(input)
+}
 
-named!(dcontent<CBS, &'_ str>,
-    map!(take_while1!(|c| (33..=90).contains(&c) || (94..=126).contains(&c)),
-         |x| std::str::from_utf8(&x).unwrap())
-);
+fn dcontent(input: &[u8]) -> NomResult<&str> {
+    map(take_while1(|c| (33..=90).contains(&c) || (94..=126).contains(&c)),
+        |x| std::str::from_utf8(x).unwrap())(input)
+}
 
-named!(general_address_literal<CBS, AddressLiteral>,
-    do_parse!(
-        tag: ldh_str >>
-        tag!(":") >>
-        value: dcontent >>
-        (AddressLiteral::Tagged(str::from_utf8(tag).unwrap().into(), value.into()))
-    )
-);
+fn general_address_literal(input: &[u8]) -> NomResult<AddressLiteral> {
+    map(separated_pair(ldh_str, tag(":"), dcontent),
+        |(tag, value)| AddressLiteral::Tagged(str::from_utf8(tag).unwrap().into(), value.into())
+    )(input)
+}
 
-named!(pub(crate) _inner_address_literal<CBS, AddressLiteral>,
-    alt!(_ipv4_literal | _ipv6_literal | general_address_literal)
-);
+pub(crate) fn _inner_address_literal(input: &[u8]) -> NomResult<AddressLiteral> {
+    alt((_ipv4_literal, _ipv6_literal, general_address_literal))(input)
+}
 
 pub(crate) fn address_literal(input: &[u8]) -> NomResult<AddressLiteral> {
     delimited(tag("["), _inner_address_literal, tag("]"))(input)
@@ -355,10 +331,10 @@ pub fn rset_command(input: &[u8]) -> NomResult<()> {
     map(tag_no_case("RSET\r\n"), |_| ())(input)
 }
 
-named!(_smtp_string<CBS, SMTPString>,
-    alt!(map!(atom, |a| SMTPString(str::from_utf8(a).unwrap().into())) |
-         map!(quoted_string, |qs| SMTPString(qs.into())))
-);
+pub fn _smtp_string(input: &[u8]) -> NomResult<SMTPString> {
+    alt((map(atom, |a| SMTPString(str::from_utf8(a).unwrap().into())),
+         map(quoted_string, |qs| SMTPString(qs.into()))))(input)
+}
 
 /// Parse an SMTP NOOP command.
 pub fn noop_command(input: &[u8]) -> NomResult<Option<SMTPString>> {
