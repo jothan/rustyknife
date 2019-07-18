@@ -45,12 +45,7 @@ fn unstructured(input: &[u8]) -> NomResult<&[u8]> {
         many0(wsp)))(input)
 }
 
-fn fields(input: &[u8]) -> NomResult<Vec<HeaderField>> {
-    terminated(many0(alt((optional_field, invalid_field))),
-               opt(crlf))(input)
-}
-
-fn optional_field(input: &[u8]) -> NomResult<HeaderField> {
+fn field(input: &[u8]) -> NomResult<HeaderField> {
     terminated(
         map(separated_pair(field_name, tag(":"), unstructured),
             |(name, value)| Ok((name, value))),
@@ -68,6 +63,6 @@ fn invalid_field(input: &[u8]) -> NomResult<HeaderField> {
 /// Returns the remaining input (the message body) and a vector of
 /// [HeaderField] on success.
 pub fn header_section(input: &[u8]) -> NomResult<Vec<HeaderField>> {
-    terminated(many0(alt((optional_field, invalid_field))),
+    terminated(many0(alt((field, invalid_field))),
                opt(crlf))(input)
 }
