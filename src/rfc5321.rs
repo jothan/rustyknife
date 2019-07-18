@@ -7,9 +7,10 @@ use std::fmt::{self, Display};
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::{self, FromStr};
 
-use nom::bytes::complete::{tag, tag_no_case, take_while1};
+use nom::bytes::complete::{tag, tag_no_case, take, take_while1};
 use nom::character::{is_alphanumeric, is_digit, is_hex_digit};
-use nom::combinator::{map, opt};
+use nom::combinator::{map, opt, recognize, verify};
+use nom::error::ParseError;
 use nom::multi::{many0, many1};
 use nom::sequence::{delimited, pair, preceded};
 
@@ -138,29 +139,32 @@ fn _esmtp_params(input: &[u8]) -> NomResult<Vec<Param>> {
         |(a, mut b)| { b.insert(0, a); b })(input)
 }
 
-named!(ldh_str<CBS, CBS>,
-    verify!(take_while1!(|c| is_alphanumeric(c) || c == b'-'), |x: CBS| {
-        x.last() != Some(&b'-')
-    })
-);
+fn ldh_str(input: &[u8]) -> NomResult<&[u8]> {
+    let (_, mut out) = take_while1(|c| is_alphanumeric(c) || c == b'-')(input)?;
 
-#[inline]
-named!(let_dig<CBS, CBS>,
-    verify!(take!(1), |c: CBS| is_alphanumeric(c[0]))
-);
+    while out.last() == Some(&b'-') {
+        out = &out[..out.len()-1];
+    }
 
-named!(sub_domain<CBS, CBS>,
-    recognize!(do_parse!(
-        let_dig >>
-        opt!(ldh_str) >>
-        ()
-    ))
-);
+    if out.is_empty() {
+        Err(nom::Err::Error(NomError::from_error_kind(input, nom::error::ErrorKind::TakeWhile1)))
+    } else {
+        Ok((&input[out.len()..], out))
+    }
+}
 
-named!(pub(crate) domain<CBS, Domain>,
-    map!(recognize!(do_parse!(sub_domain >> many0!(do_parse!(tag!(".") >> sub_domain >> ())) >> ())),
-         |domain| Domain(str::from_utf8(domain).unwrap().into()))
-);
+fn let_dig(input: &[u8]) -> NomResult<&[u8]> {
+    verify(take(1usize), |c: CBS| is_alphanumeric(c[0]))(input)
+}
+
+fn sub_domain(input: &[u8]) -> NomResult<&[u8]> {
+    recognize(pair(let_dig, opt(ldh_str)))(input)
+}
+
+pub(crate) fn domain(input: &[u8]) -> NomResult<Domain> {
+    map(recognize(pair(sub_domain, many0(pair(tag("."), sub_domain)))),
+        |domain| Domain(str::from_utf8(domain).unwrap().into()))(input)
+}
 
 named!(at_domain<CBS, Domain>,
     do_parse!(
