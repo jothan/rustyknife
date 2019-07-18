@@ -126,13 +126,10 @@ fn extended_other_names(input: &[u8]) -> NomResult<Name> {
 }
 
 fn extended_initial_value(input: &[u8]) -> NomResult<ExtendedValue> {
-    let (rem, (e, l, v)) = tuple((
-        terminated(opt(attribute), tag("'")),
-        terminated(opt(attribute), tag("'")),
-        extended_other_values
-    ))(input)?;
-
-    Ok((rem, ExtendedValue::Initial{encoding: e, language: l, value: v}))
+    map(tuple((terminated(opt(attribute), tag("'")),
+               terminated(opt(attribute), tag("'")),
+               extended_other_values)),
+        |(encoding, language, value)| ExtendedValue::Initial{encoding, language, value})(input)
 }
 
 fn ext_octet(input: &[u8]) -> NomResult<u8> {
