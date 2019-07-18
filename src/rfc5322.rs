@@ -12,7 +12,7 @@ use nom::branch::alt;
 use nom::bytes::complete::{tag, take, take_while1};
 use nom::multi::{fold_many0, many0, many1};
 use nom::combinator::{map, opt, recognize, verify};
-use nom::sequence::{delimited, pair, preceded, separated_pair, terminated};
+use nom::sequence::{delimited, pair, preceded, separated_pair, terminated, tuple};
 
 use crate::rfc2047::{_internal_encoded_word as encoded_word};
 use crate::rfc5234::*;
@@ -341,42 +341,35 @@ fn _8bit_char(input: &[u8]) -> NomResult<u8> {
     map(verify(take(1usize), |c: &[u8]| (0x80..=0xff).contains(&c[0])), |x: &[u8]| x[0])(input)
 }
 
-named!(_unstructured<CBS, String>,
-    do_parse!(
-        a: many0!(alt!(
-            do_parse!(
-                ws: opt!(fws) >>
-                ew: encoded_word >>
-                ewcont: many0!(do_parse!(fws >> e: encoded_word >> (Text::Literal(e)))) >>
-                ({
+/// Parse an unstructured header such as `"Subject:"`.
+///
+/// Returns a fully decoded string.
+pub fn unstructured(input: &[u8]) -> NomResult<String> {
+    map(pair(
+        many0(alt((
+            map(tuple((opt(fws), encoded_word, many0(map(preceded(fws, encoded_word), Text::Literal)))),
+                |(ws, ew, ewcont)| {
                     let mut out = Vec::with_capacity(ewcont.len()+2);
                     if let Some(x) = ws { out.push(Text::Literal(ascii_to_string_vec(x))) };
                     out.push(Text::Literal(ew));
                     out.extend_from_slice(&ewcont);
                     out
-                })
-            ) |
-            do_parse!(
-                ws: opt!(fws) >>
-                vc: many1!(alt!(vchar | _8bit_char)) >>
-                ({
+                }),
+            map(pair(opt(fws), many1(alt((vchar, _8bit_char)))),
+                |(ws, vc)| {
                     let mut out = Vec::new();
                     if let Some(x) = ws {
                         out.extend_from_slice(&x)
                     };
                     out.extend_from_slice(&vc);
                     vec![Text::Literal(ascii_to_string_vec(out))]
-                })
-            )
-
-        )) >>
-        b: many0!(wsp) >>
-        ({
+                })))),
+        many0(wsp)),
+        |(a, b)| {
             let iter =  a.into_iter().flat_map(IntoIterator::into_iter).chain(std::iter::once(Text::Literal(ascii_to_string_vec(b))));
             _concat_atom_and_qs(iter)
-        })
-    )
-);
+        })(input)
+}
 
 /// Parse the content of a `"From:"` header.
 ///
@@ -400,11 +393,4 @@ pub fn sender(i: &[u8]) -> KResult<&[u8], Address> {
 /// Returns a list of addresses.
 pub fn reply_to(i: &[u8]) -> KResult<&[u8], Vec<Address>> {
     address_list_crlf(i)
-}
-
-/// Parse an unstructured header such as `"Subject:"`.
-///
-/// Returns a fully decoded string.
-pub fn unstructured(i: &[u8]) -> KResult<&[u8], String> {
-    _unstructured(i)
 }
