@@ -7,7 +7,11 @@ use std::fmt::{self, Display};
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::{self, FromStr};
 
+use nom::bytes::complete::{tag, tag_no_case, take_while1};
 use nom::character::{is_alphanumeric, is_digit, is_hex_digit};
+use nom::combinator::{map, opt};
+use nom::multi::{many0, many1};
+use nom::sequence::{delimited, pair, preceded};
 
 use crate::rfc5322::{atext as atom};
 use crate::rfc5234::{crlf, wsp};
@@ -115,35 +119,24 @@ impl Display for ReversePath {
     }
 }
 
-#[inline]
-named!(_alphanum<CBS, CBS>,
-    verify!(take!(1), |x: CBS| is_alphanumeric(x[0]))
-);
+fn esmtp_keyword(input: &[u8]) -> NomResult<Keyword> {
+    map(take_while1(is_alphanumeric), |x| Keyword(std::str::from_utf8(x).unwrap().into()))(input)
+}
 
-named!(esmtp_keyword<CBS, Keyword>,
-    map!(recognize!(do_parse!(_alphanum >> many0!(_alphanum) >> ())), |x| Keyword(std::str::from_utf8(&x).unwrap().into()))
-);
+fn esmtp_value(input: &[u8]) -> NomResult<Value> {
+    map(take_while1(|c| (33..=60).contains(&c) || (62..=126).contains(&c)),
+        |x| Value(std::str::from_utf8(x).unwrap().into()))(input)
+}
 
-named!(esmtp_value<CBS, Value>,
-    map!(take_while1!(|c| (33..=60).contains(&c) || (62..=126).contains(&c)),
-         |x| Value(std::str::from_utf8(&x).unwrap().into()))
-);
+fn esmtp_param(input: &[u8]) -> NomResult<Param> {
+    map(pair(esmtp_keyword, opt(preceded(tag("="), esmtp_value))),
+        |(n, v)| Param(n, v))(input)
+}
 
-named!(esmtp_param<CBS, Param>,
-    do_parse!(
-        name: esmtp_keyword >>
-        value: opt!(do_parse!(tag!("=") >>  v: esmtp_value >> (v))) >>
-        (Param(name, value))
-    )
-);
-
-named!(_esmtp_params<CBS, Vec<Param>>,
-    do_parse!(
-        a: esmtp_param >>
-        b: many0!(do_parse!(many1!(wsp) >> c: esmtp_param >> (c))) >>
-        ({ let mut out = Vec::with_capacity(b.len()+1); out.push(a); out.extend_from_slice(&b); out })
-    )
-);
+fn _esmtp_params(input: &[u8]) -> NomResult<Vec<Param>> {
+    map(pair(esmtp_param, many0(preceded(many1(wsp), esmtp_param))),
+        |(a, mut b)| { b.insert(0, a); b })(input)
+}
 
 named!(ldh_str<CBS, CBS>,
     verify!(take_while1!(|c| is_alphanumeric(c) || c == b'-'), |x: CBS| {
@@ -346,15 +339,12 @@ named!(pub helo_command<CBS, Domain>,
 /// assert_eq!(rp.to_string(), "<bob@example.org>");
 /// assert_eq!(params, [Param::new("BODY", Some("8BIT")).unwrap()]);
 /// ```
-named!(pub mail_command<CBS, (ReversePath, Vec<Param>)>,
-    do_parse!(
-        tag_no_case!("MAIL FROM:") >>
-        addr: reverse_path >>
-        params: opt!(do_parse!(tag!(" ") >> p: _esmtp_params >> (p))) >>
-        crlf >>
-        (addr, params.unwrap_or_default())
-    )
-);
+pub fn mail_command(input: &[u8]) -> NomResult<(ReversePath, Vec<Param>)> {
+    map(delimited(tag_no_case("MAIL FROM:"),
+                  pair(reverse_path, opt(preceded(tag(" "), _esmtp_params))),
+                  crlf),
+        |(addr, params)| (addr, params.unwrap_or_default()))(input)
+}
 
 named!(_forward_path<CBS, ForwardPath>,
     alt!(
