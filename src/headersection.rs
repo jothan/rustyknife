@@ -30,7 +30,7 @@ fn field_name(input: &[u8]) -> NomResult<&[u8]> {
     take_while1(|c: u8| (33..=57).contains(&c) || (59..=126).contains(&c))(input)
 }
 
-fn until_crlf<'a>(input: &'a [u8]) -> NomResult<'a, &'a [u8]> {
+fn until_crlf(input: &[u8]) -> NomResult<&[u8]> {
     map_opt(take_until("\r\n"),
             |i: &[u8]| if !i.is_empty() {
                 Some(i)
@@ -46,16 +46,12 @@ fn unstructured(input: &[u8]) -> NomResult<&[u8]> {
 }
 
 fn field(input: &[u8]) -> NomResult<HeaderField> {
-    terminated(
-        map(separated_pair(field_name, tag(":"), unstructured),
-            |(name, value)| Ok((name, value))),
-        crlf)(input)
+    map(terminated(separated_pair(field_name, tag(":"), unstructured), crlf), Ok)(input)
 }
 
 // Extension to be able to walk through crap.
 fn invalid_field(input: &[u8]) -> NomResult<HeaderField> {
-    map(terminated(until_crlf, crlf),
-        |v| Err(v))(input)
+    map(terminated(until_crlf, crlf), Err)(input)
 }
 
 /// Zero copy mail message header splitter

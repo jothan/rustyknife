@@ -331,7 +331,7 @@ pub fn rset_command(input: &[u8]) -> NomResult<()> {
     map(tag_no_case("RSET\r\n"), |_| ())(input)
 }
 
-pub fn _smtp_string(input: &[u8]) -> NomResult<SMTPString> {
+fn _smtp_string(input: &[u8]) -> NomResult<SMTPString> {
     alt((map(atom, |a| SMTPString(str::from_utf8(a).unwrap().into())),
          map(quoted_string, |qs| SMTPString(qs.into()))))(input)
 }
