@@ -13,7 +13,7 @@ use nom::character::{is_alphanumeric, is_digit, is_hex_digit};
 use nom::combinator::{map, opt, recognize, verify};
 use nom::error::ParseError;
 use nom::multi::{many0, many1};
-use nom::sequence::{delimited, pair, preceded};
+use nom::sequence::{delimited, pair, preceded, separated_pair, terminated};
 
 use crate::rfc5322::{atext as atom};
 use crate::rfc5234::{crlf, wsp};
@@ -167,25 +167,14 @@ pub(crate) fn domain(input: &[u8]) -> NomResult<Domain> {
         |domain| Domain(str::from_utf8(domain).unwrap().into()))(input)
 }
 
-named!(at_domain<CBS, Domain>,
-    do_parse!(
-        tag!("@") >>
-        d: domain >>
-        (d)
-    )
-);
+fn at_domain(input: &[u8]) -> NomResult<Domain> {
+    preceded(tag("@"), domain)(input)
+}
 
-named!(a_d_l<CBS, Vec<Domain>>,
-    do_parse!(
-        f: at_domain >>
-        cont: many0!(do_parse!(tag!(",") >> d: at_domain >> (d))) >>
-        ({
-            let mut cont = cont;
-            cont.insert(0, f);
-            cont
-        })
-    )
-);
+fn a_d_l(input: &[u8]) -> NomResult<Vec<Domain>> {
+    map(pair(at_domain, many0(preceded(tag(","), at_domain))),
+        |(a, mut b)| { b.insert(0, a); b })(input)
+}
 
 named!(pub(crate) dot_string<CBS, DotAtom>,
     map!(recognize!(do_parse!(
@@ -196,36 +185,35 @@ named!(pub(crate) dot_string<CBS, DotAtom>,
 );
 
 #[inline]
-named!(qtext_smtp<CBS, char>,
+named!(qtext_smtp<CBS, u8>,
    map!(verify!(take!(1), |x: CBS| {
        let c = &x[0];
        (32..=33).contains(c) || (35..=91).contains(c) || (93..=126).contains(c)
-   }), |x| x[0] as char)
+   }), |x| x[0] as u8)
 );
 
 #[inline]
-named!(quoted_pair_smtp<CBS, char>,
+named!(quoted_pair_smtp<CBS, u8>,
     do_parse!(
         tag!("\\") >>
         c: map!(verify!(take!(1), |x: CBS| {
             (32..=126).contains(&x[0])
         }), |x| x[0]) >>
-        (c as char)
+        (c as u8)
     )
 );
 
-named!(qcontent_smtp<CBS, char>,
-    alt!(qtext_smtp | quoted_pair_smtp)
-);
+fn qcontent_smtp(input: &[u8]) -> NomResult<u8> {
+    alt((qtext_smtp, quoted_pair_smtp))(input)
+}
 
-named!(pub(crate) quoted_string<CBS, QuotedString>,
-    do_parse!(
-        tag!("\"") >>
-        qc: many0!(qcontent_smtp) >>
-        tag!("\"") >>
-        (QuotedString(qc.into_iter().collect()))
-    )
-);
+pub(crate) fn quoted_string(input: &[u8]) -> NomResult<QuotedString> {
+    map(delimited(
+        tag("\""),
+        many0(qcontent_smtp),
+        tag("\"")),
+        |qs| QuotedString(String::from_utf8(qs).unwrap()))(input)
+}
 
 named!(pub(crate) local_part<CBS, LocalPart>,
     alt!(map!(dot_string, |s| s.into()) |
@@ -275,42 +263,31 @@ named!(pub(crate) _inner_address_literal<CBS, AddressLiteral>,
     alt!(_ipv4_literal | _ipv6_literal | general_address_literal)
 );
 
-named!(pub(crate) address_literal<CBS, AddressLiteral>,
-    do_parse!(
-        tag!("[") >>
-        lit: _inner_address_literal >>
-        tag!("]") >>
-        (lit)
-    )
-);
+pub(crate) fn address_literal(input: &[u8]) -> NomResult<AddressLiteral> {
+    delimited(tag("["), _inner_address_literal, tag("]"))(input)
+}
 
-named!(pub(crate) _domain_part<CBS, DomainPart>,
-    alt!(map!(domain, DomainPart::Domain) | map!(address_literal, DomainPart::Address))
-);
+pub(crate) fn _domain_part(input: &[u8]) -> NomResult<DomainPart> {
+    alt((map(domain, DomainPart::Domain), map(address_literal, DomainPart::Address)))(input)
+}
 
-named!(pub(crate) mailbox<CBS, Mailbox>,
-    do_parse!(
-        lp: local_part >>
-        tag!("@") >>
-        dp:  _domain_part >>
-        (Mailbox(lp, dp))
-    )
-);
+pub(crate) fn mailbox(input: &[u8]) -> NomResult<Mailbox> {
+    map(separated_pair(local_part, tag("@"), _domain_part),
+        |(lp, dp)| Mailbox(lp, dp))(input)
+}
 
-named!(path<CBS, Path>,
-    do_parse!(
-        tag!("<") >>
-        path: opt!(do_parse!(p: a_d_l >> tag!(":") >> (p))) >>
-        m: mailbox >>
-        tag!(">") >>
-        (Path(m, path.unwrap_or_default()))
-    )
-);
+fn path(input: &[u8]) -> NomResult<Path> {
+    map(delimited(
+        tag("<"),
+        pair(opt(terminated(a_d_l, tag(":"))), mailbox),
+        tag(">")),
+        |(path, m)| Path(m, path.unwrap_or_default()))(input)
+}
 
-named!(reverse_path<CBS, ReversePath>,
-    alt!(map!(path, ReversePath::Path) |
-         map!(tag!("<>"), |_| ReversePath::Null))
-);
+fn reverse_path(input: &[u8]) -> NomResult<ReversePath> {
+    alt((map(path, ReversePath::Path),
+         map(tag("<>"), |_| ReversePath::Null)))(input)
+}
 
 /// Parse an SMTP EHLO command.
 pub fn ehlo_command(input: &[u8]) -> NomResult<DomainPart> {
@@ -341,13 +318,12 @@ pub fn mail_command(input: &[u8]) -> NomResult<(ReversePath, Vec<Param>)> {
         |(addr, params)| (addr, params.unwrap_or_default()))(input)
 }
 
-named!(_forward_path<CBS, ForwardPath>,
-    alt!(
-        map!(tag_no_case!("<postmaster>"), |_| ForwardPath::PostMaster(None)) |
-        do_parse!(tag_no_case!("<postmaster@") >> d: domain >> tag!(">") >> (ForwardPath::PostMaster(Some(d)))) |
-        map!(path, ForwardPath::Path)
-    )
-);
+fn _forward_path(input: &[u8]) -> NomResult<ForwardPath> {
+    alt((map(tag_no_case("<postmaster>"), |_| ForwardPath::PostMaster(None)),
+         map(delimited(tag_no_case("<postmaster@"), domain, tag(">")), |d| ForwardPath::PostMaster(Some(d))),
+         map(path, ForwardPath::Path)
+    ))(input)
+}
 
 /// Parse an SMTP RCPT TO command.
 ///
@@ -462,5 +438,5 @@ pub fn command(input: &[u8]) -> NomResult<Command> {
 /// assert!(!validate_address(b""));
 /// ```
 pub fn validate_address(i: &[u8]) -> bool {
-    exact!(CBS(i), mailbox).is_ok()
+    exact!(i, mailbox).is_ok()
 }
