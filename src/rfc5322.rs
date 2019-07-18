@@ -8,26 +8,24 @@
 use std::str;
 use std::mem;
 
-use nom::bytes::complete::tag;
+use nom::branch::alt;
+use nom::bytes::complete::{tag, take, take_while1};
 use nom::multi::{fold_many0, many0, many1};
-use nom::combinator::{map, opt};
-use nom::sequence::{delimited, pair, preceded, terminated};
+use nom::combinator::{map, opt, recognize, verify};
+use nom::sequence::{delimited, pair, preceded, separated_pair, terminated};
 
 use crate::rfc2047::{_internal_encoded_word as encoded_word};
 use crate::rfc5234::*;
 use crate::types::{self, *};
 use crate::util::*;
 
-named!(quoted_pair<CBS, CBS>,
-       do_parse!(
-           tag!("\\") >>
-           v: recognize!(alt!(vchar | wsp)) >> (v)
-       )
-);
+fn quoted_pair(input: &[u8]) -> NomResult<&[u8]> {
+    preceded(tag("\\"), recognize(alt((vchar, wsp))))(input)
+}
 
-named!(ctext<CBS, CBS>,
-       take_while1!(|c: u8| (33..=39).contains(&c) || (42..=91).contains(&c) || (93..=126).contains(&c))
-);
+fn ctext(input: &[u8]) -> NomResult<&[u8]> {
+    take_while1(|c: u8| (33..=39).contains(&c) || (42..=91).contains(&c) || (93..=126).contains(&c))(input)
+}
 
 #[derive(Clone, Debug)]
 enum CommentContent {
@@ -35,9 +33,10 @@ enum CommentContent {
     Comment(Vec<CommentContent>),
 }
 
-named!(ccontent<CBS, CommentContent>,
-       alt!(map!(alt!(ctext | quoted_pair), |x| CommentContent::Text(x.to_vec())) | map!(comment, CommentContent::Comment))
-);
+fn ccontent(input: &[u8]) -> NomResult<CommentContent> {
+    alt((map(alt((ctext, quoted_pair)), |x| CommentContent::Text(x.to_vec())),
+         map(comment, CommentContent::Comment)))(input)
+}
 
 fn fws(input: &[u8]) -> NomResult<Vec<u8>> {
     //CRLF is "semantically invisible"
@@ -51,9 +50,9 @@ fn fws(input: &[u8]) -> NomResult<Vec<u8>> {
         })(input)
 }
 
-named!(pub(crate) ofws<CBS, Vec<u8>>,
-       map!(opt!(fws), |i| i.unwrap_or_default())
-);
+pub(crate) fn ofws(input: &[u8]) -> NomResult<Vec<u8>> {
+    map(opt(fws), |i| i.unwrap_or_default())(input)
+}
 
 fn _concat_comment(comments: Vec<CommentContent>, extra: Option<CommentContent>) -> Vec<CommentContent> {
     let mut out = Vec::new();
@@ -87,13 +86,13 @@ fn comment(input: &[u8]) -> NomResult<Vec<CommentContent>> {
         |(a, b)| _concat_comment(a, Some(CommentContent::Text(b))))(input)
 }
 
-named!(cfws<CBS, CBS>,
-    alt!(recognize!(pair!(many1!(pair!(ofws, comment)), ofws)) | recognize!(fws))
-);
+fn cfws(input: &[u8]) -> NomResult<&[u8]> {
+    alt((recognize(pair(many1(pair(ofws, comment)), ofws)), recognize(fws)))(input)
+}
 
-named!(qtext<CBS, CBS>,
-    take_while1!(|c: u8| c == 33 || (35..=91).contains(&c) || (93..=126).contains(&c) || (128..=255).contains(&c))
-);
+fn qtext(input: &[u8]) -> NomResult<&[u8]> {
+    take_while1(|c: u8| c == 33 || (35..=91).contains(&c) || (93..=126).contains(&c) || (128..=255).contains(&c))(input)
+}
 
 #[cfg(feature = "quoted-string-rfc2047")]
 named!(qcontent<CBS, QContent>,
@@ -111,13 +110,11 @@ named!(qcontent<CBS, QContent>,
 );
 
 // quoted-string not surrounded by CFWS
-named!(_inner_quoted_string<CBS, Vec<QContent>>,
-    do_parse!(
-        tag!("\"") >>
-        a: many0!(tuple!(opt!(fws), qcontent)) >>
-        b: opt!(fws) >>
-        tag!("\"") >>
-        ({
+fn _inner_quoted_string(input: &[u8]) -> NomResult<Vec<QContent>> {
+    map(delimited(tag("\""),
+                  pair(many0(pair(opt(fws), qcontent)), opt(fws)),
+                  tag("\"")),
+        |(a, b)| {
             let mut out = Vec::with_capacity(a.len()*2+1);
             for (ws, cont) in a {
                 match (ws, &cont, out.last()) {
@@ -130,18 +127,13 @@ named!(_inner_quoted_string<CBS, Vec<QContent>>,
             }
             if let Some(x) = b { out.push(QContent::Literal(ascii_to_string_vec(x))) }
             out
-        })
-    )
-);
+        })(input)
+}
 
-named!(pub(crate) quoted_string<CBS, QuotedString>,
-    do_parse!(
-        opt!(cfws) >>
-        qc: _inner_quoted_string >>
-        opt!(cfws) >>
-        (QuotedString(concat_qs(qc.into_iter())))
-    )
-);
+pub(crate) fn quoted_string(input: &[u8]) -> NomResult<QuotedString> {
+    map(delimited(opt(cfws), _inner_quoted_string, opt(cfws)),
+        |qc| QuotedString(concat_qs(qc.into_iter())))(input)
+}
 
 /// A single mailbox with an optional display name.
 #[derive(Clone, Debug, PartialEq)]
@@ -205,39 +197,30 @@ fn concat_qs<A: Iterator<Item=QContent>>(input: A) -> String {
     out
 }
 
-named!(pub(crate) atext<CBS, CBS>,
-    take_while1!(|c: u8| b"!#$%&'*+-/=?^_`{|}~".contains(&c) || (b'0'..=b'9').contains(&c) || (b'A'..=b'Z').contains(&c) || (b'a'..=b'z').contains(&c))
-);
+pub(crate) fn atext(input: &[u8]) -> NomResult<&[u8]> {
+    take_while1(|c: u8| b"!#$%&'*+-/=?^_`{|}~".contains(&c) || (b'0'..=b'9').contains(&c) || (b'A'..=b'Z').contains(&c) || (b'a'..=b'z').contains(&c))(input)
+}
 
-named!(pub(crate) dot_atom<CBS, DotAtom>,
-    do_parse!(
-        opt!(cfws) >>
-        a: recognize!(pair!(atext, many0!(pair!(tag!("."), atext)))) >>
-        opt!(cfws) >>
-        (DotAtom(str::from_utf8(a).unwrap().into()))
-    )
-);
+pub(crate) fn dot_atom(input: &[u8]) -> NomResult<DotAtom> {
+    map(delimited(opt(cfws), recognize(pair(atext, many0(pair(tag("."), atext)))), opt(cfws)),
+        |a| (DotAtom(str::from_utf8(a).unwrap().into())))(input)
+}
 
-named!(pub(crate) atom<CBS, CBS>,
-    do_parse!(
-        opt!(cfws) >>
-        a: atext >>
-        opt!(cfws) >>
-        (a)
-    )
-);
+pub(crate) fn atom(input: &[u8]) -> NomResult<&[u8]> {
+    delimited(opt(cfws), atext, opt(cfws))(input)
+}
 
-named!(_padded_encoded_word<CBS, String>,
-    do_parse!(opt!(cfws) >> e: encoded_word >> opt!(cfws) >> (e))
-);
+pub(crate) fn _padded_encoded_word(input: &[u8]) -> NomResult<String> {
+    delimited(opt(cfws), encoded_word, opt(cfws))(input)
+}
 
-named!(word<CBS, Text>,
-    alt!(
-        map!(_padded_encoded_word, Text::Literal) |
-        map!(atom, |x| Text::Atom(str::from_utf8(&x).unwrap())) |
-        map!(quoted_string, |qs| Text::Literal(qs.0))
-    )
-);
+fn word(input: &[u8]) -> NomResult<Text> {
+    alt((
+        map(_padded_encoded_word, Text::Literal),
+        map(atom, |x| Text::Atom(str::from_utf8(&x).unwrap())),
+        map(quoted_string, |qs| Text::Literal(qs.0))
+    ))(input)
+}
 
 fn _concat_atom_and_qs<'a, A>(input: A) -> String
     where A: Iterator<Item=Text<'a>>,
@@ -256,75 +239,60 @@ fn _concat_atom_and_qs<'a, A>(input: A) -> String
     out
 }
 
-named!(display_name<CBS, String>,
-    map!(many1!(word), |words| _concat_atom_and_qs(words.into_iter().map(Into::into)))
-);
+fn display_name(input: &[u8]) -> NomResult<String> {
+    map(many1(word), |words| _concat_atom_and_qs(words.into_iter().map(Into::into)))(input)
+}
 
-named!(pub(crate) local_part<CBS, LocalPart>,
-    alt!(map!(dot_atom, |a| a.into()) |
-         map!(quoted_string, LocalPart::Quoted))
-);
+pub(crate) fn local_part(input: &[u8]) -> NomResult<LocalPart> {
+    alt((map(dot_atom, |a| a.into()),
+         map(quoted_string, LocalPart::Quoted)))(input)
+}
 
-named!(dtext<CBS, CBS>,
-    take_while1!(|c: u8| (33..=90).contains(&c) || (94..=126).contains(&c))
-);
+fn dtext(input: &[u8]) -> NomResult<&[u8]> {
+    take_while1(|c: u8| (33..=90).contains(&c) || (94..=126).contains(&c))(input)
+}
 
-named!(pub(crate) domain_literal<CBS, AddressLiteral>,
-    do_parse!(
-        opt!(cfws) >>
-        tag!("[") >>
-        a: many0!(tuple!(ofws, dtext)) >>
-        b: ofws >>
-        tag!("]") >>
-        opt!(cfws) >>
-        ({
+pub(crate) fn domain_literal(input: &[u8]) -> NomResult<AddressLiteral> {
+    map(delimited(pair(opt(cfws), tag("[")),
+                  pair(many0(pair(ofws, dtext)), ofws),
+                  pair(tag("]"), opt(cfws))),
+        |(a, b)| {
             let mut out : Vec<u8> = a.iter().flat_map(|(x, y)| x.iter().chain(y.iter())).cloned().collect();
             out.extend_from_slice(&b);
             let literal = AddressLiteral::FreeForm(String::from_utf8(out).unwrap());
             literal.upgrade().unwrap_or(literal)
-        })
-    )
-);
+        })(input)
+}
 
-named!(pub(crate) _domain<CBS, Domain>,
-    map!(dot_atom, |a| Domain(a.0))
-);
+pub(crate) fn _domain(input: &[u8]) -> NomResult<Domain> {
+    map(dot_atom, |a| Domain(a.0))(input)
+}
 
-named!(pub(crate) domain<CBS, DomainPart>,
-    alt!(map!(_domain, DomainPart::Domain) | map!(domain_literal, DomainPart::Address))
-);
+pub(crate) fn domain(input: &[u8]) -> NomResult<DomainPart> {
+    alt((map(_domain, DomainPart::Domain),
+         map(domain_literal, DomainPart::Address)))(input)
+}
 
-named!(pub(crate) addr_spec<CBS, types::Mailbox>,
-    do_parse!(
-        lp: local_part >>
-        tag!("@") >>
-        domain: domain >>
-        (types::Mailbox(lp, domain))
-    )
-);
+pub(crate) fn addr_spec(input: &[u8]) -> NomResult<types::Mailbox> {
+    map(separated_pair(local_part, tag("@"), domain),
+        |(lp, domain)| types::Mailbox(lp, domain))(input)
+}
 
-named!(angle_addr<CBS, types::Mailbox>,
-    do_parse!(
-        opt!(cfws) >>
-        tag!("<") >>
-        address: addr_spec >>
-        tag!(">") >>
-        opt!(cfws) >>
-        (address)
-    )
-);
+fn angle_addr(input: &[u8]) -> NomResult<types::Mailbox> {
+    delimited(pair(opt(cfws), tag("<")),
+              addr_spec,
+              pair(tag(">"), opt(cfws)))(input)
+}
 
-named!(name_addr<CBS, Mailbox>,
-    do_parse!(
-        dname: opt!(display_name) >>
-        address: angle_addr >>
-        (Mailbox{dname, address})
-    )
-);
+fn name_addr(input: &[u8]) -> NomResult<Mailbox> {
+    map(pair(opt(display_name), angle_addr),
+        |(dname, address)| Mailbox{dname, address})(input)
+}
 
-named!(mailbox<CBS, Mailbox>,
-    alt!(name_addr | map!(addr_spec, |a| Mailbox{dname: None, address: a}))
-);
+fn mailbox(input: &[u8]) -> NomResult<Mailbox> {
+    alt((name_addr,
+         map(addr_spec, |a| Mailbox{dname: None, address: a})))(input)
+}
 
 pub fn mailbox_list(input: &[u8]) -> NomResult<Vec<Mailbox>> {
     map(pair(mailbox,
@@ -336,24 +304,20 @@ pub fn mailbox_list(input: &[u8]) -> NomResult<Vec<Mailbox>> {
     )(input)
 }
 
-named!(group_list<CBS, Vec<Mailbox>>,
-    alt!(mailbox_list | map!(cfws, |_| vec![]))
-);
+fn group_list(input: &[u8]) -> NomResult<Vec<Mailbox>> {
+    alt((mailbox_list, map(cfws, |_| vec![])))(input)
+}
 
-named!(group<CBS, Group>,
-    do_parse!(
-        dname: display_name >>
-        tag!(":") >>
-        members: opt!(group_list) >>
-        tag!(";") >>
-        opt!(cfws) >>
-        (Group{dname, members: members.unwrap_or_default()})
-    )
-);
+fn group(input: &[u8]) -> NomResult<Group> {
+    map(pair(terminated(display_name, tag(":")),
+             terminated(opt(group_list), pair(tag(";"), opt(cfws)))),
+        |(dname, members)| Group{dname, members: members.unwrap_or_default()})(input)
+}
 
-named!(address<CBS, Address>,
-    alt!(map!(mailbox, Address::Mailbox) | map!(group, Address::Group))
-);
+fn address(input: &[u8]) -> NomResult<Address> {
+    alt((map(mailbox, Address::Mailbox),
+         map(group, Address::Group)))(input)
+}
 
 fn address_list(input: &[u8]) -> NomResult<Vec<Address>> {
     map(pair(address,
@@ -365,26 +329,17 @@ fn address_list(input: &[u8]) -> NomResult<Vec<Address>> {
     )(input)
 }
 
-named!(address_list_crlf<CBS, Vec<Address>>,
-    do_parse!(
-        a: address_list >>
-        opt!(crlf) >>
-        (a)
-    )
-);
+fn address_list_crlf(input: &[u8]) -> NomResult<Vec<Address>> {
+    terminated(address_list, opt(crlf))(input)
+}
 
-named!(address_crlf<CBS, Address>,
-    do_parse!(
-        a: address >>
-        opt!(crlf) >>
-        (a)
-    )
-);
+fn address_crlf(input: &[u8]) -> NomResult<Address> {
+    terminated(address, opt(crlf))(input)
+}
 
-#[inline]
-named!(_8bit_char<CBS, u8>,
-       map!(verify!(take!(1), |c: CBS| (0x80..=0xff).contains(&c[0])), |x| x[0])
-);
+fn _8bit_char(input: &[u8]) -> NomResult<u8> {
+    map(verify(take(1usize), |c: &[u8]| (0x80..=0xff).contains(&c[0])), |x: &[u8]| x[0])(input)
+}
 
 named!(_unstructured<CBS, String>,
     do_parse!(
