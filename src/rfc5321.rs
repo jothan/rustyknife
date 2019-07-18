@@ -7,6 +7,7 @@ use std::fmt::{self, Display};
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::{self, FromStr};
 
+use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take, take_while1};
 use nom::character::{is_alphanumeric, is_digit, is_hex_digit};
 use nom::combinator::{map, opt, recognize, verify};
@@ -312,24 +313,14 @@ named!(reverse_path<CBS, ReversePath>,
 );
 
 /// Parse an SMTP EHLO command.
-named!(pub ehlo_command<CBS, DomainPart>,
-    do_parse!(
-        tag_no_case!("EHLO ") >>
-        dp: _domain_part >>
-        tag!("\r\n") >>
-        (dp)
-    )
-);
+pub fn ehlo_command(input: &[u8]) -> NomResult<DomainPart> {
+    delimited(tag_no_case("EHLO "), _domain_part, tag("\r\n"))(input)
+}
 
 /// Parse an SMTP HELO command.
-named!(pub helo_command<CBS, Domain>,
-    do_parse!(
-        tag_no_case!("HELO ") >>
-        d: domain >>
-        tag!("\r\n") >>
-        (d)
-    )
-);
+pub fn helo_command(input: &[u8]) -> NomResult<Domain> {
+    delimited(tag_no_case("HELO "), domain, tag("\r\n"))(input)
+}
 
 /// Parse an SMTP MAIL FROM command.
 ///
@@ -370,25 +361,23 @@ named!(_forward_path<CBS, ForwardPath>,
 /// assert_eq!(p.to_string(), "<bob@example.org>");
 /// assert_eq!(params, [Param::new("NOTIFY", Some("NEVER")).unwrap()]);
 /// ```
-named!(pub rcpt_command<CBS, (ForwardPath, Vec<Param>)>,
-    do_parse!(
-        tag_no_case!("RCPT TO:") >>
-        path: _forward_path >>
-        params: opt!(do_parse!(tag!(" ") >> p: _esmtp_params >> (p))) >>
-        crlf >>
-        (path, params.unwrap_or_default())
-    )
-);
+pub fn rcpt_command(input: &[u8]) -> NomResult<(ForwardPath, Vec<Param>)> {
+    map(delimited(
+        tag_no_case("RCPT TO:"),
+        pair(_forward_path, opt(preceded(tag(" "), _esmtp_params))),
+        crlf,
+    ), |(path, params)| (path, params.unwrap_or_default()))(input)
+}
 
 /// Parse an SMTP DATA command.
-named!(pub data_command<CBS, ()>,
-    map!(tag_no_case!("DATA\r\n"), |_| ())
-);
+pub fn data_command(input: &[u8]) -> NomResult<()> {
+    map(tag_no_case("DATA\r\n"), |_| ())(input)
+}
 
 /// Parse an SMTP RSET command.
-named!(pub rset_command<CBS, ()>,
-    map!(tag_no_case!("RSET\r\n"), |_| ())
-);
+pub fn rset_command(input: &[u8]) -> NomResult<()> {
+    map(tag_no_case("RSET\r\n"), |_| ())(input)
+}
 
 named!(_smtp_string<CBS, SMTPString>,
     alt!(map!(atom, |a| SMTPString(str::from_utf8(a).unwrap().into())) |
@@ -396,53 +385,33 @@ named!(_smtp_string<CBS, SMTPString>,
 );
 
 /// Parse an SMTP NOOP command.
-named!(pub noop_command<CBS, Option<SMTPString>>,
-    do_parse!(
-        tag_no_case!("NOOP") >>
-        s1: opt!(do_parse!(
-            tag!(" ") >>
-            s2: _smtp_string >>
-            (s2))) >>
-        tag!("\r\n") >>
-        (s1))
-);
+pub fn noop_command(input: &[u8]) -> NomResult<Option<SMTPString>> {
+    delimited(tag_no_case("NOOP"),
+              opt(preceded(tag(" "), _smtp_string)),
+              tag("\r\n"))(input)
+}
 
 /// Parse an SMTP QUIT command.
-named!(pub quit_command<CBS, ()>,
-    map!(tag_no_case!("QUIT\r\n"), |_| ())
-);
+pub fn quit_command(input: &[u8]) -> NomResult<()> {
+    map(tag_no_case("QUIT\r\n"), |_| ())(input)
+}
 
 /// Parse an SMTP VRFY command.
-named!(pub vrfy_command<CBS, SMTPString>,
-    do_parse!(
-        tag_no_case!("VRFY") >>
-        tag!(" ") >>
-        s: _smtp_string >>
-        tag!("\r\n") >>
-        (s))
-);
+pub fn vrfy_command(input: &[u8]) -> NomResult<SMTPString> {
+    delimited(tag_no_case("VRFY "), _smtp_string, tag("\r\n"))(input)
+}
 
 /// Parse an SMTP EXPN command.
-named!(pub expn_command<CBS, SMTPString>,
-    do_parse!(
-        tag_no_case!("EXPN") >>
-        tag!(" ") >>
-        s: _smtp_string >>
-        tag!("\r\n") >>
-        (s))
-);
+pub fn expn_command(input: &[u8]) -> NomResult<SMTPString> {
+    delimited(tag_no_case("EXPN "), _smtp_string, tag("\r\n"))(input)
+}
 
 /// Parse an SMTP HELP command.
-named!(pub help_command<CBS, Option<SMTPString>>,
-    do_parse!(
-        tag_no_case!("HELP") >>
-        s1: opt!(do_parse!(
-            tag!(" ") >>
-            s2: _smtp_string >>
-            (s2))) >>
-        tag!("\r\n") >>
-        (s1))
-);
+pub fn help_command(input: &[u8]) -> NomResult<Option<SMTPString>> {
+    delimited(tag_no_case("HELP"),
+              opt(preceded(tag(" "), _smtp_string)),
+              tag("\r\n"))(input)
+}
 
 /// The base SMTP command set
 ///
@@ -465,21 +434,21 @@ pub enum Command {
 }
 
 /// Parse any basic SMTP command.
-named!(pub command<CBS, Command>,
-    alt!(
-        map!(ehlo_command, Command::EHLO) |
-        map!(helo_command, Command::HELO) |
-        map!(mail_command, |(a, p)| Command::MAIL(a, p)) |
-        map!(rcpt_command, |(a, p)| Command::RCPT(a, p)) |
-        map!(data_command, |_| Command::DATA) |
-        map!(rset_command, |_| Command::RSET) |
-        map!(noop_command, Command::NOOP) |
-        map!(quit_command, |_| Command::QUIT) |
-        map!(vrfy_command, Command::VRFY) |
-        map!(expn_command, Command::EXPN) |
-        map!(help_command, Command::HELP)
-    )
-);
+pub fn command(input: &[u8]) -> NomResult<Command> {
+    alt((
+        map(ehlo_command, Command::EHLO),
+        map(helo_command, Command::HELO),
+        map(mail_command, |(a, p)| Command::MAIL(a, p)),
+        map(rcpt_command, |(a, p)| Command::RCPT(a, p)),
+        map(data_command, |_| Command::DATA),
+        map(rset_command, |_| Command::RSET),
+        map(noop_command, Command::NOOP),
+        map(quit_command, |_| Command::QUIT),
+        map(vrfy_command, Command::VRFY),
+        map(expn_command, Command::EXPN),
+        map(help_command, Command::HELP),
+    ))(input)
+}
 
 /// Validates an email address.
 ///
