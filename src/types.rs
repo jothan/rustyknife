@@ -194,7 +194,7 @@ impl AddressLiteral {
     /// ```
     pub fn upgrade(&self) -> Result<Self, ()> {
         if let AddressLiteral::FreeForm(s) = self {
-            let (rem, parsed) = smtp::_inner_address_literal(CBS(s.as_bytes())).map_err(|_| ())?;
+            let (rem, parsed) = smtp::_inner_address_literal(s.as_bytes()).map_err(|_| ())?;
 
             if rem.is_empty() {
                 Ok(parsed)

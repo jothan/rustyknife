@@ -38,7 +38,7 @@ fn _qp_encoded_text(input: &[u8]) -> NomResult<Vec<u8>> {
 // Decode the modified quoted-printable as defined by this RFC.
 fn decode_qp(input: &[u8]) -> Option<Vec<u8>>
 {
-    exact!(CBS(input), _qp_encoded_text).ok().map(|(_, o)| o)
+    exact!(input, _qp_encoded_text).ok().map(|(_, o)| o)
 }
 
 // Undoes the quoted-printable or base64 encoding.

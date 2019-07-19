@@ -6,7 +6,6 @@ use encoding::{Encoding, EncoderTrap, DecoderTrap};
 use encoding::all::ASCII;
 
 pub(crate) type KResult<'a, I, O, E = NomError<I>> = IResult<I, O, E>;
-pub type CBS<'a> = &'a [u8];
 use nom::IResult;
 // Change this to something else that implements ParseError to get a
 // different error type out of nom.
@@ -14,11 +13,7 @@ use nom::IResult;
 pub(crate) type NomError<I> = (I, nom::error::ErrorKind);
 pub(crate) type NomResult<'a, O, E=NomError<&'a [u8]>> = IResult<&'a [u8], O, E>;
 
-pub(crate) fn CBS(input: &[u8]) -> &[u8] {
-    input
-}
-
-pub fn ascii_to_string<'a, T: AsRef<[u8]> + ?Sized>(i: &'a T) -> Cow<'a, str> {
+pub fn ascii_to_string<T: AsRef<[u8]> + ?Sized>(i: &T) -> Cow<str> {
     String::from_utf8_lossy(i.as_ref())
 }
 

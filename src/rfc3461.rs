@@ -121,7 +121,7 @@ pub fn dsn_mail_params<'a>(input: &[Param<'a>]) -> Result<(DSNMailParams, Vec<Pa
                 if inascii.len() > 100 {
                     return Err("ENVID over 100 bytes");
                 }
-                if let Ok((_, parsed)) = exact!(CBS(&inascii), _printable_xtext) {
+                if let Ok((_, parsed)) = exact!(inascii.as_ref(), _printable_xtext) {
                     envid_val = Some(ascii_to_string_vec(parsed));
                 } else {
                     return Err("Invalid ENVID");
