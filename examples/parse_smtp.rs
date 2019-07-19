@@ -15,7 +15,7 @@ fn main() -> Result<(), String> {
 
     let mut rem : &[u8] = &input;
     while !rem.is_empty() {
-        let (res, parsed) = command(rem).map_err(|e| "error")?;
+        let (res, parsed) = command(rem).map_err(|e| format!("{:?}", e))?;
 
         rem = res;
         println!("{:?}", parsed);
