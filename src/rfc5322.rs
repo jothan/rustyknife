@@ -365,20 +365,20 @@ pub fn unstructured(input: &[u8]) -> NomResult<String> {
 /// authors.
 ///
 /// [RFC 6854]: https://tools.ietf.org/html/rfc6854
-pub fn from(i: &[u8]) -> KResult<&[u8], Vec<Address>> {
+pub fn from(i: &[u8]) -> NomResult<Vec<Address>> {
     address_list_crlf(i)
 }
 
 /// Parse the content of a `"Sender:"` header.
 ///
 /// Returns a single address.
-pub fn sender(i: &[u8]) -> KResult<&[u8], Address> {
+pub fn sender(i: &[u8]) -> NomResult<Address> {
     address_crlf(i)
 }
 
 /// Parse the content of a `"Reply-To:"` header.
 ///
 /// Returns a list of addresses.
-pub fn reply_to(i: &[u8]) -> KResult<&[u8], Vec<Address>> {
+pub fn reply_to(i: &[u8]) -> NomResult<Vec<Address>> {
     address_list_crlf(i)
 }

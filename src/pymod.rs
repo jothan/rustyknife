@@ -7,7 +7,7 @@ use crate::rfc5321::{Param as ESMTPParam, mail_command, rcpt_command, validate_a
 use crate::rfc5322::{Address, Mailbox, Group, from, sender, reply_to, unstructured};
 use crate::headersection::{header_section};
 use crate::xforward::{Param as XFORWARDParam, xforward_params};
-use crate::util::{KResult, string_to_ascii};
+use crate::util::{NomResult, string_to_ascii};
 
 use memmap::Mmap;
 
@@ -98,7 +98,7 @@ impl ToPyObject for ReversePath {
     }
 }
 
-fn convert_result<O, E: Debug> (input: KResult<&[u8], O, E>, match_all: bool) -> PyResult<O> {
+fn convert_result<O, E: Debug> (input: NomResult<O, E>, match_all: bool) -> PyResult<O> {
     match input {
         Ok((rem, out)) => {
             if match_all && !rem.is_empty() {

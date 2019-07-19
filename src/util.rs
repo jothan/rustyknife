@@ -5,7 +5,6 @@ use std::str;
 use encoding::{Encoding, EncoderTrap, DecoderTrap};
 use encoding::all::ASCII;
 
-pub(crate) type KResult<'a, I, O, E = NomError<I>> = IResult<I, O, E>;
 use nom::IResult;
 use nom::multi::fold_many0;
 // Change this to something else that implements ParseError to get a
