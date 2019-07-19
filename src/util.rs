@@ -1,22 +1,19 @@
 use std::borrow::Cow;
-use std::ops::Deref;
 use std::str;
 
-use nom;
-use nom::types::CompleteByteSlice;
+
 use encoding::{Encoding, EncoderTrap, DecoderTrap};
 use encoding::all::ASCII;
 
-pub(crate) type KResult<I, O, E = u32> = Result<(I, O), nom::Err<I, E>>;
-pub type CBS<'a> = CompleteByteSlice<'a>;
+use nom::IResult;
+use nom::multi::fold_many0;
+// Change this to something else that implements ParseError to get a
+// different error type out of nom.
+pub(crate) type NomError<I> = (I, nom::error::ErrorKind);
+pub(crate) type NomResult<'a, O, E=NomError<&'a [u8]>> = IResult<&'a [u8], O, E>;
 
-#[allow(non_snake_case)]
-pub fn CBS(input: &[u8]) -> CBS {
-    CompleteByteSlice(input)
-}
-
-pub fn ascii_to_string<'a, T: Deref<Target=&'a [u8]>>(i: T) -> Cow<'a, str> {
-    String::from_utf8_lossy(&i)
+pub fn ascii_to_string<T: AsRef<[u8]> + ?Sized>(i: &T) -> Cow<str> {
+    String::from_utf8_lossy(i.as_ref())
 }
 
 pub fn ascii_to_string_vec(i: Vec<u8>) -> String {
@@ -31,36 +28,20 @@ pub fn string_to_ascii(i: &str) -> Vec<u8> {
     ASCII.encode(&i, EncoderTrap::Replace).unwrap()
 }
 
-pub fn wrap_cbs_result<T> (r: nom::IResult<CBS, T, u32>) -> nom::IResult<&[u8], T, u32> {
-    r.map(|(r, o)| (r.0, o)).map_err(|e| match e {
-        nom::Err::Incomplete(needed) => nom::Err::Incomplete(needed),
-        nom::Err::Error(c) => nom::Err::Error(convert_context(c)),
-        nom::Err::Failure(c) => nom::Err::Failure(convert_context(c)),
-    })
-}
-
-pub fn convert_context(c: nom::Context<CBS>) -> nom::Context<&[u8]> {
-    match c {
-        nom::Context::Code(r, e) => nom::Context::Code(r.0, e),
-        #[cfg(feature = "nom-verbose-errors")]
-        nom::Context::List(mut v) => nom::Context::List(v.drain(..).map(|(r, e)| (r.0, e)).collect()),
-    }
-}
-
 macro_rules! nom_fromstr {
     ( $type:ty, $func:ident ) => {
         impl std::str::FromStr for $type {
             type Err = ();
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
-                exact!(CBS(s.as_bytes()), $func).map(|(_, r)| r).map_err(|_| ())
+                exact!(s.as_bytes(), $func).map(|(_, r)| r).map_err(|_| ())
             }
         }
         impl <'a> std::convert::TryFrom<&'a [u8]> for $type {
-            type Error = nom::Err<&'a [u8], u32>;
+            type Error = nom::Err<NomError<&'a [u8]>>;
 
             fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-                wrap_cbs_result(exact!(CBS(value), $func)).map(|(_, r)| r)
+                exact!(value, $func).map(|(_, v)| v)
             }
         }
     }
@@ -69,16 +50,16 @@ macro_rules! nom_fromstr {
 macro_rules! nom_from_smtp {
     ( $smtp_func:path ) => {
         /// Parse using SMTP syntax.
-        pub fn from_smtp(value: &[u8]) -> Result<Self, nom::Err<&[u8], u32>> {
-            wrap_cbs_result(exact!(CBS(value), $smtp_func)).map(|(_, r)| r)
+        pub fn from_smtp(value: &[u8]) -> Result<Self, nom::Err<NomError<&[u8]>>> {
+            exact!(value, $smtp_func).map(|(_, v)| v)
         }
     }
 }
 macro_rules! nom_from_imf {
     ( $imf_func:path ) => {
         /// Parse using Internet Message Format syntax.
-        pub fn from_imf(value: &[u8]) -> Result<Self, nom::Err<&[u8], u32>> {
-            wrap_cbs_result(exact!(CBS(value), $imf_func)).map(|(_, r)| r)
+        pub fn from_imf(value: &[u8]) -> Result<Self, nom::Err<NomError<&[u8]>>> {
+            exact!(value, $imf_func).map(|(_, v)| v)
         }
     }
 }
@@ -112,5 +93,23 @@ macro_rules! string_newtype {
                 write!(f, "{:?}", self.0)
             }
         }
+    }
+}
+
+pub(crate) fn fold_prefix0<I, O, E, F, G>(prefix: F, cont: G) -> impl Fn(I) -> IResult<I, Vec<O>, E>
+    where I: Clone + PartialEq,
+          F: Fn(I) -> IResult<I, O, E>,
+          G: Fn(I) -> IResult<I, O, E>,
+          E: nom::error::ParseError::<I>,
+          Vec<O>: Clone,
+{
+    move |input: I| {
+        let (rem, v1) = prefix(input)?;
+        let out = vec![v1];
+
+        fold_many0(&cont, out, |mut acc, value| {
+            acc.push(value);
+            acc
+        })(rem)
     }
 }

@@ -7,13 +7,14 @@ use crate::rfc5321::{Param as ESMTPParam, mail_command, rcpt_command, validate_a
 use crate::rfc5322::{Address, Mailbox, Group, from, sender, reply_to, unstructured};
 use crate::headersection::{header_section};
 use crate::xforward::{Param as XFORWARDParam, xforward_params};
-use crate::util::{KResult, string_to_ascii};
+use crate::util::{NomResult, string_to_ascii};
 
 use memmap::Mmap;
 
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyTuple, PyDict};
-use pyo3::exceptions as exc;
+use pyo3::{self, Python, PyResult, PyObject, IntoPyObject, ToPyObject, PyErr};
+use pyo3::types::{PyBytes, PyDict, PyTuple};
+use pyo3::exceptions::ValueError;
 
 macro_rules! intopyobject {
     ( $e:ident ) => {
@@ -97,22 +98,22 @@ impl ToPyObject for ReversePath {
     }
 }
 
-fn convert_result<O, E: Debug> (input: KResult<&[u8], O, E>, match_all: bool) -> PyResult<O> {
+fn convert_result<O, E: Debug> (input: NomResult<O, E>, match_all: bool) -> PyResult<O> {
     match input {
         Ok((rem, out)) => {
             if match_all && !rem.is_empty() {
-                Err(PyErr::new::<exc::ValueError, _>("Whole input did not match"))
+                Err(PyErr::new::<ValueError, _>("Whole input did not match"))
             } else {
                 Ok(out)
             }
         }
-        Err(err) => Err(PyErr::new::<exc::ValueError, _>(format!("{:?}.", err))),
+        Err(err) => Err(PyErr::new::<ValueError, _>(format!("{:?}.", err))),
     }
 }
 
 fn header_section_slice(py: Python, input: &[u8]) -> PyResult<PyObject> {
     let (rem, out) = header_section(input)
-        .map_err(|err| PyErr::new::<exc::ValueError, _>(format!("{:?}.", err)))?;
+        .map_err(|err| PyErr::new::<ValueError, _>(format!("{:?}.", err)))?;
 
     let header_end = input.len().checked_sub(rem.len()).unwrap();
     let headers : Vec<_> = out.into_iter().map(|h| {
@@ -180,13 +181,13 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     #[pyfn(m, "orcpt_address")]
     fn py_orcpt_address(input: &str) -> PyResult<(String, String)> {
         let inascii = string_to_ascii(&input);
-        convert_result(orcpt_address(&inascii), true)
+        convert_result(orcpt_address(&inascii).map(|(rem, a)| (rem, (a.0.into(), a.1))), true)
     }
 
     /// dsn_mail_params(input)
     #[pyfn(m, "dsn_mail_params")]
     fn py_dsn_mail_params(py2: Python, input: Vec<(&str, Option<&str>)>) -> PyResult<(PyObject, PyObject)> {
-        dsn_mail_params(&input).map(|(parsed, rem)| (parsed.to_object(py2), rem.to_object(py2))).map_err(PyErr::new::<exc::ValueError, _>)
+        dsn_mail_params(&input).map(|(parsed, rem)| (parsed.to_object(py2), rem.to_object(py2))).map_err(PyErr::new::<ValueError, _>)
     }
 
     /// mail_command(input)

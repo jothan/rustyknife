@@ -10,30 +10,35 @@ use encoding::DecoderTrap;
 use encoding::all::ASCII;
 use encoding::label::encoding_from_whatwg_label;
 
+use nom::branch::alt;
+use nom::bytes::complete::{tag, take, take_while1};
+use nom::combinator::{map, opt};
+use nom::multi::many0;
+use nom::sequence::{delimited, preceded, terminated, tuple};
+
 use crate::util::*;
 use crate::rfc3461::hexpair;
 
-named!(token<CBS, CBS>,
-    take_while1!(|c| (33..=126).contains(&c) && !b"()<>@,;:\\\"/[]?.=".contains(&c))
-);
+fn token(input: &[u8]) -> NomResult<&[u8]> {
+    take_while1(|c| (33..=126).contains(&c) && !b"()<>@,;:\\\"/[]?.=".contains(&c))(input)
+}
 
-named!(encoded_text<CBS, CBS>,
-    take_while1!(|c| (33..=62).contains(&c) || (64..=126).contains(&c))
-);
+fn encoded_text(input: &[u8]) -> NomResult<&[u8]> {
+    take_while1(|c| (33..=62).contains(&c) || (64..=126).contains(&c))(input)
+}
 
-#[inline]
-named!(_qp_encoded_text<CBS, Vec<u8>>,
-    many0!(alt!(
-        do_parse!(tag!("=") >> b: hexpair >> (b)) |
-        map!(tag!("_"), |_| b' ') |
-        map!(take!(1), |x| x.0[0])
-    ))
-);
+fn _qp_encoded_text(input: &[u8]) -> NomResult<Vec<u8>> {
+    many0(alt((
+        preceded(tag("="), hexpair),
+        map(tag("_"), |_| b' '),
+        map(take(1usize), |x: &[u8]| x[0]),
+    )))(input)
+}
 
 // Decode the modified quoted-printable as defined by this RFC.
 fn decode_qp(input: &[u8]) -> Option<Vec<u8>>
 {
-    exact!(CBS(input), _qp_encoded_text).ok().map(|(_, o)| o)
+    exact!(input, _qp_encoded_text).ok().map(|(_, o)| o)
 }
 
 // Undoes the quoted-printable or base64 encoding.
@@ -46,30 +51,20 @@ fn decode_text(encoding: &[u8], text: &[u8]) -> Option<Vec<u8>>
     }
 }
 
-// Encoded word with no charset decoding.
-named!(_encoded_word<CBS, (Cow<'_, str>, Vec<u8>)>,
-    do_parse!(
-        tag!("=?") >>
-        charset: token >>
-        _lang: opt!(do_parse!(tag!("*") >> l: token >> (l))) >> // From RFC2231
-        tag!("?") >>
-        encoding: token >>
-        tag!("?") >>
-        encoded_text: encoded_text >>
-        tag!("?=") >>
-        (ascii_to_string(charset), decode_text(encoding.0, encoded_text.0).unwrap_or_else(|| encoded_text.0.to_vec()))
-    )
-);
+fn _encoded_word(input: &[u8]) -> NomResult<(Cow<'_, str>, Vec<u8>)> {
+    map(tuple((preceded(tag("=?"), token),
+               opt(preceded(tag("*"), token)),
+               delimited(tag("?"), token, tag("?")),
+               terminated(encoded_text, tag("?=")))),
+        |(charset, _lang, encoding, text)| {
+            (ascii_to_string(charset), decode_text(encoding, text).unwrap_or_else(|| text.to_vec()))
+        })(input)
+}
 
 fn decode_charset((charset, bytes): (Cow<'_, str>, Vec<u8>)) -> String
 {
     encoding_from_whatwg_label(&charset).unwrap_or(ASCII).decode(&bytes, DecoderTrap::Replace).unwrap()
 }
-
-named!(pub(crate) _internal_encoded_word<CBS, String>,
-    map!(_encoded_word, decode_charset)
-);
-
 
 /// Decode an encoded word.
 ///
@@ -80,6 +75,6 @@ named!(pub(crate) _internal_encoded_word<CBS, String>,
 /// let (_, decoded) = encoded_word(b"=?x-sjis?B?lEWWQI7Kg4GM9ZTygs6CtSiPzik=?=").unwrap();
 /// assert_eq!(decoded, "忍法写メ光飛ばし(笑)");
 /// ```
-pub fn encoded_word(i: &[u8]) -> KResult<&[u8], String> {
-    wrap_cbs_result(_internal_encoded_word(CBS(i)))
+pub fn encoded_word(input: &[u8]) -> NomResult<String> {
+    map(_encoded_word, decode_charset)(input)
 }

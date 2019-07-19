@@ -7,10 +7,16 @@ use std::fmt::{self, Display};
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::{self, FromStr};
 
-use nom::{is_alphanumeric, is_digit, is_hex_digit};
+use nom::branch::alt;
+use nom::bytes::complete::{tag, tag_no_case, take, take_while1, take_while_m_n};
+use nom::character::{is_alphanumeric, is_digit, is_hex_digit};
+use nom::combinator::{map, map_res, opt, recognize, verify};
+use nom::error::ParseError;
+use nom::multi::{many0, many1, many_m_n};
+use nom::sequence::{delimited, pair, preceded, separated_pair, terminated};
 
-use crate::rfc5234::{crlf, wsp};
 use crate::rfc5322::{atext as atom};
+use crate::rfc5234::{crlf, wsp};
 use crate::types::*;
 use crate::util::*;
 
@@ -115,307 +121,247 @@ impl Display for ReversePath {
     }
 }
 
-#[inline]
-named!(_alphanum<CBS, CBS>,
-    verify!(take!(1), |x: CBS| is_alphanumeric(x.0[0]))
-);
+fn esmtp_keyword(input: &[u8]) -> NomResult<Keyword> {
+    map(take_while1(is_alphanumeric), |x| Keyword(std::str::from_utf8(x).unwrap().into()))(input)
+}
 
-named!(esmtp_keyword<CBS, Keyword>,
-    map!(recognize!(do_parse!(_alphanum >> many0!(_alphanum) >> ())), |x| Keyword(std::str::from_utf8(&x).unwrap().into()))
-);
+fn esmtp_value(input: &[u8]) -> NomResult<Value> {
+    map(take_while1(|c| (33..=60).contains(&c) || (62..=126).contains(&c)),
+        |x| Value(std::str::from_utf8(x).unwrap().into()))(input)
+}
 
-named!(esmtp_value<CBS, Value>,
-    map!(take_while1!(|c| (33..=60).contains(&c) || (62..=126).contains(&c)),
-         |x| Value(std::str::from_utf8(&x).unwrap().into()))
-);
+fn esmtp_param(input: &[u8]) -> NomResult<Param> {
+    map(pair(esmtp_keyword, opt(preceded(tag("="), esmtp_value))),
+        |(n, v)| Param(n, v))(input)
+}
 
-named!(esmtp_param<CBS, Param>,
-    do_parse!(
-        name: esmtp_keyword >>
-        value: opt!(do_parse!(tag!("=") >>  v: esmtp_value >> (v))) >>
-        (Param(name, value))
-    )
-);
+fn _esmtp_params(input: &[u8]) -> NomResult<Vec<Param>> {
+    fold_prefix0(esmtp_param, preceded(many1(wsp), esmtp_param))(input)
+}
 
-named!(_esmtp_params<CBS, Vec<Param>>,
-    do_parse!(
-        a: esmtp_param >>
-        b: many0!(do_parse!(many1!(wsp) >> c: esmtp_param >> (c))) >>
-        ({ let mut out = Vec::with_capacity(b.len()+1); out.push(a); out.extend_from_slice(&b); out })
-    )
-);
+fn ldh_str(input: &[u8]) -> NomResult<&[u8]> {
+    let (_, mut out) = take_while1(|c| is_alphanumeric(c) || c == b'-')(input)?;
 
-named!(ldh_str<CBS, CBS>,
-    verify!(take_while1!(|c| is_alphanumeric(c) || c == b'-'), |x: CBS| {
-        x.0.last() != Some(&b'-')
-    })
-);
+    while out.last() == Some(&b'-') {
+        out = &out[..out.len()-1];
+    }
 
-#[inline]
-named!(let_dig<CBS, CBS>,
-    verify!(take!(1), |c: CBS| is_alphanumeric(c.0[0]))
-);
+    if out.is_empty() {
+        Err(nom::Err::Error(NomError::from_error_kind(input, nom::error::ErrorKind::TakeWhile1)))
+    } else {
+        Ok((&input[out.len()..], out))
+    }
+}
 
-named!(sub_domain<CBS, CBS>,
-    recognize!(do_parse!(
-        let_dig >>
-        opt!(ldh_str) >>
-        ()
-    ))
-);
+fn let_dig(input: &[u8]) -> NomResult<&[u8]> {
+    verify(take(1usize), |c: &[u8]| is_alphanumeric(c[0]))(input)
+}
 
-named!(pub(crate) domain<CBS, Domain>,
-    map!(recognize!(do_parse!(sub_domain >> many0!(do_parse!(tag!(".") >> sub_domain >> ())) >> ())),
-         |domain| Domain(str::from_utf8(domain.0).unwrap().into()))
-);
+fn sub_domain(input: &[u8]) -> NomResult<&[u8]> {
+    recognize(pair(let_dig, opt(ldh_str)))(input)
+}
 
-named!(at_domain<CBS, Domain>,
-    do_parse!(
-        tag!("@") >>
-        d: domain >>
-        (d)
-    )
-);
+pub(crate) fn domain(input: &[u8]) -> NomResult<Domain> {
+    map(recognize(pair(sub_domain, many0(pair(tag("."), sub_domain)))),
+        |domain| Domain(str::from_utf8(domain).unwrap().into()))(input)
+}
 
-named!(a_d_l<CBS, Vec<Domain>>,
-    do_parse!(
-        f: at_domain >>
-        cont: many0!(do_parse!(tag!(",") >> d: at_domain >> (d))) >>
-        ({
-            let mut cont = cont;
-            cont.insert(0, f);
-            cont
-        })
-    )
-);
+fn at_domain(input: &[u8]) -> NomResult<Domain> {
+    preceded(tag("@"), domain)(input)
+}
 
-named!(pub(crate) dot_string<CBS, DotAtom>,
-    map!(recognize!(do_parse!(
-        atom >>
-        many0!(do_parse!(tag!(".") >> atom >> ())) >>
-        ()
-    )), |a| DotAtom(str::from_utf8(a.0).unwrap().into()))
-);
+fn a_d_l(input: &[u8]) -> NomResult<Vec<Domain>> {
+    fold_prefix0(at_domain, preceded(tag(","), at_domain))(input)
+}
 
-#[inline]
-named!(qtext_smtp<CBS, char>,
-   map!(verify!(take!(1), |x: CBS| {
-       let c = &x.0[0];
-       (32..=33).contains(c) || (35..=91).contains(c) || (93..=126).contains(c)
-   }), |x| x.0[0] as char)
-);
+pub(crate) fn dot_string(input: &[u8]) -> NomResult<DotAtom> {
+    map(recognize(pair(atom, many0(pair(tag("."), atom)))),
+        |a| DotAtom(str::from_utf8(a).unwrap().into()))(input)
+}
 
-#[inline]
-named!(quoted_pair_smtp<CBS, char>,
-    do_parse!(
-        tag!("\\") >>
-        c: map!(verify!(take!(1), |x: CBS| {
-            (32..=126).contains(&x.0[0])
-        }), |x| x.0[0]) >>
-        (c as char)
-    )
-);
+fn qtext_smtp(input: &[u8]) -> NomResult<u8> {
+    map(verify(take(1usize), |x: &[u8]| {
+        let c = &x[0];
+        (32..=33).contains(c) || (35..=91).contains(c) || (93..=126).contains(c)
+    }), |x: &[u8]| x[0])(input)
+}
 
-named!(qcontent_smtp<CBS, char>,
-    alt!(qtext_smtp | quoted_pair_smtp)
-);
+fn quoted_pair_smtp(input: &[u8]) -> NomResult<u8> {
+    map(preceded(tag("\\"), verify(take(1usize), |x: &[u8]| (32..=126).contains(&x[0]))),
+        |x: &[u8]| x[0])(input)
+}
+fn qcontent_smtp(input: &[u8]) -> NomResult<u8> {
+    alt((qtext_smtp, quoted_pair_smtp))(input)
+}
 
-named!(pub(crate) quoted_string<CBS, QuotedString>,
-    do_parse!(
-        tag!("\"") >>
-        qc: many0!(qcontent_smtp) >>
-        tag!("\"") >>
-        (QuotedString(qc.into_iter().collect()))
-    )
-);
+pub(crate) fn quoted_string(input: &[u8]) -> NomResult<QuotedString> {
+    map(delimited(
+        tag("\""),
+        many0(qcontent_smtp),
+        tag("\"")),
+        |qs| QuotedString(String::from_utf8(qs).unwrap()))(input)
+}
 
-named!(pub(crate) local_part<CBS, LocalPart>,
-    alt!(map!(dot_string, |s| s.into()) |
-         map!(quoted_string, LocalPart::Quoted))
-);
+pub(crate) fn local_part(input: &[u8]) -> NomResult<LocalPart> {
+    alt((map(dot_string, |s| s.into()),
+         map(quoted_string, LocalPart::Quoted)))(input)
+}
 
-named!(_ip_int<CBS, u8>,
-    map_res!(take_while_m_n!(1, 3, is_digit),
-             |ip : CBS| str::from_utf8(ip.0).unwrap().parse()
-    )
-);
+fn _ip_int(input: &[u8]) -> NomResult<u8> {
+    map_res(take_while_m_n(1, 3, is_digit),
+            |ip| str::from_utf8(ip).unwrap().parse())(input)
+}
 
-named!(_ipv4_literal<CBS, AddressLiteral>,
-    do_parse!(
-        a: _ip_int >>
-        b: many_m_n!(3, 3, do_parse!(tag!(".") >> i: _ip_int >> (i))) >>
-        (AddressLiteral::IP(Ipv4Addr::new(a, b[0], b[1], b[2]).into()))
-    )
-);
+fn _ipv4_literal(input: &[u8]) -> NomResult<AddressLiteral> {
+    map(pair(_ip_int, many_m_n(3, 3, preceded(tag("."), _ip_int))),
+        |(a, b)| (AddressLiteral::IP(Ipv4Addr::new(a, b[0], b[1], b[2]).into())))(input)
+}
 
-named!(_ipv6_literal<CBS, AddressLiteral>,
-    map_res!(do_parse!(
-        tag_no_case!("IPv6:") >>
-        addr: take_while1!(|c| is_hex_digit(c) || b":.".contains(&c))  >>
-        (addr)),
-        |addr : CBS| {
-            Ipv6Addr::from_str(str::from_utf8(addr.0).unwrap()).map(|ip| AddressLiteral::IP(ip.into()))
-        }
-    )
-);
+fn _ipv6_literal(input: &[u8]) -> NomResult<AddressLiteral> {
+    map_res(preceded(tag_no_case("IPv6:"), take_while1(|c| is_hex_digit(c) || b":.".contains(&c))),
+            |addr| Ipv6Addr::from_str(str::from_utf8(addr).unwrap()).map(|ip| AddressLiteral::IP(ip.into())))(input)
+}
 
-named!(dcontent<CBS, &'_ str>,
-    map!(take_while1!(|c| (33..=90).contains(&c) || (94..=126).contains(&c)),
-         |x| std::str::from_utf8(&x.0).unwrap())
-);
+fn dcontent(input: &[u8]) -> NomResult<&str> {
+    map(take_while1(|c| (33..=90).contains(&c) || (94..=126).contains(&c)),
+        |x| std::str::from_utf8(x).unwrap())(input)
+}
 
-named!(general_address_literal<CBS, AddressLiteral>,
-    do_parse!(
-        tag: ldh_str >>
-        tag!(":") >>
-        value: dcontent >>
-        (AddressLiteral::Tagged(str::from_utf8(tag.0).unwrap().into(), value.into()))
-    )
-);
+fn general_address_literal(input: &[u8]) -> NomResult<AddressLiteral> {
+    map(separated_pair(ldh_str, tag(":"), dcontent),
+        |(tag, value)| AddressLiteral::Tagged(str::from_utf8(tag).unwrap().into(), value.into())
+    )(input)
+}
 
-named!(pub(crate) _inner_address_literal<CBS, AddressLiteral>,
-    alt!(_ipv4_literal | _ipv6_literal | general_address_literal)
-);
+pub(crate) fn _inner_address_literal(input: &[u8]) -> NomResult<AddressLiteral> {
+    alt((_ipv4_literal, _ipv6_literal, general_address_literal))(input)
+}
 
-named!(pub(crate) address_literal<CBS, AddressLiteral>,
-    do_parse!(
-        tag!("[") >>
-        lit: _inner_address_literal >>
-        tag!("]") >>
-        (lit)
-    )
-);
+pub(crate) fn address_literal(input: &[u8]) -> NomResult<AddressLiteral> {
+    delimited(tag("["), _inner_address_literal, tag("]"))(input)
+}
 
-named!(pub(crate) _domain_part<CBS, DomainPart>,
-    alt!(map!(domain, DomainPart::Domain) | map!(address_literal, DomainPart::Address))
-);
+pub(crate) fn _domain_part(input: &[u8]) -> NomResult<DomainPart> {
+    alt((map(domain, DomainPart::Domain), map(address_literal, DomainPart::Address)))(input)
+}
 
-named!(pub(crate) mailbox<CBS, Mailbox>,
-    do_parse!(
-        lp: local_part >>
-        tag!("@") >>
-        dp:  _domain_part >>
-        (Mailbox(lp, dp))
-    )
-);
+pub(crate) fn mailbox(input: &[u8]) -> NomResult<Mailbox> {
+    map(separated_pair(local_part, tag("@"), _domain_part),
+        |(lp, dp)| Mailbox(lp, dp))(input)
+}
 
-named!(path<CBS, Path>,
-    do_parse!(
-        tag!("<") >>
-        path: opt!(do_parse!(p: a_d_l >> tag!(":") >> (p))) >>
-        m: mailbox >>
-        tag!(">") >>
-        (Path(m, path.unwrap_or_default()))
-    )
-);
+fn path(input: &[u8]) -> NomResult<Path> {
+    map(delimited(
+        tag("<"),
+        pair(opt(terminated(a_d_l, tag(":"))), mailbox),
+        tag(">")),
+        |(path, m)| Path(m, path.unwrap_or_default()))(input)
+}
 
-named!(reverse_path<CBS, ReversePath>,
-    alt!(map!(path, ReversePath::Path) |
-         map!(tag!("<>"), |_| ReversePath::Null))
-);
+fn reverse_path(input: &[u8]) -> NomResult<ReversePath> {
+    alt((map(path, ReversePath::Path),
+         map(tag("<>"), |_| ReversePath::Null)))(input)
+}
 
-named!(_ehlo_command<CBS, DomainPart>,
-    do_parse!(
-        tag_no_case!("EHLO ") >>
-        dp: _domain_part >>
-        tag!("\r\n") >>
-        (dp)
-    )
-);
+/// Parse an SMTP EHLO command.
+pub fn ehlo_command(input: &[u8]) -> NomResult<DomainPart> {
+    delimited(tag_no_case("EHLO "), _domain_part, tag("\r\n"))(input)
+}
 
-named!(_helo_command<CBS, Domain>,
-    do_parse!(
-        tag_no_case!("HELO ") >>
-        d: domain >>
-        tag!("\r\n") >>
-        (d)
-    )
-);
+/// Parse an SMTP HELO command.
+pub fn helo_command(input: &[u8]) -> NomResult<Domain> {
+    delimited(tag_no_case("HELO "), domain, tag("\r\n"))(input)
+}
 
-named!(_mail_command<CBS, (ReversePath, Vec<Param>)>,
-    do_parse!(
-        tag_no_case!("MAIL FROM:") >>
-        addr: reverse_path >>
-        params: opt!(do_parse!(tag!(" ") >> p: _esmtp_params >> (p))) >>
-        crlf >>
-        (addr, params.unwrap_or_default())
-    )
-);
+/// Parse an SMTP MAIL FROM command.
+///
+/// Returns a tuple with the reverse path and ESMTP parameters.
+/// # Examples
+/// ```
+/// use rustyknife::rfc5321::{mail_command, Param};
+///
+/// let (_, (rp, params)) = mail_command(b"MAIL FROM:<bob@example.org> BODY=8BIT\r\n").unwrap();
+///
+/// assert_eq!(rp.to_string(), "<bob@example.org>");
+/// assert_eq!(params, [Param::new("BODY", Some("8BIT")).unwrap()]);
+/// ```
+pub fn mail_command(input: &[u8]) -> NomResult<(ReversePath, Vec<Param>)> {
+    map(delimited(tag_no_case("MAIL FROM:"),
+                  pair(reverse_path, opt(preceded(tag(" "), _esmtp_params))),
+                  crlf),
+        |(addr, params)| (addr, params.unwrap_or_default()))(input)
+}
 
-named!(_forward_path<CBS, ForwardPath>,
-    alt!(
-        map!(tag_no_case!("<postmaster>"), |_| ForwardPath::PostMaster(None)) |
-        do_parse!(tag_no_case!("<postmaster@") >> d: domain >> tag!(">") >> (ForwardPath::PostMaster(Some(d)))) |
-        map!(path, ForwardPath::Path)
-    )
-);
+fn _forward_path(input: &[u8]) -> NomResult<ForwardPath> {
+    alt((map(tag_no_case("<postmaster>"), |_| ForwardPath::PostMaster(None)),
+         map(delimited(tag_no_case("<postmaster@"), domain, tag(">")), |d| ForwardPath::PostMaster(Some(d))),
+         map(path, ForwardPath::Path)
+    ))(input)
+}
 
-named!(_rcpt_command<CBS, (ForwardPath, Vec<Param>)>,
-    do_parse!(
-        tag_no_case!("RCPT TO:") >>
-        path: _forward_path >>
-        params: opt!(do_parse!(tag!(" ") >> p: _esmtp_params >> (p))) >>
-        crlf >>
-        (path, params.unwrap_or_default())
-    )
-);
+/// Parse an SMTP RCPT TO command.
+///
+/// Returns a tuple with the forward path and ESMTP parameters.
+/// # Examples
+/// ```
+/// use rustyknife::rfc5321::{rcpt_command, Param};
+///
+/// let (_, (p, params)) = rcpt_command(b"RCPT TO:<bob@example.org> NOTIFY=NEVER\r\n").unwrap();
+///
+/// assert_eq!(p.to_string(), "<bob@example.org>");
+/// assert_eq!(params, [Param::new("NOTIFY", Some("NEVER")).unwrap()]);
+/// ```
+pub fn rcpt_command(input: &[u8]) -> NomResult<(ForwardPath, Vec<Param>)> {
+    map(delimited(
+        tag_no_case("RCPT TO:"),
+        pair(_forward_path, opt(preceded(tag(" "), _esmtp_params))),
+        crlf,
+    ), |(path, params)| (path, params.unwrap_or_default()))(input)
+}
 
-named!(_data_command<CBS, ()>,
-    map!(tag_no_case!("DATA\r\n"), |_| ())
-);
+/// Parse an SMTP DATA command.
+pub fn data_command(input: &[u8]) -> NomResult<()> {
+    map(tag_no_case("DATA\r\n"), |_| ())(input)
+}
 
-named!(_rset_command<CBS, ()>,
-    map!(tag_no_case!("RSET\r\n"), |_| ())
-);
+/// Parse an SMTP RSET command.
+pub fn rset_command(input: &[u8]) -> NomResult<()> {
+    map(tag_no_case("RSET\r\n"), |_| ())(input)
+}
 
-named!(_smtp_string<CBS, SMTPString>,
-    alt!(map!(atom, |a| SMTPString(str::from_utf8(a.0).unwrap().into())) |
-         map!(quoted_string, |qs| SMTPString(qs.into())))
-);
+fn _smtp_string(input: &[u8]) -> NomResult<SMTPString> {
+    alt((map(atom, |a| SMTPString(str::from_utf8(a).unwrap().into())),
+         map(quoted_string, |qs| SMTPString(qs.into()))))(input)
+}
 
-named!(_noop_command<CBS, Option<SMTPString>>,
-    do_parse!(
-        tag_no_case!("NOOP") >>
-        s1: opt!(do_parse!(
-            tag!(" ") >>
-            s2: _smtp_string >>
-            (s2))) >>
-        tag!("\r\n") >>
-        (s1))
-);
+/// Parse an SMTP NOOP command.
+pub fn noop_command(input: &[u8]) -> NomResult<Option<SMTPString>> {
+    delimited(tag_no_case("NOOP"),
+              opt(preceded(tag(" "), _smtp_string)),
+              tag("\r\n"))(input)
+}
 
-named!(_quit_command<CBS, ()>,
-    map!(tag_no_case!("QUIT\r\n"), |_| ())
-);
+/// Parse an SMTP QUIT command.
+pub fn quit_command(input: &[u8]) -> NomResult<()> {
+    map(tag_no_case("QUIT\r\n"), |_| ())(input)
+}
 
-named!(_vrfy_command<CBS, SMTPString>,
-    do_parse!(
-        tag_no_case!("VRFY") >>
-        tag!(" ") >>
-        s: _smtp_string >>
-        tag!("\r\n") >>
-        (s))
-);
+/// Parse an SMTP VRFY command.
+pub fn vrfy_command(input: &[u8]) -> NomResult<SMTPString> {
+    delimited(tag_no_case("VRFY "), _smtp_string, tag("\r\n"))(input)
+}
 
-named!(_expn_command<CBS, SMTPString>,
-    do_parse!(
-        tag_no_case!("EXPN") >>
-        tag!(" ") >>
-        s: _smtp_string >>
-        tag!("\r\n") >>
-        (s))
-);
+/// Parse an SMTP EXPN command.
+pub fn expn_command(input: &[u8]) -> NomResult<SMTPString> {
+    delimited(tag_no_case("EXPN "), _smtp_string, tag("\r\n"))(input)
+}
 
-named!(_help_command<CBS, Option<SMTPString>>,
-    do_parse!(
-        tag_no_case!("NOOP") >>
-        s1: opt!(do_parse!(
-            tag!(" ") >>
-            s2: _smtp_string >>
-            (s2))) >>
-        tag!("\r\n") >>
-        (s1))
-);
+/// Parse an SMTP HELP command.
+pub fn help_command(input: &[u8]) -> NomResult<Option<SMTPString>> {
+    delimited(tag_no_case("HELP"),
+              opt(preceded(tag(" "), _smtp_string)),
+              tag("\r\n"))(input)
+}
 
 /// The base SMTP command set
 ///
@@ -437,102 +383,21 @@ pub enum Command {
     HELP(Option<SMTPString>),
 }
 
-named!(_command<CBS, Command>,
-    alt!(
-        map!(_ehlo_command, Command::EHLO) |
-        map!(_helo_command, Command::HELO) |
-        map!(_mail_command, |(a, p)| Command::MAIL(a, p)) |
-        map!(_rcpt_command, |(a, p)| Command::RCPT(a, p)) |
-        map!(_data_command, |_| Command::DATA) |
-        map!(_rset_command, |_| Command::RSET) |
-        map!(_noop_command, Command::NOOP) |
-        map!(_quit_command, |_| Command::QUIT) |
-        map!(_vrfy_command, Command::VRFY) |
-        map!(_expn_command, Command::EXPN) |
-        map!(_help_command, Command::HELP)
-    )
-);
-
 /// Parse any basic SMTP command.
-pub fn command(i: &[u8]) -> KResult<&[u8], Command> {
-    wrap_cbs_result(_command(CBS(i)))
-}
-
-/// Parse an SMTP EHLO command.
-pub fn ehlo_command(i: &[u8]) -> KResult<&[u8], DomainPart> {
-    wrap_cbs_result(_ehlo_command(CBS(i)))
-}
-
-/// Parse an SMTP HELO command.
-pub fn helo_command(i: &[u8]) -> KResult<&[u8], Domain> {
-    wrap_cbs_result(_helo_command(CBS(i)))
-}
-
-/// Parse an SMTP MAIL FROM command.
-///
-/// Returns a tuple with the reverse path and ESMTP parameters.
-/// # Examples
-/// ```
-/// use rustyknife::rfc5321::{mail_command, Param};
-///
-/// let (_, (rp, params)) = mail_command(b"MAIL FROM:<bob@example.org> BODY=8BIT\r\n").unwrap();
-///
-/// assert_eq!(rp.to_string(), "<bob@example.org>");
-/// assert_eq!(params, [Param::new("BODY", Some("8BIT")).unwrap()]);
-/// ```
-pub fn mail_command(i: &[u8]) -> KResult<&[u8], (ReversePath, Vec<Param>)> {
-    wrap_cbs_result(_mail_command(CBS(i)))
-}
-
-/// Parse an SMTP RCPT TO command.
-///
-/// Returns a tuple with the forward path and ESMTP parameters.
-/// # Examples
-/// ```
-/// use rustyknife::rfc5321::{rcpt_command, Param};
-///
-/// let (_, (p, params)) = rcpt_command(b"RCPT TO:<bob@example.org> NOTIFY=NEVER\r\n").unwrap();
-///
-/// assert_eq!(p.to_string(), "<bob@example.org>");
-/// assert_eq!(params, [Param::new("NOTIFY", Some("NEVER")).unwrap()]);
-/// ```
-pub fn rcpt_command(i: &[u8]) -> KResult<&[u8], (ForwardPath, Vec<Param>)> {
-    wrap_cbs_result(_rcpt_command(CBS(i)))
-}
-
-/// Parse an SMTP DATA command.
-pub fn data_command(i: &[u8]) -> KResult<&[u8], ()> {
-    wrap_cbs_result(_data_command(CBS(i)))
-}
-
-/// Parse an SMTP RSET command.
-pub fn rset_command(i: &[u8]) -> KResult<&[u8], ()> {
-    wrap_cbs_result(_rset_command(CBS(i)))
-}
-
-/// Parse an SMTP NOOP command.
-pub fn noop_command(i: &[u8]) -> KResult<&[u8], Option<SMTPString>> {
-    wrap_cbs_result(_noop_command(CBS(i)))
-}
-
-/// Parse an SMTP QUIT command.
-pub fn quit_command(i: &[u8]) -> KResult<&[u8], ()> {
-    wrap_cbs_result(_quit_command(CBS(i)))
-}
-
-/// Parse an SMTP VRFY command.
-pub fn vrfy_command(i: &[u8]) -> KResult<&[u8], SMTPString> {
-    wrap_cbs_result(_vrfy_command(CBS(i)))
-}
-
-/// Parse an SMTP EXPN command.
-pub fn expn_command(i: &[u8]) -> KResult<&[u8], SMTPString> {
-    wrap_cbs_result(_expn_command(CBS(i)))
-}
-
-/// Parse an SMTP HELP command.
-pub fn help_command(i: &[u8]) -> KResult<&[u8], Option<SMTPString>> {
-    wrap_cbs_result(_help_command(CBS(i)))
+pub fn command(input: &[u8]) -> NomResult<Command> {
+    alt((
+        map(ehlo_command, Command::EHLO),
+        map(helo_command, Command::HELO),
+        map(mail_command, |(a, p)| Command::MAIL(a, p)),
+        map(rcpt_command, |(a, p)| Command::RCPT(a, p)),
+        map(data_command, |_| Command::DATA),
+        map(rset_command, |_| Command::RSET),
+        map(noop_command, Command::NOOP),
+        map(quit_command, |_| Command::QUIT),
+        map(vrfy_command, Command::VRFY),
+        map(expn_command, Command::EXPN),
+        map(help_command, Command::HELP),
+    ))(input)
 }
 
 /// Validates an email address.
@@ -547,5 +412,5 @@ pub fn help_command(i: &[u8]) -> KResult<&[u8], Option<SMTPString>> {
 /// assert!(!validate_address(b""));
 /// ```
 pub fn validate_address(i: &[u8]) -> bool {
-    exact!(CBS(i), mailbox).is_ok()
+    exact!(i, mailbox).is_ok()
 }
