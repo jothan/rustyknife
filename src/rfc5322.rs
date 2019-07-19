@@ -54,7 +54,7 @@ pub(crate) fn ofws(input: &[u8]) -> NomResult<Vec<u8>> {
     map(opt(fws), |i| i.unwrap_or_default())(input)
 }
 
-fn _concat_comment(comments: Vec<CommentContent>, extra: Option<CommentContent>) -> Vec<CommentContent> {
+fn _concat_comment<I: IntoIterator<Item=CommentContent>>(comments: I) -> Vec<CommentContent> {
     let mut out = Vec::new();
     let mut acc_text = Vec::new();
 
@@ -64,7 +64,7 @@ fn _concat_comment(comments: Vec<CommentContent>, extra: Option<CommentContent>)
         }
     };
 
-    for comment in comments.into_iter().chain(extra.into_iter()) {
+    for comment in comments.into_iter() {
         match comment {
             CommentContent::Text(mut text) => acc_text.append(&mut text),
             _ => { push_text(&mut acc_text, &mut out); out.push(comment) }
@@ -83,7 +83,7 @@ fn comment(input: &[u8]) -> NomResult<Vec<CommentContent>> {
                       acc
                   }), ofws),
                   tag(")")),
-        |(a, b)| _concat_comment(a, Some(CommentContent::Text(b))))(input)
+        |(a, b)| _concat_comment(a.into_iter().chain(std::iter::once(CommentContent::Text(b)))))(input)
 }
 
 fn cfws(input: &[u8]) -> NomResult<&[u8]> {

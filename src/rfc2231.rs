@@ -85,7 +85,7 @@ fn attribute_char(input: &[u8]) -> NomResult<u8> {
 }
 
 fn attribute(input: &[u8]) -> NomResult<&[u8]> {
-    take_while1(|c| is_attribute_char(c))(input)
+    take_while1(is_attribute_char)(input)
 }
 
 fn section(input: &[u8]) -> NomResult<u32> {
