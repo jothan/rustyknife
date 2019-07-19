@@ -2,10 +2,11 @@
 //!
 //! [XFORWARD]: http://www.postfix.org/XFORWARD_README.html
 
-use nom::*;
-use nom::multi::{many0, many1};
+use nom::branch::alt;
+use nom::bytes::complete::{tag, tag_no_case};
 use nom::combinator::{opt, map};
-use nom::sequence::{pair, preceded};
+use nom::multi::{many0, many1};
+use nom::sequence::{pair, preceded, separated_pair};
 
 use crate::rfc5234::wsp;
 use crate::rfc3461::xtext;
@@ -16,34 +17,28 @@ use crate::util::*;
 /// `"[UNAVAILABLE]"` is represented with a value of `None`.
 pub struct Param(pub &'static str, pub Option<String>);
 
-named!(command<CBS, &'static str>,
-     alt!(
-         do_parse!(tag_no_case!("addr") >> ("addr")) |
-         do_parse!(tag_no_case!("helo") >> ("helo")) |
-         do_parse!(tag_no_case!("ident") >> ("ident")) |
-         do_parse!(tag_no_case!("name") >> ("name")) |
-         do_parse!(tag_no_case!("port") >> ("port")) |
-         do_parse!(tag_no_case!("proto") >> ("proto")) |
-         do_parse!(tag_no_case!("source") >> ("source"))
-     )
-);
+fn command(input: &[u8]) -> NomResult<&'static str> {
+    alt((map(tag_no_case("addr"), |_| "addr"),
+         map(tag_no_case("helo"), |_| "helo"),
+         map(tag_no_case("ident"), |_| "ident"),
+         map(tag_no_case("name"), |_| "name"),
+         map(tag_no_case("port"), |_| "port"),
+         map(tag_no_case("proto"), |_| "proto"),
+         map(tag_no_case("source"), |_| "source")))(input)
+}
 
-named!(unavailable<CBS, Option<String>>,
-    do_parse!(tag_no_case!("[unavailable]") >> (None))
-);
+fn unavailable(input: &[u8]) -> NomResult<Option<String>> {
+    map(tag_no_case("[unavailable]"), |_| None)(input)
+}
 
-named!(value<CBS, Option<String>>,
-    alt!(unavailable | do_parse!(x: xtext >> (Some(ascii_to_string_vec(x)))))
-);
+fn value(input: &[u8]) -> NomResult<Option<String>> {
+    alt((unavailable, map(xtext, |x| Some(ascii_to_string_vec(x)))))(input)
+}
 
-named!(param<CBS, Param>,
-    do_parse!(
-        c: command >>
-        tag!("=") >>
-        v: value >>
-        (Param(c, v))
-    )
-);
+fn param(input: &[u8]) -> NomResult<Param> {
+    map(separated_pair(command, tag("="), value),
+        |(c, v)| Param(c, v))(input)
+}
 
 /// Parse a XFORWARD b`"attr1=value attr2=value"` string.
 ///

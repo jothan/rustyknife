@@ -8,27 +8,26 @@ use std::str;
 use crate::util::*;
 
 use nom::branch::alt;
+use nom::bytes::complete::{take, take_while1, tag};
 use nom::character::is_hex_digit;
+use nom::combinator::{map, map_res, verify};
 use nom::multi::{fold_many0};
-use nom::combinator:: map;
+use nom::sequence::{preceded, separated_pair};
+
 use crate::rfc5322::atom;
 
-named!(pub(crate) hexpair<CBS, u8>,
-    map_res!(take_while_m_n!(2, 2, is_hex_digit),
-             |x: CBS| u8::from_str_radix(str::from_utf8(x).unwrap(), 16))
-);
+pub(crate) fn hexpair(input: &[u8]) -> NomResult<u8> {
+    map_res(verify(take(2usize), |c: &[u8]| c.iter().cloned().all(is_hex_digit)),
+            |x| u8::from_str_radix(str::from_utf8(x).unwrap(), 16))(input)
+}
 
-named!(hexchar<CBS, u8>,
-    do_parse!(
-        tag!("+") >>
-        a: hexpair >>
-        (a)
-    )
-);
+fn hexchar(input: &[u8]) -> NomResult<u8> {
+    preceded(tag("+"), hexpair)(input)
+}
 
-named!(xchar<CBS, CBS>,
-    take_while1!(|c: u8| (33..=42).contains(&c) || (44..=60).contains(&c) || (62..=126).contains(&c))
-);
+fn xchar(input: &[u8]) -> NomResult<&[u8]> {
+    take_while1(|c: u8| (33..=42).contains(&c) || (44..=60).contains(&c) || (62..=126).contains(&c))(input)
+}
 
 pub(crate) fn xtext(input: &[u8]) -> NomResult<Vec<u8>> {
     fold_many0(alt((map(xchar, |x| x.to_vec()),
@@ -36,15 +35,11 @@ pub(crate) fn xtext(input: &[u8]) -> NomResult<Vec<u8>> {
                Vec::new(), |mut acc: Vec<_>, x: Vec<u8>| {acc.extend_from_slice(&x); acc} )(input)
 }
 
-named!(_printable_xtext<CBS, Vec<u8>>,
-    map_opt!(xtext, |out: Vec<_>| {
-        if out.iter().all(|c: &u8| (32..=126).contains(c) || b"\t\x0a\x0b\x0c\x0d".contains(c)) {
-            Some(out)
-        } else {
-            None
-        }
-    })
-);
+fn _printable_xtext(input: &[u8]) -> NomResult<Vec<u8>> {
+    verify(xtext, |xtext: &[u8]| {
+        xtext.iter().all(|c| (32..=126).contains(c) || b"\t\x0a\x0b\x0c\x0d".contains(c))
+    })(input)
+}
 
 /// Parse the ESMTP ORCPT parameter that may be present on a RCPT TO command.
 ///
@@ -57,12 +52,10 @@ named!(_printable_xtext<CBS, Vec<u8>>,
 ///
 /// assert_eq!(split, ("rfc822".into(), "bob@example.org".into()));
 /// ```
-named!(pub orcpt_address<CBS, (Cow<'_, str>, String)>,
-    do_parse!(
-        a: atom >> tag!(";") >> b: _printable_xtext >>
-        (ascii_to_string(a), ascii_to_string_vec(b))
-    )
-);
+pub fn orcpt_address(input: &[u8]) -> NomResult<(Cow<str>, String)> {
+    map(separated_pair(atom, tag(";"), _printable_xtext),
+        |(a, b)| (ascii_to_string(a), ascii_to_string_vec(b)))(input)
+}
 
 /// The DSN return type desired by the sender.
 #[derive(Debug, PartialEq)]
