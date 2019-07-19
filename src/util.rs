@@ -64,8 +64,8 @@ macro_rules! nom_from_smtp {
 macro_rules! nom_from_imf {
     ( $imf_func:path ) => {
         /// Parse using Internet Message Format syntax.
-        pub fn from_imf(value: &[u8]) -> NomResult<Self> {
-            exact!(value, $imf_func)
+        pub fn from_imf(value: &[u8]) -> Option<Self> {
+            exact!(value, $imf_func).ok().map(|(_, v)| v)
         }
     }
 }

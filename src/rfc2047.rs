@@ -12,9 +12,9 @@ use encoding::label::encoding_from_whatwg_label;
 
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take, take_while1};
-use nom::multi::{fold_many0, many0, many1};
-use nom::combinator::{map, opt, recognize, verify};
-use nom::sequence::{delimited, pair, preceded, separated_pair, terminated, tuple};
+use nom::multi::many0;
+use nom::combinator::{map, opt};
+use nom::sequence::{delimited, preceded, terminated, tuple};
 
 use crate::util::*;
 use crate::rfc3461::hexpair;
@@ -52,11 +52,11 @@ fn decode_text(encoding: &[u8], text: &[u8]) -> Option<Vec<u8>>
 }
 
 fn _encoded_word(input: &[u8]) -> NomResult<(Cow<'_, str>, Vec<u8>)> {
-    map(tuple((preceded(tag("=?"), token), // charset
-               opt(preceded(tag("*"), token)), // lang, from RFC2231
-               delimited(tag("?"), token, tag("?")), // encoding
+    map(tuple((preceded(tag("=?"), token),
+               opt(preceded(tag("*"), token)),
+               delimited(tag("?"), token, tag("?")),
                terminated(encoded_text, tag("?=")))),
-        |(charset, lang, encoding, text)| {
+        |(charset, _lang, encoding, text)| {
             (ascii_to_string(charset), decode_text(encoding, text).unwrap_or_else(|| text.to_vec()))
         })(input)
 }
@@ -65,11 +65,6 @@ fn decode_charset((charset, bytes): (Cow<'_, str>, Vec<u8>)) -> String
 {
     encoding_from_whatwg_label(&charset).unwrap_or(ASCII).decode(&bytes, DecoderTrap::Replace).unwrap()
 }
-
-pub(crate) fn _internal_encoded_word(input: &[u8]) -> NomResult<String> {
-    map(_encoded_word, decode_charset)(input)
-}
-
 
 /// Decode an encoded word.
 ///
@@ -80,6 +75,6 @@ pub(crate) fn _internal_encoded_word(input: &[u8]) -> NomResult<String> {
 /// let (_, decoded) = encoded_word(b"=?x-sjis?B?lEWWQI7Kg4GM9ZTygs6CtSiPzik=?=").unwrap();
 /// assert_eq!(decoded, "忍法写メ光飛ばし(笑)");
 /// ```
-pub fn encoded_word(i: &[u8]) -> KResult<&[u8], String> {
-    _internal_encoded_word(i)
+pub fn encoded_word(input: &[u8]) -> NomResult<String> {
+    map(_encoded_word, decode_charset)(input)
 }
