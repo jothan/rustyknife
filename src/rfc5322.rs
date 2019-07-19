@@ -95,19 +95,19 @@ fn qtext(input: &[u8]) -> NomResult<&[u8]> {
 }
 
 #[cfg(feature = "quoted-string-rfc2047")]
-named!(qcontent<CBS, QContent>,
-    alt!(map!(encoded_word, QContent::EncodedWord) |
-         map!(qtext, |x| QContent::Literal(ascii_to_string(x).into())) |
-         map!(quoted_pair, |x| QContent::Literal(ascii_to_string(x).into()))
-    )
-);
+fn qcontent(input: &[u8]) -> NomResult<QContent> {
+    alt((map(encoded_word, QContent::EncodedWord),
+         map(qtext, |x| QContent::Literal(ascii_to_string(x).into())),
+         map(quoted_pair, |x| QContent::Literal(ascii_to_string(x).into())))
+    )(input)
+}
 
 #[cfg(not(feature = "quoted-string-rfc2047"))]
-named!(qcontent<CBS, QContent>,
-    alt!(map!(qtext, |x| QContent::Literal(ascii_to_string(x).into())) |
-         map!(quoted_pair, |x| QContent::Literal(ascii_to_string(x).into()))
-    )
-);
+fn qcontent(input: &[u8]) -> NomResult<QContent> {
+    alt((map(qtext, |x| QContent::Literal(ascii_to_string(x).into())),
+         map(quoted_pair, |x| QContent::Literal(ascii_to_string(x).into())))
+    )(input)
+}
 
 // quoted-string not surrounded by CFWS
 fn _inner_quoted_string(input: &[u8]) -> NomResult<Vec<QContent>> {
