@@ -9,7 +9,6 @@ rust:
 env:
   matrix:
     - FEATURES=""
-    - FEATURES="--features nom-verbose-errors"
     - FEATURES="--no-default-features"
     - FEATURES="--no-default-features --features quoted-string-rfc2047"
 
