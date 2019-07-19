@@ -294,7 +294,7 @@ fn mailbox(input: &[u8]) -> NomResult<Mailbox> {
          map(addr_spec, |a| Mailbox{dname: None, address: a})))(input)
 }
 
-pub fn mailbox_list(input: &[u8]) -> NomResult<Vec<Mailbox>> {
+fn mailbox_list(input: &[u8]) -> NomResult<Vec<Mailbox>> {
     map(pair(mailbox,
              many0(preceded(tag(","), mailbox))),
         |(prefix, mut mbx)| {
