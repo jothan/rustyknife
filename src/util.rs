@@ -44,10 +44,10 @@ macro_rules! nom_fromstr {
             }
         }
         impl <'a> std::convert::TryFrom<&'a [u8]> for $type {
-            type Error = ();
+            type Error = nom::Err<NomError<&'a [u8]>>;
 
             fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-                exact!(value, $func).map(|(_, v)| v).map_err(|_| ())
+                exact!(value, $func).map(|(_, v)| v)
             }
         }
     }
@@ -56,16 +56,16 @@ macro_rules! nom_fromstr {
 macro_rules! nom_from_smtp {
     ( $smtp_func:path ) => {
         /// Parse using SMTP syntax.
-        pub fn from_smtp(value: &[u8]) -> Option<Self> {
-            exact!(value, $smtp_func).ok().map(|(_, v)| v)
+        pub fn from_smtp(value: &[u8]) -> Result<Self, nom::Err<NomError<&[u8]>>> {
+            exact!(value, $smtp_func).map(|(_, v)| v)
         }
     }
 }
 macro_rules! nom_from_imf {
     ( $imf_func:path ) => {
         /// Parse using Internet Message Format syntax.
-        pub fn from_imf(value: &[u8]) -> Option<Self> {
-            exact!(value, $imf_func).ok().map(|(_, v)| v)
+        pub fn from_imf(value: &[u8]) -> Result<Self, nom::Err<NomError<&[u8]>>> {
+            exact!(value, $imf_func).map(|(_, v)| v)
         }
     }
 }
