@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::str;
 
-use nom;
+use nom::multi::fold_many0;
 use encoding::{Encoding, EncoderTrap, DecoderTrap};
 use encoding::all::ASCII;
 
@@ -94,5 +94,23 @@ macro_rules! string_newtype {
                 write!(f, "{:?}", self.0)
             }
         }
+    }
+}
+
+pub(crate) fn fold_prefix0<I, O, E, F, G>(prefix: F, cont: G) -> impl Fn(I) -> IResult<I, Vec<O>, E>
+    where I: Clone + PartialEq,
+          F: Fn(I) -> IResult<I, O, E>,
+          G: Fn(I) -> IResult<I, O, E>,
+          E: nom::error::ParseError::<I>,
+          Vec<O>: Clone,
+{
+    move |input: I| {
+        let (rem, v1) = prefix(input)?;
+        let out = vec![v1];
+
+        fold_many0(&cont, out, |mut acc, value| {
+            acc.push(value);
+            acc
+        })(rem)
     }
 }

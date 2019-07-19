@@ -136,8 +136,7 @@ fn esmtp_param(input: &[u8]) -> NomResult<Param> {
 }
 
 fn _esmtp_params(input: &[u8]) -> NomResult<Vec<Param>> {
-    map(pair(esmtp_param, many0(preceded(many1(wsp), esmtp_param))),
-        |(a, mut b)| { b.insert(0, a); b })(input)
+    fold_prefix0(esmtp_param, preceded(many1(wsp), esmtp_param))(input)
 }
 
 fn ldh_str(input: &[u8]) -> NomResult<&[u8]> {
@@ -172,8 +171,7 @@ fn at_domain(input: &[u8]) -> NomResult<Domain> {
 }
 
 fn a_d_l(input: &[u8]) -> NomResult<Vec<Domain>> {
-    map(pair(at_domain, many0(preceded(tag(","), at_domain))),
-        |(a, mut b)| { b.insert(0, a); b })(input)
+    fold_prefix0(at_domain, preceded(tag(","), at_domain))(input)
 }
 
 pub(crate) fn dot_string(input: &[u8]) -> NomResult<DotAtom> {

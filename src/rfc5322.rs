@@ -295,13 +295,7 @@ fn mailbox(input: &[u8]) -> NomResult<Mailbox> {
 }
 
 fn mailbox_list(input: &[u8]) -> NomResult<Vec<Mailbox>> {
-    map(pair(mailbox,
-             many0(preceded(tag(","), mailbox))),
-        |(prefix, mut mbx)| {
-            mbx.insert(0, prefix);
-            mbx
-        }
-    )(input)
+    fold_prefix0(mailbox, preceded(tag(","), mailbox))(input)
 }
 
 fn group_list(input: &[u8]) -> NomResult<Vec<Mailbox>> {
@@ -320,13 +314,7 @@ fn address(input: &[u8]) -> NomResult<Address> {
 }
 
 fn address_list(input: &[u8]) -> NomResult<Vec<Address>> {
-    map(pair(address,
-             many0(preceded(tag(","), address))),
-        |(prefix, mut list)| {
-            list.insert(0, prefix);
-            list
-        }
-    )(input)
+    fold_prefix0(address, preceded(tag(","), address))(input)
 }
 
 fn address_list_crlf(input: &[u8]) -> NomResult<Vec<Address>> {
