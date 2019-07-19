@@ -12,8 +12,8 @@ use encoding::label::encoding_from_whatwg_label;
 
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take, take_while1};
-use nom::multi::many0;
 use nom::combinator::{map, opt};
+use nom::multi::many0;
 use nom::sequence::{delimited, preceded, terminated, tuple};
 
 use crate::util::*;

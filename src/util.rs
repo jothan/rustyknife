@@ -1,15 +1,15 @@
 use std::borrow::Cow;
 use std::str;
 
-use nom::multi::fold_many0;
+
 use encoding::{Encoding, EncoderTrap, DecoderTrap};
 use encoding::all::ASCII;
 
 pub(crate) type KResult<'a, I, O, E = NomError<I>> = IResult<I, O, E>;
 use nom::IResult;
+use nom::multi::fold_many0;
 // Change this to something else that implements ParseError to get a
 // different error type out of nom.
-//pub(crate) type NomError<'a> = (&'a [u8], nom::error::ErrorKind);
 pub(crate) type NomError<I> = (I, nom::error::ErrorKind);
 pub(crate) type NomResult<'a, O, E=NomError<&'a [u8]>> = IResult<&'a [u8], O, E>;
 

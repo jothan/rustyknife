@@ -7,10 +7,10 @@
 //! [RFC 5322]: https://tools.ietf.org/html/rfc5322
 
 use nom::branch::alt;
-use nom::multi::{many0, many1};
-use nom::sequence::{pair, terminated, separated_pair};
 use nom::bytes::complete::{tag, take_while1, take_until};
 use nom::combinator::{opt, map, map_opt, recognize};
+use nom::multi::{many0, many1};
+use nom::sequence::{pair, terminated, separated_pair};
 
 use crate::util::*;
 use crate::rfc5234::*;

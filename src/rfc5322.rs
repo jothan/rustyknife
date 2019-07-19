@@ -10,8 +10,8 @@ use std::mem;
 
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take, take_while1};
-use nom::multi::{fold_many0, many0, many1};
 use nom::combinator::{map, opt, recognize, verify};
+use nom::multi::{fold_many0, many0, many1};
 use nom::sequence::{delimited, pair, preceded, separated_pair, terminated, tuple};
 
 use crate::rfc2047::encoded_word;

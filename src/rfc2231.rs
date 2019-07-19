@@ -16,9 +16,9 @@ use encoding::types::EncodingRef;
 use encoding::DecoderTrap;
 use encoding::all::ASCII;
 
-use nom::character::is_digit;
-use nom::bytes::complete::{tag, tag_no_case, take, take_while1, take_while_m_n};
 use nom::branch::alt;
+use nom::bytes::complete::{tag, tag_no_case, take, take_while1, take_while_m_n};
+use nom::character::is_digit;
 use nom::combinator::{map, opt, recognize, verify};
 use nom::multi::many0;
 use nom::sequence::{delimited, pair, preceded, separated_pair, terminated, tuple};
