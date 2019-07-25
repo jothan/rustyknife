@@ -9,8 +9,8 @@ use nom::IResult;
 use nom::multi::fold_many0;
 // Change this to something else that implements ParseError to get a
 // different error type out of nom.
-pub(crate) type NomError<I> = (I, nom::error::ErrorKind);
-pub(crate) type NomResult<'a, O, E=NomError<&'a [u8]>> = IResult<&'a [u8], O, E>;
+pub(crate) type NomError<'a> = ();
+pub(crate) type NomResult<'a, O, E=NomError<'a>> = IResult<&'a [u8], O, E>;
 
 pub fn ascii_to_string<T: AsRef<[u8]> + ?Sized>(i: &T) -> Cow<str> {
     String::from_utf8_lossy(i.as_ref())
@@ -38,7 +38,7 @@ macro_rules! nom_fromstr {
             }
         }
         impl <'a> std::convert::TryFrom<&'a [u8]> for $type {
-            type Error = nom::Err<NomError<&'a [u8]>>;
+            type Error = nom::Err<NomError<'a>>;
 
             fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
                 exact!(value, $func).map(|(_, v)| v)
@@ -50,7 +50,7 @@ macro_rules! nom_fromstr {
 macro_rules! nom_from_smtp {
     ( $smtp_func:path ) => {
         /// Parse using SMTP syntax.
-        pub fn from_smtp(value: &[u8]) -> Result<Self, nom::Err<NomError<&[u8]>>> {
+        pub fn from_smtp(value: &[u8]) -> Result<Self, nom::Err<NomError>> {
             exact!(value, $smtp_func).map(|(_, v)| v)
         }
     }
@@ -58,7 +58,7 @@ macro_rules! nom_from_smtp {
 macro_rules! nom_from_imf {
     ( $imf_func:path ) => {
         /// Parse using Internet Message Format syntax.
-        pub fn from_imf(value: &[u8]) -> Result<Self, nom::Err<NomError<&[u8]>>> {
+        pub fn from_imf(value: &[u8]) -> Result<Self, nom::Err<NomError>> {
             exact!(value, $imf_func).map(|(_, v)| v)
         }
     }
