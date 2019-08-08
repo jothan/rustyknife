@@ -335,22 +335,18 @@ fn _8bit_char(input: &[u8]) -> NomResult<u8> {
 pub fn unstructured(input: &[u8]) -> NomResult<String> {
     map(pair(
         many0(alt((
-            map(pair(opt(fws), fold_prefix0(encoded_word, preceded(fws, encoded_word))),
-                |(ws, ew)| {
-                    let mut out = ws.map(ascii_to_string_vec).unwrap_or_default();
-                    out.extend(ew.into_iter());
-                    out
-                }),
-            map(pair(opt(fws), many1(alt((vchar, _8bit_char)))),
-                |(ws, vc)| {
-                    let mut out = ws.unwrap_or_default();
-                    out.extend_from_slice(&vc);
-                    ascii_to_string_vec(out)
-                })))),
+            pair(ofws, map(fold_prefix0(encoded_word, preceded(fws, encoded_word)), |ew| ew.iter().flat_map(|w| w.chars()).collect())),
+            pair(ofws, map(many1(alt((vchar, _8bit_char))), ascii_to_string_vec))
+        ))),
         many0(wsp)),
-        |(mut words, ws)| {
-            words.push(ascii_to_string_vec(ws));
-            words.iter().flat_map(|w| w.chars()).collect()
+        |(words, ws)| {
+            let mut out = String::new();
+            for (word_ws, word) in words {
+                out.push_str(str::from_utf8(&word_ws).unwrap());
+                out.push_str(&word);
+            }
+            out.push_str(str::from_utf8(&ws).unwrap());
+            out
         })(input)
 }
 
