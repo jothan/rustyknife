@@ -12,7 +12,7 @@ use nom::branch::alt;
 use nom::bytes::complete::{tag, take, take_while1};
 use nom::combinator::{map, opt, recognize, verify};
 use nom::multi::{fold_many0, many0, many1};
-use nom::sequence::{delimited, pair, preceded, separated_pair, terminated, tuple};
+use nom::sequence::{delimited, pair, preceded, separated_pair, terminated};
 
 use crate::rfc2047::encoded_word;
 use crate::rfc5234::*;
@@ -335,27 +335,22 @@ fn _8bit_char(input: &[u8]) -> NomResult<u8> {
 pub fn unstructured(input: &[u8]) -> NomResult<String> {
     map(pair(
         many0(alt((
-            map(tuple((opt(fws), encoded_word, many0(map(preceded(fws, encoded_word), Text::Literal)))),
-                |(ws, ew, ewcont)| {
-                    let mut out = Vec::with_capacity(ewcont.len()+2);
-                    if let Some(x) = ws { out.push(Text::Literal(ascii_to_string_vec(x))) };
-                    out.push(Text::Literal(ew));
-                    out.extend_from_slice(&ewcont);
+            map(pair(opt(fws), fold_prefix0(encoded_word, preceded(fws, encoded_word))),
+                |(ws, ew)| {
+                    let mut out = ws.map(ascii_to_string_vec).unwrap_or_default();
+                    out.extend(ew.into_iter());
                     out
                 }),
             map(pair(opt(fws), many1(alt((vchar, _8bit_char)))),
                 |(ws, vc)| {
-                    let mut out = Vec::new();
-                    if let Some(x) = ws {
-                        out.extend_from_slice(&x)
-                    };
+                    let mut out = ws.unwrap_or_default();
                     out.extend_from_slice(&vc);
-                    vec![Text::Literal(ascii_to_string_vec(out))]
+                    ascii_to_string_vec(out)
                 })))),
         many0(wsp)),
-        |(a, b)| {
-            let iter =  a.into_iter().flat_map(IntoIterator::into_iter).chain(std::iter::once(Text::Literal(ascii_to_string_vec(b))));
-            _concat_atom_and_qs(iter)
+        |(mut words, ws)| {
+            words.push(ascii_to_string_vec(ws));
+            words.iter().flat_map(|w| w.chars()).collect()
         })(input)
 }
 
