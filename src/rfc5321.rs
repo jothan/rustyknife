@@ -147,6 +147,7 @@ fn ldh_str(input: &[u8]) -> NomResult<&[u8]> {
     }
 
     if out.is_empty() {
+        #[allow(clippy::unit_arg)]
         Err(nom::Err::Error(NomError::from_error_kind(input, nom::error::ErrorKind::TakeWhile1)))
     } else {
         Ok((&input[out.len()..], out))
