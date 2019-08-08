@@ -1,6 +1,9 @@
 use std::borrow::Cow;
 use std::str;
 
+use encoding::{Encoding, DecoderTrap};
+use encoding::all::ASCII;
+
 use nom::IResult;
 use nom::multi::fold_many0;
 // Change this to something else that implements ParseError to get a
@@ -8,15 +11,19 @@ use nom::multi::fold_many0;
 pub(crate) type NomError<'a> = ();
 pub(crate) type NomResult<'a, O, E=NomError<'a>> = IResult<&'a [u8], O, E>;
 
-pub fn ascii_to_string<T: AsRef<[u8]> + ?Sized>(i: &T) -> Cow<str> {
-    String::from_utf8_lossy(i.as_ref())
+pub fn ascii_to_string(i: &[u8]) -> Cow<str> {
+    if i.is_ascii() {
+        str::from_utf8(i).unwrap().into()
+    } else {
+        ASCII.decode(&i, DecoderTrap::Replace).unwrap().into()
+    }
 }
 
 pub fn ascii_to_string_vec(i: Vec<u8>) -> String {
     if i.is_ascii() {
         String::from_utf8(i).unwrap()
     } else {
-        String::from_utf8_lossy(&i).into_owned()
+        ASCII.decode(&i, DecoderTrap::Replace).unwrap()
     }
 }
 
