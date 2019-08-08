@@ -20,10 +20,6 @@ pub fn ascii_to_string_vec(i: Vec<u8>) -> String {
     }
 }
 
-pub fn string_to_ascii(i: &str) -> Vec<u8> {
-    i.as_bytes().to_vec()
-}
-
 macro_rules! nom_fromstr {
     ( $type:ty, $func:ident ) => {
         impl std::str::FromStr for $type {

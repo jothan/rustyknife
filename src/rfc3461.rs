@@ -117,11 +117,11 @@ pub fn dsn_mail_params<'a>(input: &[Param<'a>]) -> Result<(DSNMailParams, Vec<Pa
 
             ("envid", Some(value)) => {
                 if envid_val.is_some() { return Err("Duplicate ENVID"); }
-                let inascii = string_to_ascii(value);
-                if inascii.len() > 100 {
+                let value = value.as_bytes();
+                if value.len() > 100 {
                     return Err("ENVID over 100 bytes");
                 }
-                if let Ok((_, parsed)) = exact!(inascii.as_ref(), _printable_xtext) {
+                if let Ok((_, parsed)) = exact!(value, _printable_xtext) {
                     envid_val = Some(ascii_to_string_vec(parsed));
                 } else {
                     return Err("Invalid ENVID");

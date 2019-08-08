@@ -7,7 +7,7 @@ use crate::rfc5321::{Param as ESMTPParam, mail_command, rcpt_command, validate_a
 use crate::rfc5322::{Address, Mailbox, Group, from, sender, reply_to, unstructured};
 use crate::headersection::{header_section};
 use crate::xforward::{Param as XFORWARDParam, xforward_params};
-use crate::util::{NomResult, string_to_ascii};
+use crate::util::NomResult;
 
 use memmap::Mmap;
 
@@ -180,8 +180,7 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     /// orcpt_address(input)
     #[pyfn(m, "orcpt_address")]
     fn py_orcpt_address(input: &str) -> PyResult<(String, String)> {
-        let inascii = string_to_ascii(&input);
-        convert_result(orcpt_address(&inascii).map(|(rem, a)| (rem, (a.0.into(), a.1))), true)
+        convert_result(orcpt_address(input.as_bytes()).map(|(rem, a)| (rem, (a.0.into(), a.1))), true)
     }
 
     /// dsn_mail_params(input)
@@ -222,9 +221,9 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     /// :type address: str
     /// :rtype: bool
     #[pyfn(m, "validate_address")]
-    pub fn py_validate_address(input: &str) -> PyResult<bool>
+    pub fn py_validate_address(input: &str) -> bool
     {
-        Ok(validate_address(&string_to_ascii(input)))
+        validate_address(input.as_bytes())
     }
 
     /// unstructured(input)
