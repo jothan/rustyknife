@@ -1,10 +1,6 @@
 use std::borrow::Cow;
 use std::str;
 
-
-use encoding::{Encoding, EncoderTrap, DecoderTrap};
-use encoding::all::ASCII;
-
 use nom::IResult;
 use nom::multi::fold_many0;
 // Change this to something else that implements ParseError to get a
@@ -20,12 +16,12 @@ pub fn ascii_to_string_vec(i: Vec<u8>) -> String {
     if i.is_ascii() {
         String::from_utf8(i).unwrap()
     } else {
-        ASCII.decode(&i, DecoderTrap::Replace).unwrap()
+        String::from_utf8_lossy(&i).into_owned()
     }
 }
 
 pub fn string_to_ascii(i: &str) -> Vec<u8> {
-    ASCII.encode(&i, EncoderTrap::Replace).unwrap()
+    i.as_bytes().to_vec()
 }
 
 macro_rules! nom_fromstr {
