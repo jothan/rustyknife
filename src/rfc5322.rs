@@ -21,11 +21,11 @@ use crate::types::{self, *};
 use crate::util::*;
 
 fn quoted_pair(input: &[u8]) -> NomResult<&[u8]> {
-    preceded(tag("\\"), recognize(alt((vchar, wsp))))(input)
+    preceded(tag("\\"), recognize(alt((map(vchar, |_| ()), map(wsp, |_| ())))))(input)
 }
 
-fn ctext(input: &[u8]) -> NomResult<u8> {
-    take1_filter(|c| (33..=39).contains(&c) || (42..=91).contains(&c) || (93..=126).contains(&c))(input)
+fn ctext(input: &[u8]) -> NomResult<char> {
+    map(take1_filter(|c| (33..=39).contains(&c) || (42..=91).contains(&c) || (93..=126).contains(&c)), char::from)(input)
 }
 
 #[derive(Clone, Debug)]
@@ -91,8 +91,8 @@ fn cfws(input: &[u8]) -> NomResult<&[u8]> {
     alt((recognize(pair(many1(pair(ofws, comment)), ofws)), recognize(fws)))(input)
 }
 
-fn qtext(input: &[u8]) -> NomResult<u8> {
-    take1_filter(|c| c == 33 || (35..=91).contains(&c) || (93..=126).contains(&c) || (128..=255).contains(&c))(input)
+fn qtext(input: &[u8]) -> NomResult<char> {
+    map(take1_filter(|c| c == 33 || (35..=91).contains(&c) || (93..=126).contains(&c) || (128..=255).contains(&c)), char::from)(input)
 }
 
 #[cfg(feature = "quoted-string-rfc2047")]
@@ -198,8 +198,8 @@ fn concat_qs<'a, A: Iterator<Item=QContent<'a>>>(input: A) -> String {
     out
 }
 
-pub(crate) fn atext(input: &[u8]) -> NomResult<u8> {
-    take1_filter(|c| b"!#$%&'*+-/=?^_`{|}~".contains(&c) || (b'0'..=b'9').contains(&c) || (b'A'..=b'Z').contains(&c) || (b'a'..=b'z').contains(&c))(input)
+pub(crate) fn atext(input: &[u8]) -> NomResult<char> {
+    map(take1_filter(|c| b"!#$%&'*+-/=?^_`{|}~".contains(&c) || (b'0'..=b'9').contains(&c) || (b'A'..=b'Z').contains(&c) || (b'a'..=b'z').contains(&c)), char::from)(input)
 }
 
 pub(crate) fn dot_atom(input: &[u8]) -> NomResult<DotAtom> {
@@ -249,8 +249,8 @@ pub(crate) fn local_part(input: &[u8]) -> NomResult<LocalPart> {
          map(quoted_string, LocalPart::Quoted)))(input)
 }
 
-fn dtext(input: &[u8]) -> NomResult<u8> {
-    take1_filter(|c| (33..=90).contains(&c) || (94..=126).contains(&c))(input)
+fn dtext(input: &[u8]) -> NomResult<char> {
+    map(take1_filter(|c| (33..=90).contains(&c) || (94..=126).contains(&c)), char::from)(input)
 }
 
 pub(crate) fn domain_literal(input: &[u8]) -> NomResult<AddressLiteral> {
@@ -258,9 +258,9 @@ pub(crate) fn domain_literal(input: &[u8]) -> NomResult<AddressLiteral> {
                   pair(many0(pair(ofws, many1(dtext))), ofws),
                   pair(tag("]"), opt(cfws))),
         |(a, b)| {
-            let mut out : Vec<u8> = a.iter().flat_map(|(x, y)| x.iter().chain(y.iter())).cloned().collect();
-            out.extend_from_slice(&b);
-            let literal = AddressLiteral::FreeForm(String::from_utf8(out).unwrap());
+            let mut out: String = a.into_iter().flat_map(|(x, y)| x.into_iter().map(char::from).chain(y.into_iter())).collect();
+            out.extend(b.into_iter().map(char::from));
+            let literal = AddressLiteral::FreeForm(out);
             literal.upgrade().unwrap_or(literal)
         })(input)
 }
@@ -326,8 +326,8 @@ fn address_crlf(input: &[u8]) -> NomResult<Address> {
     terminated(address, opt(crlf))(input)
 }
 
-fn _8bit_char(input: &[u8]) -> NomResult<u8> {
-    take1_filter(|c| (0x80..=0xff).contains(&c))(input)
+fn _8bit_char(input: &[u8]) -> NomResult<char> {
+    map(take1_filter(|c| (0x80..=0xff).contains(&c)), char::from)(input)
 }
 
 /// Parse an unstructured header such as `"Subject:"`.
@@ -337,7 +337,7 @@ pub fn unstructured(input: &[u8]) -> NomResult<String> {
     map(pair(
         many0(alt((
             pair(ofws, map(fold_prefix0(encoded_word, preceded(fws, encoded_word)), |ew| ew.into_iter().collect())),
-            pair(ofws, map(many1(alt((vchar, _8bit_char))), |c| ascii_to_string(c).into_owned()))
+            pair(ofws, map(many1(alt((vchar, _8bit_char))), |c| c.iter().collect::<String>()))
         ))),
         many0(wsp)),
         |(words, ws)| {

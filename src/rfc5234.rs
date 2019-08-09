@@ -16,8 +16,8 @@ pub(crate) fn wsp(input: &[u8]) -> NomResult<u8> {
     map(alt((sp, htab)), |x| x[0])(input)
 }
 
-pub fn vchar(input: &[u8]) -> NomResult<u8> {
-    take1_filter(|c| (0x21..=0x7e).contains(&c))(input)
+pub fn vchar(input: &[u8]) -> NomResult<char> {
+    map(take1_filter(|c| (0x21..=0x7e).contains(&c)), char::from)(input)
 }
 
 pub fn crlf(input: &[u8]) -> NomResult<&[u8]> {
