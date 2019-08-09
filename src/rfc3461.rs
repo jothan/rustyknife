@@ -52,9 +52,9 @@ fn _printable_xtext(input: &[u8]) -> NomResult<Vec<u8>> {
 ///
 /// assert_eq!(split, ("rfc822".into(), "bob@example.org".into()));
 /// ```
-pub fn orcpt_address(input: &[u8]) -> NomResult<(Cow<str>, String)> {
+pub fn orcpt_address(input: &[u8]) -> NomResult<(Cow<str>, Cow<str>)> {
     map(separated_pair(atom, tag(";"), _printable_xtext),
-        |(a, b)| (ascii_to_string(a), ascii_to_string_vec(b)))(input)
+        |(a, b)| (ascii_to_string(a), ascii_to_string(b)))(input)
 }
 
 /// The DSN return type desired by the sender.
@@ -122,7 +122,7 @@ pub fn dsn_mail_params<'a>(input: &[Param<'a>]) -> Result<(DSNMailParams, Vec<Pa
                     return Err("ENVID over 100 bytes");
                 }
                 if let Ok((_, parsed)) = exact!(value, _printable_xtext) {
-                    envid_val = Some(ascii_to_string_vec(parsed));
+                    envid_val = Some(ascii_to_string(parsed).into());
                 } else {
                     return Err("Invalid ENVID");
                 }

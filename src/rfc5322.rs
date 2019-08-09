@@ -5,6 +5,7 @@
 //! [Internet Message Format]: https://tools.ietf.org/html/rfc5322
 //! [RFC 2047]: https://tools.ietf.org/html/rfc2047
 
+use std::borrow::Cow;
 use std::str;
 use std::mem;
 
@@ -97,15 +98,15 @@ fn qtext(input: &[u8]) -> NomResult<&[u8]> {
 #[cfg(feature = "quoted-string-rfc2047")]
 fn qcontent(input: &[u8]) -> NomResult<QContent> {
     alt((map(encoded_word, QContent::EncodedWord),
-         map(qtext, |x| QContent::Literal(ascii_to_string(x).into())),
-         map(quoted_pair, |x| QContent::Literal(ascii_to_string(x).into())))
+         map(qtext, |x| QContent::Literal(ascii_to_string(x))),
+         map(quoted_pair, |x| QContent::Literal(ascii_to_string(x))))
     )(input)
 }
 
 #[cfg(not(feature = "quoted-string-rfc2047"))]
 fn qcontent(input: &[u8]) -> NomResult<QContent> {
-    alt((map(qtext, |x| QContent::Literal(ascii_to_string(x).into())),
-         map(quoted_pair, |x| QContent::Literal(ascii_to_string(x).into())))
+    alt((map(qtext, |x| QContent::Literal(ascii_to_string(x))),
+         map(quoted_pair, |x| QContent::Literal(ascii_to_string(x))))
     )(input)
 }
 
@@ -120,12 +121,12 @@ fn _inner_quoted_string(input: &[u8]) -> NomResult<Vec<QContent>> {
                 match (ws, &cont, out.last()) {
                     #[cfg(feature = "quoted-string-rfc2047")]
                     (_, QContent::EncodedWord(_), Some(QContent::EncodedWord(_))) => (),
-                    (Some(ws),_, _) => { out.push(QContent::Literal(ascii_to_string_vec(ws))); },
+                    (Some(ws),_, _) => { out.push(QContent::Literal(ascii_to_string(ws))); },
                     _ => (),
                 }
                 out.push(cont);
             }
-            if let Some(x) = b { out.push(QContent::Literal(ascii_to_string_vec(x))) }
+            if let Some(x) = b { out.push(QContent::Literal(ascii_to_string(x))) }
             out
         })(input)
 }
@@ -163,8 +164,8 @@ pub enum Address {
 }
 
 #[derive(Clone, Debug)]
-enum QContent {
-    Literal(String),
+enum QContent<'a> {
+    Literal(Cow<'a, str>),
     #[cfg(feature = "quoted-string-rfc2047")]
     EncodedWord(String),
 }
@@ -184,7 +185,7 @@ impl <'a> From<&'a Text<'a>> for &'a str {
     }
 }
 
-fn concat_qs<A: Iterator<Item=QContent>>(input: A) -> String {
+fn concat_qs<'a, A: Iterator<Item=QContent<'a>>>(input: A) -> String {
     let mut out = String::new();
 
     for qc in input {
@@ -336,7 +337,7 @@ pub fn unstructured(input: &[u8]) -> NomResult<String> {
     map(pair(
         many0(alt((
             pair(ofws, map(fold_prefix0(encoded_word, preceded(fws, encoded_word)), |ew| ew.iter().flat_map(|w| w.chars()).collect())),
-            pair(ofws, map(many1(alt((vchar, _8bit_char))), ascii_to_string_vec))
+            pair(ofws, map(many1(alt((vchar, _8bit_char))), |c| ascii_to_string(c).into_owned()))
         ))),
         many0(wsp)),
         |(words, ws)| {

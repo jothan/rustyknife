@@ -180,7 +180,7 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     /// orcpt_address(input)
     #[pyfn(m, "orcpt_address")]
     fn py_orcpt_address(input: &str) -> PyResult<(String, String)> {
-        convert_result(orcpt_address(input.as_bytes()).map(|(rem, a)| (rem, (a.0.into(), a.1))), true)
+        convert_result(orcpt_address(input.as_bytes()).map(|(rem, a)| (rem, (a.0.into(), a.1.into()))), true)
     }
 
     /// dsn_mail_params(input)

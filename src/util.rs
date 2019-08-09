@@ -11,19 +11,16 @@ use nom::multi::fold_many0;
 pub(crate) type NomError<'a> = ();
 pub(crate) type NomResult<'a, O, E=NomError<'a>> = IResult<&'a [u8], O, E>;
 
-pub fn ascii_to_string(i: &[u8]) -> Cow<str> {
-    if i.is_ascii() {
-        str::from_utf8(i).unwrap().into()
-    } else {
-        ASCII.decode(&i, DecoderTrap::Replace).unwrap().into()
-    }
-}
+pub fn ascii_to_string<'a, T: Into<Cow<'a, [u8]>>>(i: T) -> Cow<'a, str> {
+    let i = i.into();
 
-pub fn ascii_to_string_vec(i: Vec<u8>) -> String {
     if i.is_ascii() {
-        String::from_utf8(i).unwrap()
+        match i {
+            Cow::Borrowed(i) => Cow::Borrowed(str::from_utf8(i).unwrap()),
+            Cow::Owned(i) => Cow::Owned(String::from_utf8(i).unwrap()),
+        }
     } else {
-        ASCII.decode(&i, DecoderTrap::Replace).unwrap()
+        Cow::Owned(ASCII.decode(&i, DecoderTrap::Replace).unwrap())
     }
 }
 

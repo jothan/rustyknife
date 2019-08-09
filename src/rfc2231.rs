@@ -197,7 +197,7 @@ fn decode_parameter_list(input: Vec<Parameter>) -> Vec<(String, String)> {
                     Value::Regular(v) => { simple.insert(name_norm, v.into()); },
                     Value::Extended(ExtendedValue::Initial{value, encoding: encoding_name, ..}) => {
                         let codec = match encoding_name {
-                            Some(encoding_name) => encoding_from_whatwg_label(&ascii_to_string(&encoding_name)).unwrap_or(ASCII),
+                            Some(encoding_name) => encoding_from_whatwg_label(&ascii_to_string(encoding_name)).unwrap_or(ASCII),
                             None => ASCII,
                         };
                         simple_encoded.insert(name_norm, codec.decode(&value, DecoderTrap::Replace).unwrap());
@@ -212,7 +212,7 @@ fn decode_parameter_list(input: Vec<Parameter>) -> Vec<(String, String)> {
                     Value::Regular(v) => ent.push((section, Segment::Decoded(v))),
                     Value::Extended(ExtendedValue::Initial{value, encoding: encoding_name, ..}) => {
                         if let Some(encoding_name) = encoding_name {
-                            if let Some(codec) = encoding_from_whatwg_label(&ascii_to_string(&encoding_name)) {
+                            if let Some(codec) = encoding_from_whatwg_label(&ascii_to_string(encoding_name)) {
                                 composite_encoding.insert(name_norm, codec);
                             }
                         }

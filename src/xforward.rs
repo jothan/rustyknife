@@ -33,7 +33,7 @@ fn unavailable(input: &[u8]) -> NomResult<Option<String>> {
 }
 
 fn value(input: &[u8]) -> NomResult<Option<String>> {
-    alt((unavailable, map(xtext, |x| Some(ascii_to_string_vec(x)))))(input)
+    alt((unavailable, map(xtext, |x| Some(ascii_to_string(x).into()))))(input)
 }
 
 fn param(input: &[u8]) -> NomResult<Param> {
