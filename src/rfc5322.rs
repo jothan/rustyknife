@@ -336,7 +336,7 @@ fn _8bit_char(input: &[u8]) -> NomResult<u8> {
 pub fn unstructured(input: &[u8]) -> NomResult<String> {
     map(pair(
         many0(alt((
-            pair(ofws, map(fold_prefix0(encoded_word, preceded(fws, encoded_word)), |ew| ew.iter().flat_map(|w| w.chars()).collect())),
+            pair(ofws, map(fold_prefix0(encoded_word, preceded(fws, encoded_word)), |ew| ew.into_iter().collect())),
             pair(ofws, map(many1(alt((vchar, _8bit_char))), |c| ascii_to_string(c).into_owned()))
         ))),
         many0(wsp)),
