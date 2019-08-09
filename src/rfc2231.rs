@@ -17,7 +17,7 @@ use encoding::DecoderTrap;
 use encoding::all::ASCII;
 
 use nom::branch::alt;
-use nom::bytes::complete::{tag, tag_no_case, take, take_while1, take_while_m_n};
+use nom::bytes::complete::{tag, tag_no_case, take_while1, take_while_m_n};
 use nom::character::is_digit;
 use nom::combinator::{map, opt, recognize, verify};
 use nom::multi::many0;
@@ -81,7 +81,7 @@ fn is_attribute_char(c: u8) -> bool {
 }
 
 fn attribute_char(input: &[u8]) -> NomResult<u8> {
-    map(verify(take(1usize), |x: &[u8]| is_attribute_char(x[0])), |c: &[u8]| c[0])(input)
+    take1_filter(|x| is_attribute_char(x))(input)
 }
 
 fn attribute(input: &[u8]) -> NomResult<&[u8]> {

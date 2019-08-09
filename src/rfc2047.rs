@@ -11,7 +11,7 @@ use encoding::all::ASCII;
 use encoding::label::encoding_from_whatwg_label;
 
 use nom::branch::alt;
-use nom::bytes::complete::{tag, take, take_while1};
+use nom::bytes::complete::{tag, take_while1};
 use nom::combinator::{map, opt};
 use nom::multi::many0;
 use nom::sequence::{delimited, preceded, terminated, tuple};
@@ -31,7 +31,7 @@ fn _qp_encoded_text(input: &[u8]) -> NomResult<Vec<u8>> {
     many0(alt((
         preceded(tag("="), hexpair),
         map(tag("_"), |_| b' '),
-        map(take(1usize), |x: &[u8]| x[0]),
+        take1_filter(|_| true),
     )))(input)
 }
 
@@ -51,7 +51,7 @@ fn decode_text(encoding: &[u8], text: &[u8]) -> Option<Vec<u8>>
     }
 }
 
-fn _encoded_word(input: &[u8]) -> NomResult<(Cow<'_, str>, Vec<u8>)> {
+fn _encoded_word(input: &[u8]) -> NomResult<(Cow<str>, Vec<u8>)> {
     map(tuple((preceded(tag("=?"), token),
                opt(preceded(tag("*"), token)),
                delimited(tag("?"), token, tag("?")),
@@ -61,7 +61,7 @@ fn _encoded_word(input: &[u8]) -> NomResult<(Cow<'_, str>, Vec<u8>)> {
         })(input)
 }
 
-fn decode_charset((charset, bytes): (Cow<'_, str>, Vec<u8>)) -> String
+fn decode_charset((charset, bytes): (Cow<str>, Vec<u8>)) -> String
 {
     encoding_from_whatwg_label(&charset).unwrap_or(ASCII).decode(&bytes, DecoderTrap::Replace).unwrap()
 }

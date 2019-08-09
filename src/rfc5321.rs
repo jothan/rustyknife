@@ -8,9 +8,9 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::{self, FromStr};
 
 use nom::branch::alt;
-use nom::bytes::complete::{tag, tag_no_case, take, take_while1, take_while_m_n};
+use nom::bytes::complete::{tag, tag_no_case, take_while1, take_while_m_n};
 use nom::character::{is_alphanumeric, is_digit, is_hex_digit};
-use nom::combinator::{map, map_res, opt, recognize, verify};
+use nom::combinator::{map, map_res, opt, recognize};
 use nom::error::ParseError;
 use nom::multi::{many0, many1, many_m_n};
 use nom::sequence::{delimited, pair, preceded, separated_pair, terminated};
@@ -121,8 +121,13 @@ impl Display for ReversePath {
     }
 }
 
+fn _is_ldh(c: u8) -> bool {
+    is_alphanumeric(c) || c == b'-'
+}
+
 fn esmtp_keyword(input: &[u8]) -> NomResult<Keyword> {
-    map(take_while1(is_alphanumeric), |x| Keyword(std::str::from_utf8(x).unwrap().into()))(input)
+    map(recognize(pair(take1_filter(is_alphanumeric), recognize_many0(take1_filter(_is_ldh)))),
+        |x| Keyword(std::str::from_utf8(x).unwrap().into()))(input)
 }
 
 fn esmtp_value(input: &[u8]) -> NomResult<Value> {
@@ -140,7 +145,7 @@ fn _esmtp_params(input: &[u8]) -> NomResult<Vec<Param>> {
 }
 
 fn ldh_str(input: &[u8]) -> NomResult<&[u8]> {
-    let (_, mut out) = take_while1(|c| is_alphanumeric(c) || c == b'-')(input)?;
+    let (_, mut out) = take_while1(_is_ldh)(input)?;
 
     while out.last() == Some(&b'-') {
         out = &out[..out.len()-1];
@@ -154,8 +159,8 @@ fn ldh_str(input: &[u8]) -> NomResult<&[u8]> {
     }
 }
 
-fn let_dig(input: &[u8]) -> NomResult<&[u8]> {
-    verify(take(1usize), |c: &[u8]| is_alphanumeric(c[0]))(input)
+fn let_dig(input: &[u8]) -> NomResult<u8> {
+    take1_filter(is_alphanumeric)(input)
 }
 
 fn sub_domain(input: &[u8]) -> NomResult<&[u8]> {
@@ -176,21 +181,18 @@ fn a_d_l(input: &[u8]) -> NomResult<Vec<Domain>> {
 }
 
 pub(crate) fn dot_string(input: &[u8]) -> NomResult<DotAtom> {
-    map(recognize(pair(atom, many0(pair(tag("."), atom)))),
+    map(recognize(pair(recognize_many1(atom), many0(pair(tag("."), recognize_many1(atom))))),
         |a| DotAtom(str::from_utf8(a).unwrap().into()))(input)
 }
 
 fn qtext_smtp(input: &[u8]) -> NomResult<u8> {
-    map(verify(take(1usize), |x: &[u8]| {
-        let c = &x[0];
-        (32..=33).contains(c) || (35..=91).contains(c) || (93..=126).contains(c)
-    }), |x: &[u8]| x[0])(input)
+    take1_filter(|c| (32..=33).contains(&c) || (35..=91).contains(&c) || (93..=126).contains(&c))(input)
 }
 
 fn quoted_pair_smtp(input: &[u8]) -> NomResult<u8> {
-    map(preceded(tag("\\"), verify(take(1usize), |x: &[u8]| (32..=126).contains(&x[0]))),
-        |x: &[u8]| x[0])(input)
+    preceded(tag("\\"), take1_filter(|c| (32..=126).contains(&c)))(input)
 }
+
 fn qcontent_smtp(input: &[u8]) -> NomResult<u8> {
     alt((qtext_smtp, quoted_pair_smtp))(input)
 }
@@ -223,13 +225,12 @@ fn _ipv6_literal(input: &[u8]) -> NomResult<AddressLiteral> {
             |addr| Ipv6Addr::from_str(str::from_utf8(addr).unwrap()).map(|ip| AddressLiteral::IP(ip.into())))(input)
 }
 
-fn dcontent(input: &[u8]) -> NomResult<&str> {
-    map(take_while1(|c| (33..=90).contains(&c) || (94..=126).contains(&c)),
-        |x| std::str::from_utf8(x).unwrap())(input)
+fn dcontent(input: &[u8]) -> NomResult<u8> {
+    take1_filter(|c| (33..=90).contains(&c) || (94..=126).contains(&c))(input)
 }
 
 fn general_address_literal(input: &[u8]) -> NomResult<AddressLiteral> {
-    map(separated_pair(ldh_str, tag(":"), dcontent),
+    map(separated_pair(ldh_str, tag(":"), map(many1(dcontent), ascii_to_string)),
         |(tag, value)| AddressLiteral::Tagged(str::from_utf8(tag).unwrap().into(), value.into())
     )(input)
 }
@@ -331,7 +332,7 @@ pub fn rset_command(input: &[u8]) -> NomResult<()> {
 }
 
 fn _smtp_string(input: &[u8]) -> NomResult<SMTPString> {
-    alt((map(atom, |a| SMTPString(str::from_utf8(a).unwrap().into())),
+    alt((map(recognize_many1(atom), |a| SMTPString(str::from_utf8(a).unwrap().into())),
          map(quoted_string, |qs| SMTPString(qs.into()))))(input)
 }
 

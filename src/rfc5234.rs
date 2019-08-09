@@ -1,6 +1,6 @@
 use nom::branch::alt;
-use nom::bytes::complete::{tag, take};
-use nom::combinator::{map, verify};
+use nom::bytes::complete::tag;
+use nom::combinator::map;
 
 use crate::util::*;
 
@@ -17,7 +17,7 @@ pub(crate) fn wsp(input: &[u8]) -> NomResult<u8> {
 }
 
 pub fn vchar(input: &[u8]) -> NomResult<u8> {
-    map(verify(take(1usize), |c: &[u8]| (0x21..=0x7e).contains(&c[0])), |x: &[u8]| x[0])(input)
+    take1_filter(|c| (0x21..=0x7e).contains(&c))(input)
 }
 
 pub fn crlf(input: &[u8]) -> NomResult<&[u8]> {

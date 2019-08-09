@@ -10,8 +10,8 @@ use std::str;
 use std::mem;
 
 use nom::branch::alt;
-use nom::bytes::complete::{tag, take, take_while1};
-use nom::combinator::{map, opt, recognize, verify};
+use nom::bytes::complete::{tag, take};
+use nom::combinator::{map, map_opt, opt, recognize};
 use nom::multi::{fold_many0, many0, many1};
 use nom::sequence::{delimited, pair, preceded, separated_pair, terminated};
 
@@ -24,8 +24,8 @@ fn quoted_pair(input: &[u8]) -> NomResult<&[u8]> {
     preceded(tag("\\"), recognize(alt((vchar, wsp))))(input)
 }
 
-fn ctext(input: &[u8]) -> NomResult<&[u8]> {
-    take_while1(|c: u8| (33..=39).contains(&c) || (42..=91).contains(&c) || (93..=126).contains(&c))(input)
+fn ctext(input: &[u8]) -> NomResult<u8> {
+    take1_filter(|c| (33..=39).contains(&c) || (42..=91).contains(&c) || (93..=126).contains(&c))(input)
 }
 
 #[derive(Clone, Debug)]
@@ -35,7 +35,7 @@ enum CommentContent {
 }
 
 fn ccontent(input: &[u8]) -> NomResult<CommentContent> {
-    alt((map(alt((ctext, quoted_pair)), |x| CommentContent::Text(x.to_vec())),
+    alt((map(alt((recognize_many1(ctext), quoted_pair)), |x| CommentContent::Text(x.to_vec())),
          map(comment, CommentContent::Comment)))(input)
 }
 
@@ -91,21 +91,21 @@ fn cfws(input: &[u8]) -> NomResult<&[u8]> {
     alt((recognize(pair(many1(pair(ofws, comment)), ofws)), recognize(fws)))(input)
 }
 
-fn qtext(input: &[u8]) -> NomResult<&[u8]> {
-    take_while1(|c: u8| c == 33 || (35..=91).contains(&c) || (93..=126).contains(&c) || (128..=255).contains(&c))(input)
+fn qtext(input: &[u8]) -> NomResult<u8> {
+    take1_filter(|c| c == 33 || (35..=91).contains(&c) || (93..=126).contains(&c) || (128..=255).contains(&c))(input)
 }
 
 #[cfg(feature = "quoted-string-rfc2047")]
 fn qcontent(input: &[u8]) -> NomResult<QContent> {
     alt((map(encoded_word, QContent::EncodedWord),
-         map(qtext, |x| QContent::Literal(ascii_to_string(x))),
+         map(recognize_many1(qtext), |x| QContent::Literal(ascii_to_string(x))),
          map(quoted_pair, |x| QContent::Literal(ascii_to_string(x))))
     )(input)
 }
 
 #[cfg(not(feature = "quoted-string-rfc2047"))]
 fn qcontent(input: &[u8]) -> NomResult<QContent> {
-    alt((map(qtext, |x| QContent::Literal(ascii_to_string(x))),
+    alt((map(recognize_many1(qtext), |x| QContent::Literal(ascii_to_string(x))),
          map(quoted_pair, |x| QContent::Literal(ascii_to_string(x))))
     )(input)
 }
@@ -198,17 +198,17 @@ fn concat_qs<'a, A: Iterator<Item=QContent<'a>>>(input: A) -> String {
     out
 }
 
-pub(crate) fn atext(input: &[u8]) -> NomResult<&[u8]> {
-    take_while1(|c: u8| b"!#$%&'*+-/=?^_`{|}~".contains(&c) || (b'0'..=b'9').contains(&c) || (b'A'..=b'Z').contains(&c) || (b'a'..=b'z').contains(&c))(input)
+pub(crate) fn atext(input: &[u8]) -> NomResult<u8> {
+    take1_filter(|c| b"!#$%&'*+-/=?^_`{|}~".contains(&c) || (b'0'..=b'9').contains(&c) || (b'A'..=b'Z').contains(&c) || (b'a'..=b'z').contains(&c))(input)
 }
 
 pub(crate) fn dot_atom(input: &[u8]) -> NomResult<DotAtom> {
-    map(delimited(opt(cfws), recognize(pair(atext, many0(pair(tag("."), atext)))), opt(cfws)),
+    map(delimited(opt(cfws), recognize(pair(recognize_many1(atext), recognize_many0(pair(tag("."), recognize_many1(atext))))), opt(cfws)),
         |a| (DotAtom(str::from_utf8(a).unwrap().into())))(input)
 }
 
 pub(crate) fn atom(input: &[u8]) -> NomResult<&[u8]> {
-    delimited(opt(cfws), atext, opt(cfws))(input)
+    delimited(opt(cfws), recognize_many1(atext), opt(cfws))(input)
 }
 
 pub(crate) fn _padded_encoded_word(input: &[u8]) -> NomResult<String> {
@@ -249,13 +249,13 @@ pub(crate) fn local_part(input: &[u8]) -> NomResult<LocalPart> {
          map(quoted_string, LocalPart::Quoted)))(input)
 }
 
-fn dtext(input: &[u8]) -> NomResult<&[u8]> {
-    take_while1(|c: u8| (33..=90).contains(&c) || (94..=126).contains(&c))(input)
+fn dtext(input: &[u8]) -> NomResult<u8> {
+    take1_filter(|c| (33..=90).contains(&c) || (94..=126).contains(&c))(input)
 }
 
 pub(crate) fn domain_literal(input: &[u8]) -> NomResult<AddressLiteral> {
     map(delimited(pair(opt(cfws), tag("[")),
-                  pair(many0(pair(ofws, dtext)), ofws),
+                  pair(many0(pair(ofws, many1(dtext))), ofws),
                   pair(tag("]"), opt(cfws))),
         |(a, b)| {
             let mut out : Vec<u8> = a.iter().flat_map(|(x, y)| x.iter().chain(y.iter())).cloned().collect();
@@ -327,7 +327,7 @@ fn address_crlf(input: &[u8]) -> NomResult<Address> {
 }
 
 fn _8bit_char(input: &[u8]) -> NomResult<u8> {
-    map(verify(take(1usize), |c: &[u8]| (0x80..=0xff).contains(&c[0])), |x: &[u8]| x[0])(input)
+    take1_filter(|c| (0x80..=0xff).contains(&c))(input)
 }
 
 /// Parse an unstructured header such as `"Subject:"`.

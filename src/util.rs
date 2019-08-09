@@ -5,7 +5,9 @@ use encoding::{Encoding, DecoderTrap};
 use encoding::all::ASCII;
 
 use nom::IResult;
-use nom::multi::fold_many0;
+use nom::bytes::complete::take;
+use nom::combinator::{map, recognize, verify};
+use nom::multi::{fold_many0, fold_many1};
 // Change this to something else that implements ParseError to get a
 // different error type out of nom.
 pub(crate) type NomError<'a> = ();
@@ -107,5 +109,29 @@ pub(crate) fn fold_prefix0<I, O, E, F, G>(prefix: F, cont: G) -> impl Fn(I) -> I
             acc.push(value);
             acc
         })(rem)
+    }
+}
+
+pub(crate) fn recognize_many0<I, O, E, F>(f: F) -> impl Fn(I) -> IResult<I, I, E>
+    where I: Clone + PartialEq + nom::Slice<std::ops::RangeTo<usize>> + nom::Offset,
+          F: Fn(I) -> IResult<I, O, E>,
+          E: nom::error::ParseError::<I>,
+{
+    recognize(fold_many0(f, (), |_, _| ()))
+}
+
+pub(crate) fn recognize_many1<I, O, E, F>(f: F) -> impl Fn(I) -> IResult<I, I, E>
+    where I: Clone + PartialEq + nom::Slice<std::ops::RangeTo<usize>> + nom::Offset,
+          F: Fn(I) -> IResult<I, O, E>,
+          E: nom::error::ParseError::<I>,
+{
+    recognize(fold_many1(f, (), |_, _| ()))
+}
+
+pub(crate) fn take1_filter<F>(pred: F) -> impl Fn(&[u8]) -> NomResult<u8>
+    where F: Fn(u8) -> bool,
+{
+    move |input| {
+        verify(map(take(1usize), |c: &[u8]| c[0]), |c| pred(*c))(input)
     }
 }
