@@ -161,9 +161,9 @@ fn qcontent<P: UTF8Policy>(input: &[u8]) -> NomResult<QContent> {
 }
 
 #[cfg(not(feature = "quoted-string-rfc2047"))]
-fn qcontent(input: &[u8]) -> NomResult<QContent> {
+fn qcontent<P: UTF8Policy>(input: &[u8]) -> NomResult<QContent> {
     alt((map(many1_char(P::qtext), |q| QContent::Literal(q.into())),
-         map(quoted_pair, QContent::QP))
+         map(quoted_pair::<P>, QContent::QP))
     )(input)
 }
 
