@@ -29,14 +29,14 @@ fn ctext(input: &[u8]) -> NomResult<char> {
 }
 
 #[derive(Clone, Debug)]
-enum CommentContent {
-    Text(String),
-    Comment(Vec<CommentContent>),
+enum CommentContent<'a> {
+    Text(Cow<'a, str>),
+    Comment(Vec<CommentContent<'a>>),
     QP(char),
 }
 
 fn ccontent(input: &[u8]) -> NomResult<CommentContent> {
-    alt((alt((map(many1_char(ctext), CommentContent::Text),
+    alt((alt((map(recognize_many1(ctext), |ct| CommentContent::Text(str::from_utf8(ct).unwrap().into())),
               map(quoted_pair, CommentContent::QP))),
          map(comment, CommentContent::Comment)))(input)
 }
@@ -50,9 +50,9 @@ fn fws(input: &[u8]) -> NomResult<Cow<str>> {
                 Some(a) => {
                     let mut out = String::from(str::from_utf8(a).unwrap());
                     out.push_str(str::from_utf8(b).unwrap());
-                    out.into()
+                    Cow::from(out)
                 },
-                None => str::from_utf8(b).unwrap().into(),
+                None => Cow::from(str::from_utf8(b).unwrap())
             }
         })(input)
 }
@@ -61,13 +61,13 @@ pub(crate) fn ofws(input: &[u8]) -> NomResult<Cow<str>> {
     map(opt(fws), |i| i.unwrap_or_else(|| Cow::from("")))(input)
 }
 
-fn _concat_comment<I: IntoIterator<Item=CommentContent>>(comments: I) -> Vec<CommentContent> {
+fn _concat_comment<'a, I: IntoIterator<Item=CommentContent<'a>>>(comments: I) -> Vec<CommentContent<'a>> {
     let mut out = Vec::new();
     let mut acc_text = String::new();
 
     let push_text = |bytes: &mut String, out: &mut Vec<CommentContent>| {
         if !bytes.is_empty() {
-            out.push(CommentContent::Text(mem::replace(bytes, String::new())))
+            out.push(CommentContent::Text(mem::replace(bytes, String::new()).into()))
         }
     };
 
@@ -86,12 +86,12 @@ fn _concat_comment<I: IntoIterator<Item=CommentContent>>(comments: I) -> Vec<Com
 fn comment(input: &[u8]) -> NomResult<Vec<CommentContent>> {
     map(delimited(tag("("),
                   pair(fold_many0(pair(ofws, ccontent), Vec::new(), |mut acc, (fws, cc)| {
-                      acc.push(CommentContent::Text(fws.into()));
+                      acc.push(CommentContent::Text(fws));
                       acc.push(cc);
                       acc
                   }), ofws),
                   tag(")")),
-        |(a, b)| _concat_comment(a.into_iter().chain(std::iter::once(CommentContent::Text(b.into())))))(input)
+        |(a, b)| _concat_comment(a.into_iter().chain(std::iter::once(CommentContent::Text(b)))))(input)
 }
 
 fn cfws(input: &[u8]) -> NomResult<&[u8]> {
@@ -129,12 +129,12 @@ fn _inner_quoted_string(input: &[u8]) -> NomResult<Vec<QContent>> {
                 match (ws, &cont, out.last()) {
                     #[cfg(feature = "quoted-string-rfc2047")]
                     (_, QContent::EncodedWord(_), Some(QContent::EncodedWord(_))) => (),
-                    (Some(ws),_, _) => { out.push(QContent::Literal(ws.into())); },
+                    (Some(ws),_, _) => { out.push(QContent::Literal(ws)); },
                     _ => (),
                 }
                 out.push(cont);
             }
-            if let Some(x) = b { out.push(QContent::Literal(x.into())) }
+            if let Some(x) = b { out.push(QContent::Literal(x)) }
             out
         })(input)
 }
