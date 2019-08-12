@@ -41,20 +41,24 @@ fn ccontent(input: &[u8]) -> NomResult<CommentContent> {
          map(comment, CommentContent::Comment)))(input)
 }
 
-fn fws(input: &[u8]) -> NomResult<Vec<u8>> {
+fn fws(input: &[u8]) -> NomResult<Cow<str>> {
     //CRLF is "semantically invisible"
-    map(pair(opt(terminated(many0(wsp), crlf)),
-             many1(wsp)),
+    map(pair(opt(terminated(recognize_many0(wsp), crlf)),
+             recognize_many1(wsp)),
         |(a, b)| {
             match a {
-                Some(mut a) => { a.extend(b); a },
-                None => b,
+                Some(a) => {
+                    let mut out = String::from(str::from_utf8(a).unwrap());
+                    out.push_str(str::from_utf8(b).unwrap());
+                    out.into()
+                },
+                None => str::from_utf8(b).unwrap().into(),
             }
         })(input)
 }
 
-pub(crate) fn ofws(input: &[u8]) -> NomResult<Vec<u8>> {
-    map(opt(fws), |i| i.unwrap_or_default())(input)
+pub(crate) fn ofws(input: &[u8]) -> NomResult<Cow<str>> {
+    map(opt(fws), |i| i.unwrap_or_else(|| Cow::from("")))(input)
 }
 
 fn _concat_comment<I: IntoIterator<Item=CommentContent>>(comments: I) -> Vec<CommentContent> {
@@ -82,12 +86,12 @@ fn _concat_comment<I: IntoIterator<Item=CommentContent>>(comments: I) -> Vec<Com
 fn comment(input: &[u8]) -> NomResult<Vec<CommentContent>> {
     map(delimited(tag("("),
                   pair(fold_many0(pair(ofws, ccontent), Vec::new(), |mut acc, (fws, cc)| {
-                      acc.push(CommentContent::Text(ascii_to_string(fws).into()));
+                      acc.push(CommentContent::Text(fws.into()));
                       acc.push(cc);
                       acc
                   }), ofws),
                   tag(")")),
-        |(a, b)| _concat_comment(a.into_iter().chain(std::iter::once(CommentContent::Text(ascii_to_string(b).into())))))(input)
+        |(a, b)| _concat_comment(a.into_iter().chain(std::iter::once(CommentContent::Text(b.into())))))(input)
 }
 
 fn cfws(input: &[u8]) -> NomResult<&[u8]> {
@@ -125,12 +129,12 @@ fn _inner_quoted_string(input: &[u8]) -> NomResult<Vec<QContent>> {
                 match (ws, &cont, out.last()) {
                     #[cfg(feature = "quoted-string-rfc2047")]
                     (_, QContent::EncodedWord(_), Some(QContent::EncodedWord(_))) => (),
-                    (Some(ws),_, _) => { out.push(QContent::Literal(ascii_to_string(ws))); },
+                    (Some(ws),_, _) => { out.push(QContent::Literal(ws.into())); },
                     _ => (),
                 }
                 out.push(cont);
             }
-            if let Some(x) = b { out.push(QContent::Literal(ascii_to_string(x))) }
+            if let Some(x) = b { out.push(QContent::Literal(x.into())) }
             out
         })(input)
 }
@@ -261,11 +265,11 @@ fn dtext(input: &[u8]) -> NomResult<char> {
 
 pub(crate) fn domain_literal(input: &[u8]) -> NomResult<AddressLiteral> {
     map(delimited(pair(opt(cfws), tag("[")),
-                  pair(many0(pair(ofws, many1(dtext))), ofws),
+                  pair(many0(pair(ofws, recognize_many1(dtext))), ofws),
                   pair(tag("]"), opt(cfws))),
         |(a, b)| {
-            let mut out: String = a.into_iter().flat_map(|(x, y)| x.into_iter().map(char::from).chain(y.into_iter())).collect();
-            out.extend(b.into_iter().map(char::from));
+            let mut out: String = a.iter().flat_map(|(x, y)| x.chars().chain(str::from_utf8(y).unwrap().chars())).collect();
+            out.push_str(&b);
             let literal = AddressLiteral::FreeForm(out);
             literal.upgrade().unwrap_or(literal)
         })(input)
@@ -349,7 +353,7 @@ pub fn unstructured(input: &[u8]) -> NomResult<String> {
         |(words, ws)| {
             let mut out = String::new();
             for (word_ws, word) in words {
-                out.push_str(str::from_utf8(&word_ws).unwrap());
+                out.push_str(&word_ws);
                 out.push_str(&word);
             }
             out.push_str(str::from_utf8(&ws).unwrap());
