@@ -20,8 +20,8 @@ use crate::rfc5234::*;
 use crate::types::{self, *};
 use crate::util::*;
 
-fn quoted_pair(input: &[u8]) -> NomResult<&[u8]> {
-    preceded(tag("\\"), recognize(alt((map(vchar, |_| ()), map(wsp, |_| ())))))(input)
+fn quoted_pair(input: &[u8]) -> NomResult<char> {
+    preceded(tag("\\"), alt((vchar, map(wsp, char::from))))(input)
 }
 
 fn ctext(input: &[u8]) -> NomResult<char> {
@@ -30,12 +30,14 @@ fn ctext(input: &[u8]) -> NomResult<char> {
 
 #[derive(Clone, Debug)]
 enum CommentContent {
-    Text(Vec<u8>),
+    Text(String),
     Comment(Vec<CommentContent>),
+    QP(char),
 }
 
 fn ccontent(input: &[u8]) -> NomResult<CommentContent> {
-    alt((map(alt((recognize_many1(ctext), quoted_pair)), |x| CommentContent::Text(x.to_vec())),
+    alt((alt((map(many1_char(ctext), CommentContent::Text),
+              map(quoted_pair, CommentContent::QP))),
          map(comment, CommentContent::Comment)))(input)
 }
 
@@ -57,17 +59,18 @@ pub(crate) fn ofws(input: &[u8]) -> NomResult<Vec<u8>> {
 
 fn _concat_comment<I: IntoIterator<Item=CommentContent>>(comments: I) -> Vec<CommentContent> {
     let mut out = Vec::new();
-    let mut acc_text = Vec::new();
+    let mut acc_text = String::new();
 
-    let push_text = |bytes: &mut Vec<_>, out: &mut Vec<CommentContent>| {
+    let push_text = |bytes: &mut String, out: &mut Vec<CommentContent>| {
         if !bytes.is_empty() {
-            out.push(CommentContent::Text(mem::replace(bytes, Vec::new())))
+            out.push(CommentContent::Text(mem::replace(bytes, String::new())))
         }
     };
 
     for comment in comments.into_iter() {
         match comment {
-            CommentContent::Text(mut text) => acc_text.append(&mut text),
+            CommentContent::Text(text) => acc_text.push_str(&text),
+            CommentContent::QP(qp) => acc_text.push(qp),
             _ => { push_text(&mut acc_text, &mut out); out.push(comment) }
         }
     }
@@ -79,12 +82,12 @@ fn _concat_comment<I: IntoIterator<Item=CommentContent>>(comments: I) -> Vec<Com
 fn comment(input: &[u8]) -> NomResult<Vec<CommentContent>> {
     map(delimited(tag("("),
                   pair(fold_many0(pair(ofws, ccontent), Vec::new(), |mut acc, (fws, cc)| {
-                      acc.push(CommentContent::Text(fws));
+                      acc.push(CommentContent::Text(ascii_to_string(fws).into()));
                       acc.push(cc);
                       acc
                   }), ofws),
                   tag(")")),
-        |(a, b)| _concat_comment(a.into_iter().chain(std::iter::once(CommentContent::Text(b)))))(input)
+        |(a, b)| _concat_comment(a.into_iter().chain(std::iter::once(CommentContent::Text(ascii_to_string(b).into())))))(input)
 }
 
 fn cfws(input: &[u8]) -> NomResult<&[u8]> {
@@ -92,21 +95,22 @@ fn cfws(input: &[u8]) -> NomResult<&[u8]> {
 }
 
 fn qtext(input: &[u8]) -> NomResult<char> {
-    map(take1_filter(|c| c == 33 || (35..=91).contains(&c) || (93..=126).contains(&c) || (128..=255).contains(&c)), char::from)(input)
+    alt((map(take1_filter(|c| c == 33 || (35..=91).contains(&c) || (93..=126).contains(&c)), char::from),
+         _8bit_char))(input)
 }
 
 #[cfg(feature = "quoted-string-rfc2047")]
 fn qcontent(input: &[u8]) -> NomResult<QContent> {
     alt((map(encoded_word, QContent::EncodedWord),
-         map(recognize_many1(qtext), |x| QContent::Literal(ascii_to_string(x))),
-         map(quoted_pair, |x| QContent::Literal(ascii_to_string(x))))
+         map(many1_char(qtext), |q| QContent::Literal(q.into())),
+         map(quoted_pair, QContent::QP))
     )(input)
 }
 
 #[cfg(not(feature = "quoted-string-rfc2047"))]
 fn qcontent(input: &[u8]) -> NomResult<QContent> {
-    alt((map(recognize_many1(qtext), |x| QContent::Literal(ascii_to_string(x))),
-         map(quoted_pair, |x| QContent::Literal(ascii_to_string(x))))
+    alt((map(many1_char(qtext), |q| QContent::Literal(q.into())),
+         map(quoted_pair, QContent::QP))
     )(input)
 }
 
@@ -168,6 +172,7 @@ enum QContent<'a> {
     Literal(Cow<'a, str>),
     #[cfg(feature = "quoted-string-rfc2047")]
     EncodedWord(String),
+    QP(char),
 }
 
 #[derive(Clone, Debug)]
@@ -193,6 +198,7 @@ fn concat_qs<'a, A: Iterator<Item=QContent<'a>>>(input: A) -> String {
             QContent::Literal(lit) => out.push_str(&lit),
             #[cfg(feature = "quoted-string-rfc2047")]
             QContent::EncodedWord(ew) => out.push_str(&ew),
+            QContent::QP(c) => out.push(c),
         }
     }
     out
@@ -327,7 +333,7 @@ fn address_crlf(input: &[u8]) -> NomResult<Address> {
 }
 
 fn _8bit_char(input: &[u8]) -> NomResult<char> {
-    map(take1_filter(|c| (0x80..=0xff).contains(&c)), char::from)(input)
+    map(take1_filter(|c| (0x80..=0xff).contains(&c)), |_| '\u{fffd}')(input)
 }
 
 /// Parse an unstructured header such as `"Subject:"`.
