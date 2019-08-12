@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 use std::fs::File;
 
+use crate::behaviour::Intl;
 use crate::rfc2231::{content_type, content_disposition, content_transfer_encoding};
 use crate::rfc3461::{orcpt_address, dsn_mail_params, DSNMailParams, DSNRet};
 use crate::rfc5321::{Param as ESMTPParam, mail_command, rcpt_command, validate_address, ForwardPath, ReversePath};
@@ -131,19 +132,19 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     /// from_(input)
     #[pyfn(m, "from_")]
     fn py_from(input: &PyBytes) -> PyResult<Vec<Address>> {
-        convert_result(from(input.as_bytes()), true)
+        convert_result(from::<Intl>(input.as_bytes()), true)
     }
 
     /// sender(input)
     #[pyfn(m, "sender")]
     fn py_sender(input: &PyBytes) -> PyResult<Address> {
-        convert_result(sender(input.as_bytes()), true)
+        convert_result(sender::<Intl>(input.as_bytes()), true)
     }
 
     /// reply_to(input)
     #[pyfn(m, "reply_to")]
     fn py_reply_to(input: &PyBytes) -> PyResult<Vec<Address>> {
-        convert_result(reply_to(input.as_bytes()), true)
+        convert_result(reply_to::<Intl>(input.as_bytes()), true)
     }
 
     /// header_section(input) -> ([headers...], end of headers position)
@@ -238,7 +239,7 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     /// :rtype: str
     #[pyfn(m, "unstructured")]
     fn py_unstructured(input: &PyBytes) -> PyResult<String> {
-        convert_result(unstructured(input.as_bytes()), true)
+        convert_result(unstructured::<Intl>(input.as_bytes()), true)
     }
 
     /// content_type(input, all=False)

@@ -25,11 +25,12 @@ Roadmap:
 # Examples
 ## Email header decoding
 ```rust
+use rustyknife::behaviour::Intl;
 use rustyknife::types::{DomainPart, DotAtom, Mailbox};
 use rustyknife::rfc5322::{Address, Group, Mailbox as IMFMailbox};
 use rustyknife::rfc5322::from;
 
-let (rem, parsed) = from(b"  A Group(Some people)\r
+let (rem, parsed) = from::<Intl>(b"  A Group(Some people)\r
  :Chris Jones <c@(Chris's host.)public.example>,\r
  joe@example.org,\r
  John <jdoe@one.test> (my dear friend); (the end of the group)\r\n").unwrap();

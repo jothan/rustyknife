@@ -15,7 +15,8 @@ use nom::error::ParseError;
 use nom::multi::{many0, many1, many_m_n};
 use nom::sequence::{delimited, pair, preceded, separated_pair, terminated};
 
-use crate::rfc5322::{atext as atom};
+use crate::behaviour::Legacy;
+use crate::rfc5322::UTF8Policy;
 use crate::rfc5234::{crlf, wsp};
 use crate::types::*;
 use crate::util::*;
@@ -178,6 +179,10 @@ fn at_domain(input: &[u8]) -> NomResult<Domain> {
 
 fn a_d_l(input: &[u8]) -> NomResult<Vec<Domain>> {
     fold_prefix0(at_domain, preceded(tag(","), at_domain))(input)
+}
+
+fn atom(input: &[u8]) -> NomResult<char> {
+    Legacy::atext(input)
 }
 
 pub(crate) fn dot_string(input: &[u8]) -> NomResult<DotAtom> {

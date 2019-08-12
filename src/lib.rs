@@ -8,6 +8,18 @@
 #[macro_use]
 extern crate nom;
 
+/// Types used for varying parser behaviour.
+pub mod behaviour {
+    /// Octets above 127 are replaced by a replacement character.
+    pub struct Legacy;
+
+    /// Octets above 127 are interpreted as UTF-8.
+    ///
+    ///  * Activates message/global (RFC6532) support for message content.
+    ///  * Activates SMTPUTF8 support for SMTP.
+    pub struct Intl;
+}
+
 #[macro_use]
 mod util;
 mod rfc5234;

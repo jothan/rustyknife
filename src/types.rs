@@ -13,6 +13,7 @@ use std::fmt::{self, Display};
 
 use std::net::IpAddr;
 
+use crate::behaviour::Intl;
 use crate::rfc5321 as smtp;
 use crate::rfc5322 as imf;
 use crate::util::*;
@@ -23,7 +24,7 @@ pub struct Domain(pub(crate) String);
 string_newtype!(Domain);
 impl Domain {
     nom_from_smtp!(smtp::domain);
-    nom_from_imf!(imf::_domain);
+    nom_from_imf!(imf::_domain::<Intl>);
 }
 
 /// The local part of an address preceding the `"@"` in an email address.
@@ -36,7 +37,7 @@ pub enum LocalPart {
 }
 impl LocalPart {
     nom_from_smtp!(smtp::local_part);
-    nom_from_imf!(imf::local_part);
+    nom_from_imf!(imf::local_part::<Intl>);
 }
 
 impl From<QuotedString> for LocalPart {
@@ -85,7 +86,7 @@ impl QuotedString {
     }
 
     nom_from_smtp!(smtp::quoted_string);
-    nom_from_imf!(imf::quoted_string);
+    nom_from_imf!(imf::quoted_string::<Intl>);
 }
 
 /// A string consisting of atoms separated by periods.
@@ -102,7 +103,7 @@ string_newtype!(DotAtom);
 
 impl DotAtom {
     nom_from_smtp!(smtp::dot_string);
-    nom_from_imf!(imf::dot_atom);
+    nom_from_imf!(imf::dot_atom::<Intl>);
 }
 
 impl Display for LocalPart {
@@ -125,7 +126,7 @@ pub enum DomainPart {
 
 impl DomainPart {
     nom_from_smtp!(smtp::_domain_part);
-    nom_from_imf!(imf::domain);
+    nom_from_imf!(imf::domain::<Intl>);
 }
 
 impl From<Domain> for DomainPart {
@@ -207,7 +208,7 @@ impl AddressLiteral {
     }
 
     nom_from_smtp!(smtp::address_literal);
-    nom_from_imf!(imf::domain_literal);
+    nom_from_imf!(imf::domain_literal::<Intl>);
 }
 
 
@@ -233,7 +234,7 @@ pub struct Mailbox(pub LocalPart, pub DomainPart);
 
 impl Mailbox {
     nom_from_smtp!(smtp::mailbox);
-    nom_from_imf!(imf::addr_spec);
+    nom_from_imf!(imf::addr_spec::<Intl>);
 }
 
 impl Display for Mailbox {

@@ -142,7 +142,7 @@ fn extended_other_values(input: &[u8]) -> NomResult<Vec<u8>> {
 
 fn value(input: &[u8]) -> NomResult<Cow<str>> {
     alt((map(token, Cow::from),
-         map(quoted_string, |qs| Cow::from(qs.0))))(input)
+         map(quoted_string::<crate::behaviour::Intl>, |qs| Cow::from(qs.0))))(input)
 }
 
 fn _mime_type(input: &[u8]) -> NomResult<&[u8]> {
