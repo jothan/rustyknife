@@ -81,7 +81,7 @@ fn is_attribute_char(c: u8) -> bool {
 }
 
 fn attribute_char(input: &[u8]) -> NomResult<u8> {
-    take1_filter(|x| is_attribute_char(x))(input)
+    take1_filter(is_attribute_char)(input)
 }
 
 fn attribute(input: &[u8]) -> NomResult<&[u8]> {
