@@ -315,12 +315,12 @@ fn reverse_path<P: UTF8Policy>(input: &[u8]) -> NomResult<ReversePath> {
 
 /// Parse an SMTP EHLO command.
 pub fn ehlo_command<P: UTF8Policy>(input: &[u8]) -> NomResult<DomainPart> {
-    delimited(tag_no_case("EHLO "), _domain_part::<P>, tag("\r\n"))(input)
+    delimited(tag_no_case("EHLO "), _domain_part::<P>, crlf)(input)
 }
 
 /// Parse an SMTP HELO command.
 pub fn helo_command<P: UTF8Policy>(input: &[u8]) -> NomResult<Domain> {
-    delimited(tag_no_case("HELO "), domain::<P>, tag("\r\n"))(input)
+    delimited(tag_no_case("HELO "), domain::<P>, crlf)(input)
 }
 
 /// Parse an SMTP MAIL FROM command.
@@ -390,7 +390,7 @@ fn _smtp_string<P: UTF8Policy>(input: &[u8]) -> NomResult<SMTPString> {
 pub fn noop_command<P: UTF8Policy>(input: &[u8]) -> NomResult<Option<SMTPString>> {
     delimited(tag_no_case("NOOP"),
               opt(preceded(tag(" "), _smtp_string::<P>)),
-              tag("\r\n"))(input)
+              crlf)(input)
 }
 
 /// Parse an SMTP QUIT command.
@@ -400,19 +400,19 @@ pub fn quit_command(input: &[u8]) -> NomResult<()> {
 
 /// Parse an SMTP VRFY command.
 pub fn vrfy_command<P: UTF8Policy>(input: &[u8]) -> NomResult<SMTPString> {
-    delimited(tag_no_case("VRFY "), _smtp_string::<P>, tag("\r\n"))(input)
+    delimited(tag_no_case("VRFY "), _smtp_string::<P>, crlf)(input)
 }
 
 /// Parse an SMTP EXPN command.
 pub fn expn_command<P: UTF8Policy>(input: &[u8]) -> NomResult<SMTPString> {
-    delimited(tag_no_case("EXPN "), _smtp_string::<P>, tag("\r\n"))(input)
+    delimited(tag_no_case("EXPN "), _smtp_string::<P>, crlf)(input)
 }
 
 /// Parse an SMTP HELP command.
 pub fn help_command<P: UTF8Policy>(input: &[u8]) -> NomResult<Option<SMTPString>> {
     delimited(tag_no_case("HELP"),
               opt(preceded(tag(" "), _smtp_string::<P>)),
-              tag("\r\n"))(input)
+              crlf)(input)
 }
 
 /// The base SMTP command set
