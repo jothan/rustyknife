@@ -23,7 +23,7 @@ use crate::util::*;
 pub struct Domain(pub(crate) String);
 string_newtype!(Domain);
 impl Domain {
-    nom_from_smtp!(smtp::domain);
+    nom_from_smtp!(smtp::domain::<Intl>);
     nom_from_imf!(imf::_domain::<Intl>);
 }
 
@@ -125,7 +125,7 @@ pub enum DomainPart {
 }
 
 impl DomainPart {
-    nom_from_smtp!(smtp::_domain_part);
+    nom_from_smtp!(smtp::_domain_part::<Intl>);
     nom_from_imf!(imf::domain::<Intl>);
 }
 

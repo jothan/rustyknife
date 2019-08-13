@@ -10,7 +10,7 @@ use std::str::{self, FromStr};
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_while1, take_while_m_n};
 use nom::character::{is_alphanumeric, is_digit, is_hex_digit};
-use nom::combinator::{map, map_res, opt, recognize};
+use nom::combinator::{map, map_res, opt, recognize, verify};
 use nom::error::ParseError;
 use nom::multi::{many0, many1, many_m_n};
 use nom::sequence::{delimited, pair, preceded, separated_pair, terminated};
@@ -26,6 +26,7 @@ pub trait UTF8Policy {
     fn atext(input: &[u8]) -> NomResult<char>;
     fn qtext_smtp(input: &[u8]) -> NomResult<char>;
     fn esmtp_value_char(input: &[u8]) -> NomResult<char>;
+    fn sub_domain(input: &[u8]) -> NomResult<&[u8]>;
 }
 
 impl UTF8Policy for Legacy {
@@ -40,6 +41,10 @@ impl UTF8Policy for Legacy {
     fn esmtp_value_char(input: &[u8]) -> NomResult<char> {
         map(take1_filter(|c| (33..=60).contains(&c) || (62..=126).contains(&c)), char::from)(input)
     }
+
+    fn sub_domain(input: &[u8]) -> NomResult<&[u8]> {
+        recognize(pair(let_dig, opt(ldh_str)))(input)
+    }
 }
 
 impl UTF8Policy for Intl {
@@ -53,6 +58,17 @@ impl UTF8Policy for Intl {
 
     fn esmtp_value_char(input: &[u8]) -> NomResult<char> {
         alt((Legacy::esmtp_value_char, utf8_non_ascii))(input)
+    }
+
+    fn sub_domain(input: &[u8]) -> NomResult<&[u8]> {
+        verify(recognize_many1(alt((map(take1_filter(_is_ldh), char::from), utf8_non_ascii))), |label| {
+            idna::Config::default()
+                .use_std3_ascii_rules(true)
+                .verify_dns_length(true)
+                .check_hyphens(true)
+                .to_ascii(str::from_utf8(label).unwrap())
+                .is_ok()
+        })(input)
     }
 }
 
@@ -199,21 +215,17 @@ fn let_dig(input: &[u8]) -> NomResult<u8> {
     take1_filter(is_alphanumeric)(input)
 }
 
-fn sub_domain(input: &[u8]) -> NomResult<&[u8]> {
-    recognize(pair(let_dig, opt(ldh_str)))(input)
-}
-
-pub(crate) fn domain(input: &[u8]) -> NomResult<Domain> {
-    map(recognize(pair(sub_domain, many0(pair(tag("."), sub_domain)))),
+pub(crate) fn domain<P: UTF8Policy>(input: &[u8]) -> NomResult<Domain> {
+    map(recognize(pair(P::sub_domain, many0(pair(tag("."), P::sub_domain)))),
         |domain| Domain(str::from_utf8(domain).unwrap().into()))(input)
 }
 
-fn at_domain(input: &[u8]) -> NomResult<Domain> {
-    preceded(tag("@"), domain)(input)
+fn at_domain<P: UTF8Policy>(input: &[u8]) -> NomResult<Domain> {
+    preceded(tag("@"), domain::<P>)(input)
 }
 
-fn a_d_l(input: &[u8]) -> NomResult<Vec<Domain>> {
-    fold_prefix0(at_domain, preceded(tag(","), at_domain))(input)
+fn a_d_l<P: UTF8Policy>(input: &[u8]) -> NomResult<Vec<Domain>> {
+    fold_prefix0(at_domain::<P>, preceded(tag(","), at_domain::<P>))(input)
 }
 
 fn atom<P: UTF8Policy>(input: &[u8]) -> NomResult<&[u8]> {
@@ -266,7 +278,7 @@ fn dcontent(input: &[u8]) -> NomResult<u8> {
 }
 
 fn general_address_literal(input: &[u8]) -> NomResult<AddressLiteral> {
-    map(separated_pair(ldh_str, tag(":"), map(many1(dcontent), ascii_to_string)),
+    map(separated_pair(ldh_str, tag(":"), map(recognize_many1(dcontent), |d| str::from_utf8(d).unwrap())),
         |(tag, value)| AddressLiteral::Tagged(str::from_utf8(tag).unwrap().into(), value.into())
     )(input)
 }
@@ -279,19 +291,19 @@ pub(crate) fn address_literal(input: &[u8]) -> NomResult<AddressLiteral> {
     delimited(tag("["), _inner_address_literal, tag("]"))(input)
 }
 
-pub(crate) fn _domain_part(input: &[u8]) -> NomResult<DomainPart> {
-    alt((map(domain, DomainPart::Domain), map(address_literal, DomainPart::Address)))(input)
+pub(crate) fn _domain_part<P: UTF8Policy>(input: &[u8]) -> NomResult<DomainPart> {
+    alt((map(domain::<P>, DomainPart::Domain), map(address_literal, DomainPart::Address)))(input)
 }
 
 pub(crate) fn mailbox<P: UTF8Policy>(input: &[u8]) -> NomResult<Mailbox> {
-    map(separated_pair(local_part::<P>, tag("@"), _domain_part),
+    map(separated_pair(local_part::<P>, tag("@"), _domain_part::<P>),
         |(lp, dp)| Mailbox(lp, dp))(input)
 }
 
 fn path<P: UTF8Policy>(input: &[u8]) -> NomResult<Path> {
     map(delimited(
         tag("<"),
-        pair(opt(terminated(a_d_l, tag(":"))), mailbox::<P>),
+        pair(opt(terminated(a_d_l::<P>, tag(":"))), mailbox::<P>),
         tag(">")),
         |(path, m)| Path(m, path.unwrap_or_default()))(input)
 }
@@ -302,13 +314,13 @@ fn reverse_path<P: UTF8Policy>(input: &[u8]) -> NomResult<ReversePath> {
 }
 
 /// Parse an SMTP EHLO command.
-pub fn ehlo_command(input: &[u8]) -> NomResult<DomainPart> {
-    delimited(tag_no_case("EHLO "), _domain_part, tag("\r\n"))(input)
+pub fn ehlo_command<P: UTF8Policy>(input: &[u8]) -> NomResult<DomainPart> {
+    delimited(tag_no_case("EHLO "), _domain_part::<P>, tag("\r\n"))(input)
 }
 
 /// Parse an SMTP HELO command.
-pub fn helo_command(input: &[u8]) -> NomResult<Domain> {
-    delimited(tag_no_case("HELO "), domain, tag("\r\n"))(input)
+pub fn helo_command<P: UTF8Policy>(input: &[u8]) -> NomResult<Domain> {
+    delimited(tag_no_case("HELO "), domain::<P>, tag("\r\n"))(input)
 }
 
 /// Parse an SMTP MAIL FROM command.
@@ -333,7 +345,7 @@ pub fn mail_command<P: UTF8Policy>(input: &[u8]) -> NomResult<(ReversePath, Vec<
 
 fn _forward_path<P: UTF8Policy>(input: &[u8]) -> NomResult<ForwardPath> {
     alt((map(tag_no_case("<postmaster>"), |_| ForwardPath::PostMaster(None)),
-         map(delimited(tag_no_case("<postmaster@"), domain, tag(">")), |d| ForwardPath::PostMaster(Some(d))),
+         map(delimited(tag_no_case("<postmaster@"), domain::<P>, tag(">")), |d| ForwardPath::PostMaster(Some(d))),
          map(path::<P>, ForwardPath::Path)
     ))(input)
 }
@@ -426,8 +438,8 @@ pub enum Command {
 /// Parse any basic SMTP command.
 pub fn command<P: UTF8Policy>(input: &[u8]) -> NomResult<Command> {
     alt((
-        map(ehlo_command, Command::EHLO),
-        map(helo_command, Command::HELO),
+        map(ehlo_command::<P>, Command::EHLO),
+        map(helo_command::<P>, Command::HELO),
         map(mail_command::<P>, |(a, p)| Command::MAIL(a, p)),
         map(rcpt_command::<P>, |(a, p)| Command::RCPT(a, p)),
         map(data_command, |_| Command::DATA),
