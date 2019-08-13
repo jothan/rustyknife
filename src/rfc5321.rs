@@ -181,12 +181,12 @@ fn a_d_l(input: &[u8]) -> NomResult<Vec<Domain>> {
     fold_prefix0(at_domain, preceded(tag(","), at_domain))(input)
 }
 
-fn atom(input: &[u8]) -> NomResult<char> {
-    Legacy::atext(input)
+fn atom(input: &[u8]) -> NomResult<&[u8]> {
+    recognize_many1(Legacy::atext)(input)
 }
 
 pub(crate) fn dot_string(input: &[u8]) -> NomResult<DotAtom> {
-    map(recognize(pair(recognize_many1(atom), many0(pair(tag("."), recognize_many1(atom))))),
+    map(recognize(pair(atom, many0(pair(tag("."), atom)))),
         |a| DotAtom(str::from_utf8(a).unwrap().into()))(input)
 }
 
@@ -337,7 +337,7 @@ pub fn rset_command(input: &[u8]) -> NomResult<()> {
 }
 
 fn _smtp_string(input: &[u8]) -> NomResult<SMTPString> {
-    alt((map(recognize_many1(atom), |a| SMTPString(str::from_utf8(a).unwrap().into())),
+    alt((map(atom, |a| SMTPString(str::from_utf8(a).unwrap().into())),
          map(quoted_string, |qs| SMTPString(qs.into()))))(input)
 }
 
