@@ -260,7 +260,6 @@ fn concat_qs<'a, A: Iterator<Item=QContent<'a>>>(input: A) -> String {
 fn _single_char(len: usize) -> impl Fn(&[u8]) -> NomResult<char> {
     move |input| {
         map_opt(take(len), |c| str::from_utf8(c).ok().and_then(|c| {
-            println!("c: {:?}", c);
             if c.len() == len && c.chars().count() == 1 {
                 Some(c.chars().nth(0).unwrap())
             } else {
