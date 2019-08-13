@@ -155,14 +155,14 @@ fn cfws<P: UTF8Policy>(input: &[u8]) -> NomResult<&[u8]> {
 #[cfg(feature = "quoted-string-rfc2047")]
 fn qcontent<P: UTF8Policy>(input: &[u8]) -> NomResult<QContent> {
     alt((map(encoded_word, QContent::EncodedWord),
-         map(many1_char(P::qtext), |q| QContent::Literal(q.into())),
+         map(recognize_many1(P::qtext), |q| QContent::Literal(String::from_utf8_lossy(q).into())),
          map(quoted_pair::<P>, QContent::QP))
     )(input)
 }
 
 #[cfg(not(feature = "quoted-string-rfc2047"))]
 fn qcontent<P: UTF8Policy>(input: &[u8]) -> NomResult<QContent> {
-    alt((map(many1_char(P::qtext), |q| QContent::Literal(q.into())),
+    alt((map(recognize_many1(P::qtext), |q| QContent::Literal(String::from_utf8_lossy(q).into())),
          map(quoted_pair::<P>, QContent::QP))
     )(input)
 }

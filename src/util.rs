@@ -135,11 +135,3 @@ pub(crate) fn take1_filter<F>(pred: F) -> impl Fn(&[u8]) -> NomResult<u8>
         verify(map(take(1usize), |c: &[u8]| c[0]), |c| pred(*c))(input)
     }
 }
-
-pub(crate) fn many1_char<I, F, E>(f: F) -> impl Fn(I) -> IResult<I, String, E>
-    where I: Clone + PartialEq,
-          F: Fn(I) -> IResult<I, char, E>,
-          E: nom::error::ParseError::<I>,
-{
-    fold_many1(f, String::new(), |mut acc, c| { acc.push(c); acc })
-}
