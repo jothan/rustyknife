@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::fs::File;
 
-use crate::behaviour::Intl;
+use crate::behaviour::{Legacy, Intl};
 use crate::rfc2231::{content_type, content_disposition, content_transfer_encoding};
 use crate::rfc3461::{orcpt_address, dsn_mail_params, DSNMailParams, DSNRet};
 use crate::rfc5321::{Param as ESMTPParam, mail_command, rcpt_command, validate_address, ForwardPath, ReversePath};
@@ -200,7 +200,7 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     #[pyfn(m, "mail_command")]
     pub fn py_mail_command(input: &PyBytes) -> PyResult<(ReversePath, Vec<ESMTPParam>)>
     {
-        convert_result(mail_command(input.as_bytes()), true)
+        convert_result(mail_command::<Legacy>(input.as_bytes()), true)
     }
 
     /// rcpt_command(input)
@@ -213,7 +213,7 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     #[pyfn(m, "rcpt_command")]
     pub fn py_rcpt_command(input: &PyBytes) -> PyResult<(ForwardPath, Vec<ESMTPParam>)>
     {
-        convert_result(rcpt_command(input.as_bytes()), true)
+        convert_result(rcpt_command::<Legacy>(input.as_bytes()), true)
     }
 
     /// validate_address(address)
@@ -224,7 +224,7 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     #[pyfn(m, "validate_address")]
     pub fn py_validate_address(input: &str) -> bool
     {
-        validate_address(input.as_bytes())
+        validate_address::<Legacy>(input.as_bytes())
     }
 
     /// unstructured(input)

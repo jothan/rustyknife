@@ -1,6 +1,7 @@
 use std::env;
 use std::os::unix::ffi::OsStrExt;
 
+use rustyknife::behaviour::Intl;
 use rustyknife::rfc5321::command;
 
 fn main() -> Result<(), String> {
@@ -15,7 +16,7 @@ fn main() -> Result<(), String> {
 
     let mut rem : &[u8] = &input;
     while !rem.is_empty() {
-        let (res, parsed) = command(rem).map_err(|e| format!("{:?}", e))?;
+        let (res, parsed) = command::<Intl>(rem).map_err(|e| format!("{:?}", e))?;
 
         rem = res;
         println!("{:?}", parsed);

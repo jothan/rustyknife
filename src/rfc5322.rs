@@ -269,7 +269,7 @@ fn _single_char(len: usize) -> impl Fn(&[u8]) -> NomResult<char> {
     }
 }
 
-fn utf8_non_ascii(input: &[u8]) -> NomResult<char> {
+pub(crate) fn utf8_non_ascii(input: &[u8]) -> NomResult<char> {
     alt((_single_char(4), _single_char(3), _single_char(2)))(input)
 }
 

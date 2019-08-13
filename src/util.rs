@@ -27,7 +27,7 @@ pub fn ascii_to_string<'a, T: Into<Cow<'a, [u8]>>>(i: T) -> Cow<'a, str> {
 }
 
 macro_rules! nom_fromstr {
-    ( $type:ty, $func:ident ) => {
+    ( $type:ty, $func:path ) => {
         impl std::str::FromStr for $type {
             type Err = ();
 

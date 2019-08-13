@@ -36,7 +36,7 @@ pub enum LocalPart {
     Quoted(QuotedString),
 }
 impl LocalPart {
-    nom_from_smtp!(smtp::local_part);
+    nom_from_smtp!(smtp::local_part::<Intl>);
     nom_from_imf!(imf::local_part::<Intl>);
 }
 
@@ -85,7 +85,7 @@ impl QuotedString {
         out
     }
 
-    nom_from_smtp!(smtp::quoted_string);
+    nom_from_smtp!(smtp::quoted_string::<Intl>);
     nom_from_imf!(imf::quoted_string::<Intl>);
 }
 
@@ -102,7 +102,7 @@ pub struct DotAtom(pub(crate) String);
 string_newtype!(DotAtom);
 
 impl DotAtom {
-    nom_from_smtp!(smtp::dot_string);
+    nom_from_smtp!(smtp::dot_string::<Intl>);
     nom_from_imf!(imf::dot_atom::<Intl>);
 }
 
@@ -233,7 +233,7 @@ impl Display for AddressLiteral {
 pub struct Mailbox(pub LocalPart, pub DomainPart);
 
 impl Mailbox {
-    nom_from_smtp!(smtp::mailbox);
+    nom_from_smtp!(smtp::mailbox::<Intl>);
     nom_from_imf!(imf::addr_spec::<Intl>);
 }
 

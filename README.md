@@ -51,10 +51,11 @@ assert_eq!(parsed, [Address::Group(Group{
 ```
 ## ESMTP command parsing
 ```rust
+use rustyknife::behaviour::Intl;
 use rustyknife::types::{Mailbox, QuotedString, Domain};
 use rustyknife::rfc5321::{mail_command, Path, ReversePath, Param};
 
-let (_, (path, params)) = mail_command(b"MAIL FROM:<\"mr bob\"@example.com> RET=FULL ENVID=abc123\r\n").unwrap();
+let (_, (path, params)) = mail_command::<Intl>(b"MAIL FROM:<\"mr bob\"@example.com> RET=FULL ENVID=abc123\r\n").unwrap();
 assert_eq!(path, ReversePath::Path(
            Path(Mailbox(QuotedString::from_smtp(b"\"mr bob\"").unwrap().into(),
                         Domain::from_smtp(b"example.com").unwrap().into()),
