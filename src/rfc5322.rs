@@ -261,7 +261,7 @@ fn _single_char(len: usize) -> impl Fn(&[u8]) -> NomResult<char> {
     move |input| {
         map_opt(take(len), |c| str::from_utf8(c).ok().and_then(|c| {
             if c.len() == len && c.chars().count() == 1 {
-                Some(c.chars().nth(0).unwrap())
+                c.chars().nth(0)
             } else {
                 None
             }
