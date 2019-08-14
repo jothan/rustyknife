@@ -8,10 +8,10 @@ use std::str;
 use crate::util::*;
 
 use nom::branch::alt;
-use nom::bytes::complete::{take, take_while1, tag};
+use nom::bytes::complete::{take, tag};
 use nom::character::is_hex_digit;
 use nom::combinator::{map, map_res, verify};
-use nom::multi::{fold_many0};
+use nom::multi::many0;
 use nom::sequence::{preceded, separated_pair};
 
 use crate::rfc5322::atom;
@@ -25,14 +25,12 @@ fn hexchar(input: &[u8]) -> NomResult<u8> {
     preceded(tag("+"), hexpair)(input)
 }
 
-fn xchar(input: &[u8]) -> NomResult<&[u8]> {
-    take_while1(|c| match c { 33..=42 | 44..=60 | 62..=126 => true, _ => false})(input)
+fn xchar(input: &[u8]) -> NomResult<u8> {
+    take1_filter(|c| match c { 33..=42 | 44..=60 | 62..=126 => true, _ => false})(input)
 }
 
 pub(crate) fn xtext(input: &[u8]) -> NomResult<Vec<u8>> {
-    fold_many0(alt((map(xchar, |x| x.to_vec()),
-                    map(hexchar, |x| vec![x]))),
-               Vec::new(), |mut acc: Vec<_>, x: Vec<u8>| {acc.extend_from_slice(&x); acc} )(input)
+    many0(alt((xchar, hexchar)))(input)
 }
 
 fn _printable_xtext(input: &[u8]) -> NomResult<Vec<u8>> {
