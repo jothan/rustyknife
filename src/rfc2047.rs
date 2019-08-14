@@ -24,7 +24,7 @@ fn token(input: &[u8]) -> NomResult<&[u8]> {
 }
 
 fn encoded_text(input: &[u8]) -> NomResult<&[u8]> {
-    take_while1(|c| (33..=62).contains(&c) || (64..=126).contains(&c))(input)
+    take_while1(|c| match c {33..=62 | 64..=126 => true, _ => false})(input)
 }
 
 fn _qp_encoded_text(input: &[u8]) -> NomResult<Vec<u8>> {

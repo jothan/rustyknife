@@ -27,7 +27,7 @@ use crate::rfc5322::ofws;
 pub type HeaderField<'a> = Result<(&'a[u8], &'a[u8]), &'a[u8]>;
 
 fn field_name(input: &[u8]) -> NomResult<&[u8]> {
-    take_while1(|c: u8| (33..=57).contains(&c) || (59..=126).contains(&c))(input)
+    take_while1(|c| match c {33..=57 | 59..=126 => true, _ => false})(input)
 }
 
 fn until_crlf(input: &[u8]) -> NomResult<&[u8]> {

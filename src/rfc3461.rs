@@ -26,7 +26,7 @@ fn hexchar(input: &[u8]) -> NomResult<u8> {
 }
 
 fn xchar(input: &[u8]) -> NomResult<&[u8]> {
-    take_while1(|c: u8| (33..=42).contains(&c) || (44..=60).contains(&c) || (62..=126).contains(&c))(input)
+    take_while1(|c| match c { 33..=42 | 44..=60 | 62..=126 => true, _ => false})(input)
 }
 
 pub(crate) fn xtext(input: &[u8]) -> NomResult<Vec<u8>> {
@@ -37,7 +37,7 @@ pub(crate) fn xtext(input: &[u8]) -> NomResult<Vec<u8>> {
 
 fn _printable_xtext(input: &[u8]) -> NomResult<Vec<u8>> {
     verify(xtext, |xtext: &[u8]| {
-        xtext.iter().all(|c| (32..=126).contains(c) || b"\t\x0a\x0b\x0c\x0d".contains(c))
+        xtext.iter().all(|c| match c { 9..=13 | 32..=126 => true, _ => false})
     })(input)
 }
 

@@ -35,11 +35,11 @@ impl UTF8Policy for Legacy {
     }
 
     fn qtext_smtp(input: &[u8]) -> NomResult<char> {
-        map(take1_filter(|c| (32..=33).contains(&c) || (35..=91).contains(&c) || (93..=126).contains(&c)), char::from)(input)
+        map(take1_filter(|c| match c {32..=33 | 35..=91 | 93..=126 => true, _ => false}), char::from)(input)
     }
 
     fn esmtp_value_char(input: &[u8]) -> NomResult<char> {
-        map(take1_filter(|c| (33..=60).contains(&c) || (62..=126).contains(&c)), char::from)(input)
+        map(take1_filter(|c| match c {33..=60 | 62..=126 => true, _ => false}), char::from)(input)
     }
 
     fn sub_domain(input: &[u8]) -> NomResult<&[u8]> {
@@ -269,12 +269,12 @@ fn _ipv4_literal(input: &[u8]) -> NomResult<AddressLiteral> {
 }
 
 fn _ipv6_literal(input: &[u8]) -> NomResult<AddressLiteral> {
-    map_res(preceded(tag_no_case("IPv6:"), take_while1(|c| is_hex_digit(c) || b":.".contains(&c))),
+    map_res(preceded(tag_no_case("IPv6:"), take_while1(|c| is_hex_digit(c) || c == b':' || c == b'.')),
             |addr| Ipv6Addr::from_str(str::from_utf8(addr).unwrap()).map(|ip| AddressLiteral::IP(ip.into())))(input)
 }
 
 fn dcontent(input: &[u8]) -> NomResult<u8> {
-    take1_filter(|c| (33..=90).contains(&c) || (94..=126).contains(&c))(input)
+    take1_filter(|c| match c { 33..=90 | 94..=126 => true, _ => false})(input)
 }
 
 fn general_address_literal(input: &[u8]) -> NomResult<AddressLiteral> {

@@ -36,7 +36,7 @@ impl UTF8Policy for Legacy {
     }
 
     fn ctext(input: &[u8]) -> NomResult<char> {
-        map(take1_filter(|c| (33..=39).contains(&c) || (42..=91).contains(&c) || (93..=126).contains(&c)), char::from)(input)
+        map(take1_filter(|c| match c {33..=39 | 42..=91 | 93..=126 => true, _ => false}), char::from)(input)
     }
 
     fn atext(input: &[u8]) -> NomResult<char> {
@@ -45,12 +45,12 @@ impl UTF8Policy for Legacy {
     }
 
     fn qtext(input: &[u8]) -> NomResult<char> {
-        alt((map(take1_filter(|c| c == 33 || (35..=91).contains(&c) || (93..=126).contains(&c)), char::from),
+        alt((map(take1_filter(|c| match c {33 | 35..=91 | 93..=126 => true, _ => false}), char::from),
              _8bit_char))(input)
     }
 
     fn dtext(input: &[u8]) -> NomResult<char> {
-        map(take1_filter(|c| (33..=90).contains(&c) || (94..=126).contains(&c)), char::from)(input)
+        map(take1_filter(|c| match c {33..=90 | 94..=126 => true, _ => false}), char::from)(input)
     }
 }
 
@@ -68,7 +68,7 @@ impl UTF8Policy for Intl {
     }
 
     fn qtext(input: &[u8]) -> NomResult<char> {
-        alt((map(take1_filter(|c| c == 33 || (35..=91).contains(&c) || (93..=126).contains(&c)), char::from),
+        alt((map(take1_filter(|c| match c {33 | 35..=91 | 93..=126 => true, _ => false}), char::from),
              utf8_non_ascii,
              _8bit_char))(input)
     }
