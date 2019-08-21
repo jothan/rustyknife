@@ -37,3 +37,5 @@ mod pymod;
 
 #[cfg(test)]
 mod tests;
+
+pub use util::NomResult;

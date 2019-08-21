@@ -11,7 +11,7 @@ use nom::multi::{fold_many0, fold_many1};
 // Change this to something else that implements ParseError to get a
 // different error type out of nom.
 pub(crate) type NomError<'a> = ();
-pub(crate) type NomResult<'a, O, E=NomError<'a>> = IResult<&'a [u8], O, E>;
+pub type NomResult<'a, O, E=NomError<'a>> = IResult<&'a [u8], O, E>;
 
 pub fn ascii_to_string<'a, T: Into<Cow<'a, [u8]>>>(i: T) -> Cow<'a, str> {
     let i = i.into();
