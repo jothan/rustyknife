@@ -472,7 +472,7 @@ pub fn starttls(input: &[u8]) -> NomResult<()> {
     map(tag_no_case("STARTTLS\r\n"), |_| ())(input)
 }
 
-pub struct BDAT(u64, bool);
+pub struct BDAT(pub u64, pub bool);
 
 pub fn bdat(input: &[u8]) -> NomResult<BDAT> {
     map(terminated(pair(preceded(tag_no_case("BDAT "), bdat_chunk_size),
