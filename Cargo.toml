@@ -16,7 +16,7 @@ travis-ci = { repository = "zerospam/rustyknife" }
 codecov = { repository = "zerospam/rustyknife", service = "github" }
 
 [features]
-default = ["quoted-string-rfc2047", "python"]
+default = ["quoted-string-rfc2047"]
 quoted-string-rfc2047 = []
 python = ["memmap", "pyo3"]
 

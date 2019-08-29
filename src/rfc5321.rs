@@ -468,18 +468,24 @@ pub fn validate_address<P: UTF8Policy>(i: &[u8]) -> bool {
     exact!(i, mailbox::<P>).is_ok()
 }
 
-pub fn starttls(input: &[u8]) -> NomResult<()> {
+/// Parse a STARTTLS command from RFC 3207
+pub fn starttls_command(input: &[u8]) -> NomResult<()> {
     map(tag_no_case("STARTTLS\r\n"), |_| ())(input)
 }
 
-pub struct BDAT(pub u64, pub bool);
-
-pub fn bdat(input: &[u8]) -> NomResult<BDAT> {
-    map(terminated(pair(preceded(tag_no_case("BDAT "), bdat_chunk_size),
-                        map(opt(tag_no_case(" LAST")), |l| l.is_some())), crlf),
-        |(s, l)| BDAT(s, l))(input)
+/// Parse a BDAT command from RFC 3030
+pub fn bdat_command(input: &[u8]) -> NomResult<(u64, bool)> {
+    terminated(
+        pair(
+            preceded(tag_no_case("BDAT "), bdat_chunk_size),
+            map(opt(tag_no_case(" LAST")), |l| l.is_some()),
+        ),
+        crlf,
+    )(input)
 }
 
 fn bdat_chunk_size(input: &[u8]) -> NomResult<u64> {
-    map_res(take_while_m_n(1, 20, is_digit), |s| std::str::from_utf8(s).unwrap().parse())(input)
+    map_res(take_while_m_n(1, 20, is_digit), |s| {
+        std::str::from_utf8(s).unwrap().parse()
+    })(input)
 }
