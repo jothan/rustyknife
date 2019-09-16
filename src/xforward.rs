@@ -6,19 +6,19 @@ use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case};
 use nom::combinator::{opt, map};
 use nom::multi::{many1};
-use nom::sequence::{preceded, separated_pair};
+use nom::sequence::{delimited, preceded, separated_pair};
 
-use crate::rfc5234::wsp;
+use crate::rfc5234::{crlf, wsp};
 use crate::rfc3461::xtext;
 use crate::util::*;
 
 /// XFORWARD parameter name and value.
 ///
 /// `"[UNAVAILABLE]"` is represented with a value of `None`.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Param(pub &'static str, pub Option<String>);
 
-fn command(input: &[u8]) -> NomResult<&'static str> {
+fn command_name(input: &[u8]) -> NomResult<&'static str> {
     alt((map(tag_no_case("addr"), |_| "addr"),
          map(tag_no_case("helo"), |_| "helo"),
          map(tag_no_case("ident"), |_| "ident"),
@@ -37,7 +37,7 @@ fn value(input: &[u8]) -> NomResult<Option<String>> {
 }
 
 fn param(input: &[u8]) -> NomResult<Param> {
-    map(separated_pair(command, tag("="), value),
+    map(separated_pair(command_name, tag("="), value),
         |(c, v)| Param(c, v))(input)
 }
 
@@ -52,4 +52,8 @@ fn param(input: &[u8]) -> NomResult<Param> {
 pub fn xforward_params(input: &[u8]) -> NomResult<Vec<Param>> {
     fold_prefix0(preceded(opt(many1(wsp)), param),
                  preceded(many1(wsp), param))(input)
+}
+
+pub fn command(input: &[u8]) -> NomResult<Vec<Param>> {
+    delimited(tag_no_case("XFORWARD "), xforward_params, crlf)(input)
 }
