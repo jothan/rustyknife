@@ -15,10 +15,10 @@ Features:
 * Unit testing with a high coverage
 * Supports internationalized email headers through [RFC 2047] and [RFC 2231] decoding
 * Used to parse the content of millions of emails every day
-
-Roadmap:
 * [SMTPUTF8] support
 * [UTF-8 Internationalized Email Headers] support
+
+Roadmap:
 * Decoding of all common ESMTP extensions
 * Support more email content syntax
 
