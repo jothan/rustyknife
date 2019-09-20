@@ -8,7 +8,7 @@ use std::str;
 use crate::util::*;
 
 use nom::branch::alt;
-use nom::bytes::complete::{take, tag};
+use nom::bytes::complete::{take, tag, tag_no_case};
 use nom::character::is_hex_digit;
 use nom::combinator::{map, map_res, verify};
 use nom::multi::many0;
@@ -134,4 +134,54 @@ pub fn dsn_mail_params<'a>(input: &[Param<'a>]) -> Result<(DSNMailParams, Vec<Pa
     }
 
     Ok((DSNMailParams{envid: envid_val, ret: ret_val}, out))
+}
+
+pub struct Notify {
+    pub on_success: bool,
+    pub on_failure: bool,
+    pub delay: bool,
+}
+
+fn convert_notify_list(input: Vec<&str>) -> Notify {
+    let mut on_success = false;
+    let mut on_failure = false;
+    let mut delay = false;
+
+    for item in input {
+        if item.eq_ignore_ascii_case("success") {
+            on_success = true
+        } else if item.eq_ignore_ascii_case("failure") {
+            on_failure = true
+        } else if item.eq_ignore_ascii_case("delay") {
+            delay = true
+        }
+    }
+
+    Notify {
+        on_success,
+        on_failure,
+        delay,
+    }
+}
+
+fn notify_item(input: &str) -> Result<(&str, &str), nom::Err<()>> {
+    alt((
+        tag_no_case("success"),
+        tag_no_case("failure"),
+        tag_no_case("delay"),
+    ))(input)
+}
+
+pub fn dsn_notify(input: &str) -> Result<(&str, Notify), nom::Err<()>> {
+    alt((
+        map(tag_no_case("never"), |_| Notify {
+            on_success: false,
+            on_failure: false,
+            delay: false,
+        }),
+        map(
+            fold_prefix0(notify_item, preceded(tag(","), notify_item)),
+            convert_notify_list,
+        ),
+    ))(input)
 }
