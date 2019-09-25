@@ -103,6 +103,15 @@ impl Param {
     }
 }
 
+impl Display for Param {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match &self.1 {
+            Some(value) => write!(f, "{}={}", self.0, value),
+            None => write!(f, "{}", self.0),
+        }
+    }
+}
+
 /// ESMTP parameter keyword.
 ///
 /// Used as the left side in an ESMTP parameter.  For example, it
