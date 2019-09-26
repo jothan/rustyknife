@@ -112,6 +112,31 @@ impl Display for Param {
     }
 }
 
+/// Newtype over a slice of Param for display purposes.
+pub struct Params<'a>(pub &'a [Param]);
+
+impl<'a, T> From<&'a T> for Params<'a>
+where
+    T: AsRef<[Param]> + 'a,
+{
+    fn from(p: &'a T) -> Self {
+        Params(p.as_ref())
+    }
+}
+
+impl<'a> Display for Params<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for (i, param) in self.0.iter().enumerate() {
+            if i < self.0.len() - 1 {
+                write!(f, "{} ", param)?;
+            } else {
+                write!(f, "{}", param)?;
+            }
+        }
+        Ok(())
+    }
+}
+
 /// ESMTP parameter keyword.
 ///
 /// Used as the left side in an ESMTP parameter.  For example, it
