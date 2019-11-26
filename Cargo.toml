@@ -19,6 +19,7 @@ codecov = { repository = "zerospam/rustyknife", service = "github" }
 default = ["quoted-string-rfc2047"]
 quoted-string-rfc2047 = []
 python = ["memmap", "pyo3"]
+nightly = []
 
 [lib]
 name = "rustyknife"
@@ -35,3 +36,6 @@ pyo3 = { version = "0.7", features = ["extension-module"], optional=true }
 
 [profile.release]
 panic = "abort"
+
+[package.metadata.docs.rs]
+features = ["nightly"]

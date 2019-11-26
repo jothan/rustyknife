@@ -1,6 +1,9 @@
+#![cfg(feature="nightly")]
+#![feature(external_doc)]
+
+#![cfg(feature="nightly")]
 #![doc(include = "../README.md")]
 
-#![feature(external_doc)]
 #![warn(rust_2018_idioms)]
 #![allow(elided_lifetimes_in_paths)]
 #![warn(missing_docs)]
