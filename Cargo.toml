@@ -36,6 +36,3 @@ pyo3 = { version = "0.7", features = ["extension-module"], optional=true }
 
 [profile.release]
 panic = "abort"
-
-[package.metadata.docs.rs]
-features = ["nightly"]
