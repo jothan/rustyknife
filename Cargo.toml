@@ -22,7 +22,7 @@ python = ["memmap", "pyo3"]
 nightly = []
 
 [lib]
-crate-type = ["lib", "rlib", "cdylib"]
+crate-type = ["lib", "cdylib"]
 
 [dependencies]
 encoding = "0.2"
