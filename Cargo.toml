@@ -22,8 +22,7 @@ python = ["memmap", "pyo3"]
 nightly = []
 
 [lib]
-name = "rustyknife"
-crate-type = ["cdylib", "rlib"]
+crate-type = ["lib", "rlib", "cdylib"]
 
 [dependencies]
 encoding = "0.2"
