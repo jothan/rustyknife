@@ -38,6 +38,20 @@ pub enum LocalPart {
 impl LocalPart {
     nom_from_smtp!(smtp::local_part::<Intl>);
     nom_from_imf!(imf::local_part::<Intl>);
+
+    /// Unquote this local part if it is quoted needlessly.
+    ///
+    /// This is useful for normalization purposes.
+    pub fn smtp_try_unquote(&mut self) {
+        match self {
+            LocalPart::Quoted(qs) => {
+                if let Ok((b"", da)) = smtp::dot_string::<Intl>(qs.0.as_bytes()) {
+                    *self = LocalPart::DotAtom(da);
+                }
+            }
+            LocalPart::DotAtom(_) => (),
+        }
+    }
 }
 
 impl From<QuotedString> for LocalPart {

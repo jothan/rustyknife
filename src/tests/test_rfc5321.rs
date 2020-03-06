@@ -86,3 +86,17 @@ fn validate() {
     assert_eq!(validate_address::<Intl>(b"mrbob@example.org"), true);
     assert_eq!(validate_address::<Intl>(b"mrbob\"@example.org"), false);
 }
+
+#[test]
+fn overquoted_lp() {
+    let mut lp = LocalPart::Quoted(QuotedString("a.b".into()));
+    lp.smtp_try_unquote();
+    assert_eq!(lp, LocalPart::DotAtom(DotAtom("a.b".into())));
+}
+
+#[test]
+fn normal_quoted_lp() {
+    let mut lp = LocalPart::Quoted(QuotedString("a b".into()));
+    lp.smtp_try_unquote();
+    assert_eq!(lp, LocalPart::Quoted(QuotedString("a b".into())));
+}
