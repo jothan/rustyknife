@@ -158,7 +158,7 @@ nom_fromstr!(Value, esmtp_value::<Intl>);
 /// Path with source route.
 ///
 /// The source route is absent when `self.1.is_empty()`.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Path(pub Mailbox, pub Vec<Domain>);
 nom_fromstr!(Path, path::<Intl>);
 
@@ -168,7 +168,7 @@ pub struct SMTPString(pub(crate) String);
 string_newtype!(SMTPString);
 
 /// Represents a forward path from the `"RCPT TO"` command.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum ForwardPath {
     /// `"<person@example.org>"`
     Path(Path),

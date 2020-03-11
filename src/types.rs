@@ -19,7 +19,7 @@ use crate::rfc5322 as imf;
 use crate::util::*;
 
 /// A domain name such as used by DNS.
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Domain(pub(crate) String);
 string_newtype!(Domain);
 impl Domain {
@@ -28,7 +28,7 @@ impl Domain {
 }
 
 /// The local part of an address preceding the `"@"` in an email address.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum LocalPart {
     /// Simple local part with no spaces.
     DotAtom(DotAtom),
@@ -70,7 +70,7 @@ impl From<DotAtom> for LocalPart {
 ///
 /// This is used in places such as SMTP local parts and IMF display
 /// names.
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct QuotedString(pub(crate) String);
 string_newtype!(QuotedString);
 
@@ -111,7 +111,7 @@ impl QuotedString {
 /// See [RFC 5322] for the full syntax.
 ///
 /// [RFC 5322]: https://tools.ietf.org/html/rfc5322#section-3.2.3
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct DotAtom(pub(crate) String);
 string_newtype!(DotAtom);
 
@@ -130,7 +130,7 @@ impl Display for LocalPart {
 }
 
 /// The domain part of an address following the `"@"` in an email address.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum DomainPart {
     /// A DNS domain name such as `"example.org"`.
     Domain(Domain),
@@ -165,7 +165,7 @@ impl Display for DomainPart {
 }
 
 /// A network address literal.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum AddressLiteral {
     /// An IPv4 or IPv6 address literal.
     /// # Examples
@@ -243,7 +243,7 @@ impl Display for AddressLiteral {
 ///
 /// - `self.0` is the local part.
 /// - `self.1` is the remote/domain part.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Mailbox(pub LocalPart, pub DomainPart);
 
 impl Mailbox {
