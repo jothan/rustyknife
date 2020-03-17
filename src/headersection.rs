@@ -62,3 +62,8 @@ pub fn header_section(input: &[u8]) -> NomResult<Vec<HeaderField>> {
     terminated(many0(alt((field, invalid_field))),
                opt(crlf))(input)
 }
+
+/// Parse a single header
+pub fn header(input: &[u8]) -> NomResult<HeaderField> {
+    alt((field, invalid_field))(input)
+}
