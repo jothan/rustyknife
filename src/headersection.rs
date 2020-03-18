@@ -6,15 +6,56 @@
 //!
 //! [RFC 5322]: https://tools.ietf.org/html/rfc5322
 
+use std::borrow::Cow;
+use std::str;
+
 use nom::branch::alt;
-use nom::bytes::complete::{tag, take_while1, take_until};
+use nom::bytes::streaming::{tag, take_while1, take_until};
 use nom::combinator::{opt, map, map_opt, recognize};
 use nom::multi::{many0, many1};
 use nom::sequence::{pair, terminated, separated_pair};
 
 use crate::util::*;
-use crate::rfc5234::*;
-use crate::rfc5322::ofws;
+
+fn fws(input: &[u8]) -> NomResult<Cow<str>> {
+    //CRLF is "semantically invisible"
+    map(pair(opt(terminated(recognize_many0(wsp), crlf)),
+             recognize_many1(wsp)),
+        |(a, b)| {
+            match a {
+                Some(a) => {
+                    let mut out = String::from(str::from_utf8(a).unwrap());
+                    out.push_str(str::from_utf8(b).unwrap());
+                    Cow::from(out)
+                },
+                None => Cow::from(str::from_utf8(b).unwrap())
+            }
+        })(input)
+}
+
+fn ofws(input: &[u8]) -> NomResult<Cow<str>> {
+    map(opt(fws), |i| i.unwrap_or_else(|| Cow::from("")))(input)
+}
+
+fn sp(input: &[u8]) -> NomResult<&[u8]> {
+    tag(" ")(input)
+}
+
+fn htab(input: &[u8]) -> NomResult<&[u8]> {
+    tag("\t")(input)
+}
+
+fn wsp(input: &[u8]) -> NomResult<u8> {
+    map(alt((sp, htab)), |x| x[0])(input)
+}
+
+fn vchar(input: &[u8]) -> NomResult<char> {
+    map(take1_filter(|c| (0x21..=0x7e).contains(&c)), char::from)(input)
+}
+
+fn crlf(input: &[u8]) -> NomResult<&[u8]> {
+    tag("\r\n")(input)
+}
 
 /// Used to represent a split header.
 ///
@@ -64,6 +105,7 @@ pub fn header_section(input: &[u8]) -> NomResult<Vec<HeaderField>> {
 }
 
 /// Parse a single header
-pub fn header(input: &[u8]) -> NomResult<HeaderField> {
-    alt((field, invalid_field))(input)
+pub fn header(input: &[u8]) -> NomResult<Option<HeaderField>> {
+    alt((map(alt((field, invalid_field)), Some),
+         map(crlf, |_| None)))(input)
 }
