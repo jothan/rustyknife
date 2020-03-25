@@ -5,7 +5,6 @@
 
 use std::borrow::Cow;
 
-use base64;
 use encoding::DecoderTrap;
 use encoding::all::ASCII;
 use encoding::label::encoding_from_whatwg_label;
