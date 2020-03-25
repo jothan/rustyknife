@@ -240,13 +240,30 @@ impl Display for AddressLiteral {
 }
 
 /// A valid email address.
-///
-/// - `self.0` is the local part.
-/// - `self.1` is the remote/domain part.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Mailbox(pub LocalPart, pub DomainPart);
+pub struct Mailbox(pub(crate) LocalPart, pub(crate) DomainPart);
 
 impl Mailbox {
+    /// Return the local part to the left of the "@".
+    pub fn local_part(&self) -> &LocalPart {
+        &self.0
+    }
+
+    /// Return the domain part to the right of the "@".
+    pub fn domain_part(&self) -> &DomainPart {
+        &self.1
+    }
+
+    /// Split the mailbox apart.
+    pub fn into_parts(self) -> (LocalPart, DomainPart) {
+        (self.0, self.1)
+    }
+
+    /// Build a mailbox from its parts.
+    pub fn from_parts(local: LocalPart, domain: DomainPart) -> Self {
+        Mailbox(local, domain)
+    }
+
     nom_from_smtp!(smtp::mailbox::<Intl>);
     nom_from_imf!(imf::addr_spec::<Intl>);
 }

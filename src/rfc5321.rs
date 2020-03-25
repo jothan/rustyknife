@@ -178,6 +178,25 @@ pub enum ForwardPath {
 }
 nom_fromstr!(ForwardPath, _forward_path::<Intl>);
 
+impl ForwardPath {
+    /// Convert this path into a mailbox.
+    ///
+    /// The postmaster domain must be provided since this path might
+    /// be an unqualified <postmaster> address.
+    pub fn into_mailbox(self, postmaster_domain: &DomainPart) -> Mailbox {
+        match self {
+            Self::Path(Path(mailbox, _)) => mailbox,
+            Self::PostMaster(domain) => {
+                let lp = LocalPart::from_smtp(b"postmaster").unwrap();
+                match domain {
+                    Some(domain) => Mailbox(lp, domain.into()),
+                    None => Mailbox(lp, postmaster_domain.clone()),
+                }
+            }
+        }
+    }
+}
+
 impl Display for ForwardPath {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -203,6 +222,15 @@ impl Display for ReversePath {
         match self {
             ReversePath::Path(p) => write!(f, "<{}>", p.0),
             ReversePath::Null => write!(f, "<>"),
+        }
+    }
+}
+
+impl From<ReversePath> for Option<Mailbox> {
+    fn from(path: ReversePath) -> Option<Mailbox> {
+        match path {
+            ReversePath::Path(Path(mailbox, _)) => Some(mailbox),
+            ReversePath::Null => None,
         }
     }
 }
