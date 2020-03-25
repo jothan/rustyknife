@@ -264,6 +264,13 @@ impl Mailbox {
         Mailbox(local, domain)
     }
 
+    /// Unquote this address' local part if it is quoted needlessly.
+    ///
+    /// This is useful for normalization purposes.
+    pub fn smtp_try_unquote(&mut self) {
+        self.0.smtp_try_unquote()
+    }
+
     nom_from_smtp!(smtp::mailbox::<Intl>);
     nom_from_imf!(imf::addr_spec::<Intl>);
 }
