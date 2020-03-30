@@ -44,6 +44,13 @@ macro_rules! nom_fromstr {
                 exact!(value, $func).map(|(_, v)| v)
             }
         }
+        impl <'a> std::convert::TryFrom<&'a str> for $type {
+            type Error = nom::Err<NomError<'a>>;
+
+            fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+                exact!(value.as_bytes(), $func).map(|(_, v)| v)
+            }
+        }
     }
 }
 

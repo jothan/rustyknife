@@ -7,6 +7,9 @@ use std::fmt::{self, Display};
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::{self, FromStr};
 
+#[cfg(feature = "serde")]
+use serde::{Serialize, Deserialize};
+
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_while1, take_while_m_n};
 use nom::character::{is_alphanumeric, is_digit, is_hex_digit};
@@ -89,6 +92,7 @@ impl UTF8Policy for Intl {
 ///            Param::new("SMTPUTF8", None).unwrap());
 /// ```
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Param(pub Keyword, pub Option<Value>);
 nom_fromstr!(Param, esmtp_param::<Intl>);
 
@@ -109,6 +113,12 @@ impl Display for Param {
             Some(value) => write!(f, "{}={}", self.0, value),
             None => write!(f, "{}", self.0),
         }
+    }
+}
+
+impl From<Param> for String {
+    fn from(param: Param) -> String {
+        param.to_string()
     }
 }
 
@@ -142,6 +152,7 @@ impl<'a> Display for Params<'a> {
 /// Used as the left side in an ESMTP parameter.  For example, it
 /// represents the "BODY" string in a parameter "BODY=8BIT".
 #[derive(Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Keyword(pub(crate) String);
 string_newtype!(Keyword);
 nom_fromstr!(Keyword, esmtp_keyword);
@@ -151,6 +162,7 @@ nom_fromstr!(Keyword, esmtp_keyword);
 /// Used as the right side in an ESMTP parameter.  For example, it
 /// represents the "8BIT" string in a parameter "BODY=8BIT".
 #[derive(Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Value(pub(crate) String);
 string_newtype!(Value);
 nom_fromstr!(Value, esmtp_value::<Intl>);

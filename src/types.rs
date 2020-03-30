@@ -13,6 +13,9 @@ use std::fmt::{self, Display};
 
 use std::net::IpAddr;
 
+#[cfg(feature = "serde")]
+use serde::{Serialize, Deserialize};
+
 use crate::behaviour::Intl;
 use crate::rfc5321 as smtp;
 use crate::rfc5322 as imf;
@@ -241,6 +244,8 @@ impl Display for AddressLiteral {
 
 /// A valid email address.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(try_from="&str", into="String"))]
 pub struct Mailbox(pub(crate) LocalPart, pub(crate) DomainPart);
 
 impl Mailbox {
@@ -275,8 +280,17 @@ impl Mailbox {
     nom_from_imf!(imf::addr_spec::<Intl>);
 }
 
+// FIXME: is type unification a good thing ?
+nom_fromstr!(Mailbox, smtp::mailbox::<Intl>);
+
 impl Display for Mailbox {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}@{}", self.0, self.1)
+    }
+}
+
+impl From<Mailbox> for String {
+    fn from(mailbox: Mailbox) -> String {
+        mailbox.to_string()
     }
 }
