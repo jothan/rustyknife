@@ -1,0 +1,1 @@
+Search.setIndex({envversion:47,filenames:["index"],objects:{},objnames:{},objtypes:{},terms:{index:0,modul:0,page:0,search:0},titles:["rustyknife: The quicker email chopper"],titleterms:{chopper:0,command:0,content:0,email:0,indic:0,mime:0,paramet:0,pars:0,quicker:0,rfc:0,rustyknif:0,smtp:0,tabl:0}})
