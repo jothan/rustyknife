@@ -369,7 +369,7 @@ pub(crate) fn _domain_part<P: UTF8Policy>(input: &[u8]) -> NomResult<DomainPart>
     alt((map(domain::<P>, DomainPart::Domain), map(address_literal, DomainPart::Address)))(input)
 }
 
-pub(crate) fn mailbox<P: UTF8Policy>(input: &[u8]) -> NomResult<Mailbox> {
+pub fn mailbox<P: UTF8Policy>(input: &[u8]) -> NomResult<Mailbox> {
     map(separated_pair(local_part::<P>, tag("@"), _domain_part::<P>),
         |(lp, dp)| Mailbox(lp, dp))(input)
 }
