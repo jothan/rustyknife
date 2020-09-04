@@ -13,59 +13,46 @@ use crate::util::NomResult;
 use memmap::Mmap;
 
 use pyo3::prelude::*;
-use pyo3::{self, Python, PyResult, PyObject, IntoPyObject, ToPyObject, PyErr};
+use pyo3::{self, Python, PyResult, PyObject, ToPyObject, PyErr};
 use pyo3::types::{PyBytes, PyDict, PyTuple};
 use pyo3::exceptions::ValueError;
 
-macro_rules! intopyobject {
-    ( $e:ident ) => {
-        impl IntoPyObject for $e {
-            fn into_object(self, py: Python) -> PyObject {
-                self.to_object(py)
-            }
-        }
-    }
-}
-
-intopyobject!(Address);
-impl ToPyObject for Address {
-    fn to_object(&self, py: Python) -> PyObject {
+impl IntoPy<PyObject> for Address {
+    fn into_py(self, py: Python) -> PyObject {
         match self {
-            Address::Mailbox(m) => m.to_object(py),
-            Address::Group(g) => g.to_object(py),
+            Address::Mailbox(m) => m.into_py(py),
+            Address::Group(g) => g.into_py(py),
         }
     }
 }
 
-impl ToPyObject for Group {
-    fn to_object(&self, py: Python) -> PyObject {
-        PyTuple::new(py, &[self.dname.to_object(py), self.members.to_object(py)]).into_object(py)
+impl IntoPy<PyObject> for Group {
+    fn into_py(self, py: Python) -> PyObject {
+        PyTuple::new(py, &[self.dname.to_object(py), self.members.into_py(py)]).to_object(py)
     }
 }
-impl ToPyObject for Mailbox {
-    fn to_object(&self, py: Python) -> PyObject {
-        PyTuple::new(py, &[self.dname.to_object(py), self.address.to_string().into_object(py)]).into_object(py)
+impl IntoPy<PyObject> for Mailbox {
+    fn into_py(self, py: Python) -> PyObject {
+        PyTuple::new(py, &[self.dname.to_object(py), self.address.to_string().to_object(py)]).to_object(py)
     }
 }
 
-intopyobject!(XFORWARDParam);
-impl ToPyObject for XFORWARDParam {
-    fn to_object(&self, py: Python) -> PyObject {
+impl IntoPy<PyObject> for XFORWARDParam {
+    fn into_py(self, py: Python) -> PyObject {
         PyTuple::new(py, &[self.0.to_object(py),
-                           self.1.to_object(py)]).into_object(py)
+                           self.1.to_object(py)]).to_object(py)
     }
 }
 
-intopyobject!(ESMTPParam);
-impl ToPyObject for ESMTPParam {
-    fn to_object(&self, py: Python) -> PyObject {
+impl IntoPy<PyObject> for ESMTPParam {
+    fn into_py(self, py: Python) -> PyObject {
         PyTuple::new(py, &[self.0.to_object(py),
-                           self.1.as_ref().map(|v| &v.0).to_object(py)]).into_object(py)
+                           self.1.as_ref().map(|v| &v.0).to_object(py)]).to_object(py)
     }
 }
 
-impl ToPyObject for DSNMailParams {
-    fn to_object(&self, py: Python) -> PyObject {
+impl IntoPy<PyObject> for DSNMailParams {
+    fn into_py(self, py: Python) -> PyObject {
         let out = PyDict::new(py);
 
         out.set_item("envid", self.envid.clone()).unwrap();
@@ -78,22 +65,20 @@ impl ToPyObject for DSNMailParams {
     }
 }
 
-intopyobject!(ForwardPath);
-impl ToPyObject for ForwardPath {
-    fn to_object(&self, py: Python) -> PyObject {
+impl IntoPy<PyObject> for ForwardPath {
+    fn into_py(self, py: Python) -> PyObject {
         match self {
-            ForwardPath::Path(p) => p.0.to_string().into_object(py),
+            ForwardPath::Path(p) => p.0.to_string().to_object(py),
             ForwardPath::PostMaster(None) => "postmaster".to_object(py),
             ForwardPath::PostMaster(Some(d)) => format!("postmaster@{}", d).to_object(py),
         }
     }
 }
 
-intopyobject!(ReversePath);
-impl ToPyObject for ReversePath {
-    fn to_object(&self, py: Python) -> PyObject {
+impl IntoPy<PyObject> for ReversePath {
+    fn into_py(self, py: Python) -> PyObject {
         match self {
-            ReversePath::Path(p) => p.0.to_string().into_object(py),
+            ReversePath::Path(p) => p.0.to_string().to_object(py),
             ReversePath::Null => "".to_object(py),
         }
     }
@@ -119,12 +104,12 @@ fn header_section_slice(py: Python, input: &[u8]) -> PyResult<PyObject> {
     let header_end = input.len().checked_sub(rem.len()).unwrap();
     let headers : Vec<_> = out.into_iter().map(|h| {
         match h {
-            Ok((name, value)) => (PyBytes::new(py, name), PyBytes::new(py, value)).into_object(py),
-            Err(invalid) => (py.None(), PyBytes::new(py, invalid)).into_object(py),
+            Ok((name, value)) => (PyBytes::new(py, name), PyBytes::new(py, value)).to_object(py),
+            Err(invalid) => (py.None(), PyBytes::new(py, invalid)).to_object(py),
         }
     }).collect();
 
-    Ok((headers, header_end).into_object(py))
+    Ok((headers, header_end).to_object(py))
 }
 
 #[pymodule]
@@ -187,7 +172,7 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     /// dsn_mail_params(input)
     #[pyfn(m, "dsn_mail_params")]
     fn py_dsn_mail_params(py2: Python, input: Vec<(&str, Option<&str>)>) -> PyResult<(PyObject, PyObject)> {
-        dsn_mail_params(&input).map(|(parsed, rem)| (parsed.to_object(py2), rem.to_object(py2))).map_err(PyErr::new::<ValueError, _>)
+        dsn_mail_params(&input).map(|(parsed, rem)| (parsed.into_py(py2), rem.to_object(py2))).map_err(PyErr::new::<ValueError, _>)
     }
 
     /// mail_command(input)
