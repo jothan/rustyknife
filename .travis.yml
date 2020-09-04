@@ -4,7 +4,7 @@ cache: cargo
 sudo: required
 
 rust:
-  - nightly
+  - stable
 
 env:
   matrix:
@@ -40,7 +40,7 @@ script:
 # Coverage report
 after_success:
   - |
-      if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_RUST_VERSION" == "nightly" && "$FEATURES" == "" ]]; then
+      if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_RUST_VERSION" == "stable" && "$FEATURES" == "" ]]; then
         wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
         tar xzf master.tar.gz &&
         cd kcov-master &&
@@ -55,7 +55,7 @@ after_success:
         bash <(curl -s https://codecov.io/bash) &&
         echo "Uploaded code coverage"
       fi
-      if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_RUST_VERSION" == "nightly" && "$FEATURES" == "" ]]; then
+      if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_RUST_VERSION" == "stable" && "$FEATURES" == "" ]]; then
           cargo doc --no-default-features --features quoted-string-rfc2047 --features nightly &&
           /usr/share/sphinx/scripts/python3/sphinx-build sphinx/source target/doc/sphinx &&
           sudo pip install ghp-import &&
