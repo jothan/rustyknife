@@ -103,10 +103,10 @@ macro_rules! string_newtype {
     }
 }
 
-pub(crate) fn fold_prefix0<I, O, E, F, G>(prefix: F, cont: G) -> impl Fn(I) -> IResult<I, Vec<O>, E>
+pub(crate) fn fold_prefix0<I, O, E, F, G>(mut prefix: F, mut cont: G) -> impl FnMut(I) -> IResult<I, Vec<O>, E>
     where I: Clone + PartialEq,
-          F: Fn(I) -> IResult<I, O, E>,
-          G: Fn(I) -> IResult<I, O, E>,
+          F: FnMut(I) -> IResult<I, O, E>,
+          G: FnMut(I) -> IResult<I, O, E>,
           E: nom::error::ParseError::<I>,
           Vec<O>: Clone,
 {
@@ -114,24 +114,24 @@ pub(crate) fn fold_prefix0<I, O, E, F, G>(prefix: F, cont: G) -> impl Fn(I) -> I
         let (rem, v1) = prefix(input)?;
         let out = vec![v1];
 
-        fold_many0(&cont, out, |mut acc, value| {
+        fold_many0(&mut cont, out, |mut acc, value| {
             acc.push(value);
             acc
         })(rem)
     }
 }
 
-pub(crate) fn recognize_many0<I, O, E, F>(f: F) -> impl Fn(I) -> IResult<I, I, E>
+pub(crate) fn recognize_many0<I, O, E, F>(f: F) -> impl FnMut(I) -> IResult<I, I, E>
     where I: Clone + PartialEq + nom::Slice<std::ops::RangeTo<usize>> + nom::Offset,
-          F: Fn(I) -> IResult<I, O, E>,
+          F: FnMut(I) -> IResult<I, O, E>,
           E: nom::error::ParseError::<I>,
 {
     recognize(fold_many0(f, (), |_, _| ()))
 }
 
-pub(crate) fn recognize_many1<I, O, E, F>(f: F) -> impl Fn(I) -> IResult<I, I, E>
+pub(crate) fn recognize_many1<I, O, E, F>(f: F) -> impl FnMut(I) -> IResult<I, I, E>
     where I: Clone + PartialEq + nom::Slice<std::ops::RangeTo<usize>> + nom::Offset,
-          F: Fn(I) -> IResult<I, O, E>,
+          F: FnMut(I) -> IResult<I, O, E>,
           E: nom::error::ParseError::<I>,
 {
     recognize(fold_many1(f, (), |_, _| ()))
