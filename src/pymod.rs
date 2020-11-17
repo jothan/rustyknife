@@ -15,7 +15,7 @@ use memmap::Mmap;
 use pyo3::prelude::*;
 use pyo3::{self, Python, PyResult, PyObject, ToPyObject, PyErr};
 use pyo3::types::{PyBytes, PyDict, PyTuple};
-use pyo3::exceptions::ValueError;
+use pyo3::exceptions::PyValueError;
 
 impl IntoPy<PyObject> for Address {
     fn into_py(self, py: Python) -> PyObject {
@@ -88,18 +88,18 @@ fn convert_result<O, E: Debug> (input: NomResult<O, E>, match_all: bool) -> PyRe
     match input {
         Ok((rem, out)) => {
             if match_all && !rem.is_empty() {
-                Err(PyErr::new::<ValueError, _>("Whole input did not match"))
+                Err(PyErr::new::<PyValueError, _>("Whole input did not match"))
             } else {
                 Ok(out)
             }
         }
-        Err(err) => Err(PyErr::new::<ValueError, _>(format!("{:?}.", err))),
+        Err(err) => Err(PyErr::new::<PyValueError, _>(format!("{:?}.", err))),
     }
 }
 
 fn header_section_slice(py: Python, input: &[u8]) -> PyResult<PyObject> {
     let (rem, out) = header_section(input)
-        .map_err(|err| PyErr::new::<ValueError, _>(format!("{:?}.", err)))?;
+        .map_err(|err| PyErr::new::<PyValueError, _>(format!("{:?}.", err)))?;
 
     let header_end = input.len().checked_sub(rem.len()).unwrap();
     let headers : Vec<_> = out.into_iter().map(|h| {
@@ -172,7 +172,7 @@ fn rustyknife(_py: Python, m: &PyModule) -> PyResult<()> {
     /// dsn_mail_params(input)
     #[pyfn(m, "dsn_mail_params")]
     fn py_dsn_mail_params(py2: Python, input: Vec<(&str, Option<&str>)>) -> PyResult<(PyObject, PyObject)> {
-        dsn_mail_params(&input).map(|(parsed, rem)| (parsed.into_py(py2), rem.to_object(py2))).map_err(PyErr::new::<ValueError, _>)
+        dsn_mail_params(&input).map(|(parsed, rem)| (parsed.into_py(py2), rem.to_object(py2))).map_err(PyErr::new::<PyValueError, _>)
     }
 
     /// mail_command(input)
