@@ -6,7 +6,7 @@
 #![warn(missing_docs)]
 
 #[macro_use]
-extern crate nom;
+pub extern crate nom;
 
 /// Types used for varying parser behaviour.
 pub mod behaviour {
