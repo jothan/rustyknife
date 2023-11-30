@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 use std::str;
 
-use encoding::{Encoding, DecoderTrap};
-use encoding::all::ASCII;
+// use encoding_rs::Encoding;
+use encoding_rs::UTF_8; // TODO: was: ASCII!  Might well be wrong
 
 use nom::IResult;
 use nom::bytes::complete::take;
@@ -24,7 +24,7 @@ pub fn ascii_to_string<'a, T: Into<Cow<'a, [u8]>>>(i: T) -> Cow<'a, str> {
             Cow::Owned(i) => Cow::Owned(String::from_utf8(i).unwrap()),
         }
     } else {
-        Cow::Owned(ASCII.decode(&i, DecoderTrap::Replace).unwrap())
+        Cow::Owned(UTF_8.decode_without_bom_handling(&i).0.to_string())
     }
 }
 

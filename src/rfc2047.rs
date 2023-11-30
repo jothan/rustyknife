@@ -5,9 +5,7 @@
 
 use std::borrow::Cow;
 
-use encoding::DecoderTrap;
-use encoding::all::ASCII;
-use encoding::label::encoding_from_whatwg_label;
+use encoding_rs::{Encoding, UTF_8}; // TODO: was ASCII
 
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while1};
@@ -62,7 +60,7 @@ fn _encoded_word(input: &[u8]) -> NomResult<(Cow<str>, Vec<u8>)> {
 
 fn decode_charset((charset, bytes): (Cow<str>, Vec<u8>)) -> String
 {
-    encoding_from_whatwg_label(&charset).unwrap_or(ASCII).decode(&bytes, DecoderTrap::Replace).unwrap()
+    Encoding::for_label(&charset.as_bytes()).unwrap_or(UTF_8).decode_without_bom_handling(&bytes).0.to_string()
 }
 
 /// Decode an encoded word.
