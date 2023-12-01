@@ -60,7 +60,7 @@ fn _encoded_word(input: &[u8]) -> NomResult<(Cow<str>, Vec<u8>)> {
 
 fn decode_charset((charset, bytes): (Cow<str>, Vec<u8>)) -> String
 {
-    Encoding::for_label(&charset.as_bytes()).unwrap_or(UTF_8).decode_without_bom_handling(&bytes).0.to_string()
+    Encoding::for_label(charset.as_bytes()).unwrap_or(UTF_8).decode_without_bom_handling(&bytes).0.to_string()
 }
 
 /// Decode an encoded word.

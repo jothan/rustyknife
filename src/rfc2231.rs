@@ -166,7 +166,7 @@ fn decode_segments(mut input: Vec<(u32, Segment)>, encoding: &'static Encoding) 
     let mut encoded = Vec::new();
 
     let decode = |bytes: &mut Vec<_>, out: &mut String| {
-        out.push_str(&encoding.decode_without_bom_handling(&bytes).0);
+        out.push_str(&encoding.decode_without_bom_handling(bytes).0);
         bytes.clear();
     };
 
@@ -197,7 +197,7 @@ fn decode_parameter_list(input: Vec<Parameter>) -> Vec<(String, String)> {
                     Value::Regular(v) => { simple.insert(name_norm, v.into()); },
                     Value::Extended(ExtendedValue::Initial{value, encoding: encoding_name, ..}) => {
                         let codec = match encoding_name {
-                            Some(encoding_name) => Encoding::for_label(&decode_ascii(encoding_name).as_bytes()).unwrap_or(UTF_8),
+                            Some(encoding_name) => Encoding::for_label(decode_ascii(encoding_name).as_bytes()).unwrap_or(UTF_8),
                             None => UTF_8,
                         };
                         simple_encoded.insert(name_norm, codec.decode_without_bom_handling(value.as_slice()).0.to_string()); // TODO: eliminate to_string
@@ -212,7 +212,7 @@ fn decode_parameter_list(input: Vec<Parameter>) -> Vec<(String, String)> {
                     Value::Regular(v) => ent.push((section, Segment::Decoded(v))),
                     Value::Extended(ExtendedValue::Initial{value, encoding: encoding_name, ..}) => {
                         if let Some(encoding_name) = encoding_name {
-                            if let Some(codec) = Encoding::for_label(&decode_ascii(encoding_name).as_bytes()) {
+                            if let Some(codec) = Encoding::for_label(decode_ascii(encoding_name).as_bytes()) {
                                 composite_encoding.insert(name_norm, codec);
                             }
                         }
