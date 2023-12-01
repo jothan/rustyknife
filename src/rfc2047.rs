@@ -54,7 +54,7 @@ fn _encoded_word(input: &[u8]) -> NomResult<(Cow<str>, Vec<u8>)> {
                delimited(tag("?"), token, tag("?")),
                terminated(encoded_text, tag("?=")))),
         |(charset, _lang, encoding, text)| {
-            (ascii_to_string(charset), decode_text(encoding, text).unwrap_or_else(|| text.to_vec()))
+            (charset::decode_ascii(charset), decode_text(encoding, text).unwrap_or_else(|| text.to_vec()))
         })(input)
 }
 

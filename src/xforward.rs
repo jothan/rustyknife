@@ -2,6 +2,8 @@
 //!
 //! [XFORWARD]: http://www.postfix.org/XFORWARD_README.html
 
+use charset::decode_ascii;
+
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case};
 use nom::combinator::{opt, map};
@@ -33,7 +35,7 @@ fn unavailable(input: &[u8]) -> NomResult<Option<String>> {
 }
 
 fn value(input: &[u8]) -> NomResult<Option<String>> {
-    alt((unavailable, map(xtext, |x| Some(ascii_to_string(x).into()))))(input)
+    alt((unavailable, map(xtext, |x| Some(decode_ascii(&x).into()))))(input)
 }
 
 fn param(input: &[u8]) -> NomResult<Param> {

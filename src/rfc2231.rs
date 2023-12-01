@@ -11,6 +11,8 @@ use std::fmt::{self, Display};
 use std::str;
 use std::collections::HashMap;
 
+use charset::decode_ascii;
+
 use encoding_rs::Encoding;
 use encoding_rs::UTF_8; // TODO: was ASCII
 
@@ -195,7 +197,7 @@ fn decode_parameter_list(input: Vec<Parameter>) -> Vec<(String, String)> {
                     Value::Regular(v) => { simple.insert(name_norm, v.into()); },
                     Value::Extended(ExtendedValue::Initial{value, encoding: encoding_name, ..}) => {
                         let codec = match encoding_name {
-                            Some(encoding_name) => Encoding::for_label(&ascii_to_string(encoding_name).as_bytes()).unwrap_or(UTF_8),
+                            Some(encoding_name) => Encoding::for_label(&decode_ascii(encoding_name).as_bytes()).unwrap_or(UTF_8),
                             None => UTF_8,
                         };
                         simple_encoded.insert(name_norm, codec.decode_without_bom_handling(value.as_slice()).0.to_string()); // TODO: eliminate to_string
@@ -210,7 +212,7 @@ fn decode_parameter_list(input: Vec<Parameter>) -> Vec<(String, String)> {
                     Value::Regular(v) => ent.push((section, Segment::Decoded(v))),
                     Value::Extended(ExtendedValue::Initial{value, encoding: encoding_name, ..}) => {
                         if let Some(encoding_name) = encoding_name {
-                            if let Some(codec) = Encoding::for_label(&ascii_to_string(encoding_name).as_bytes()) {
+                            if let Some(codec) = Encoding::for_label(&decode_ascii(encoding_name).as_bytes()) {
                                 composite_encoding.insert(name_norm, codec);
                             }
                         }
@@ -241,7 +243,7 @@ fn decode_parameter_list(input: Vec<Parameter>) -> Vec<(String, String)> {
 pub fn content_type(input: &[u8]) -> NomResult<(String, Vec<(String, String)>)> {
     map(pair(delimited(ofws, _mime_type, ofws),
              _parameter_list),
-        |(mt, p)| (ascii_to_string(mt).to_lowercase(), decode_parameter_list(p)))(input)
+        |(mt, p)| (decode_ascii(mt).to_lowercase(), decode_parameter_list(p)))(input)
 }
 
 fn _x_token(input: &[u8]) -> NomResult<&str> {
