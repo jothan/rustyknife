@@ -1,9 +1,3 @@
-use std::borrow::Cow;
-use std::str;
-
-use encoding::{Encoding, DecoderTrap};
-use encoding::all::ASCII;
-
 use nom::IResult;
 use nom::bytes::complete::take;
 use nom::combinator::{map, recognize, verify};
@@ -14,19 +8,6 @@ pub(crate) type NomError<'a> = ();
 
 /// Shortcut type for taking in bytes and spitting out a success or NomError.
 pub type NomResult<'a, O, E=NomError<'a>> = IResult<&'a [u8], O, E>;
-
-pub fn ascii_to_string<'a, T: Into<Cow<'a, [u8]>>>(i: T) -> Cow<'a, str> {
-    let i = i.into();
-
-    if i.is_ascii() {
-        match i {
-            Cow::Borrowed(i) => Cow::Borrowed(str::from_utf8(i).unwrap()),
-            Cow::Owned(i) => Cow::Owned(String::from_utf8(i).unwrap()),
-        }
-    } else {
-        Cow::Owned(ASCII.decode(&i, DecoderTrap::Replace).unwrap())
-    }
-}
 
 macro_rules! nom_fromstr {
     ( $type:ty, $func:path ) => {

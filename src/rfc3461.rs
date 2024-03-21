@@ -7,6 +7,8 @@ use std::str;
 
 use crate::util::*;
 
+use charset::decode_ascii;
+
 use nom::branch::alt;
 use nom::bytes::complete::{take, tag, tag_no_case};
 use nom::character::is_hex_digit;
@@ -52,7 +54,7 @@ fn _printable_xtext(input: &[u8]) -> NomResult<Vec<u8>> {
 /// ```
 pub fn orcpt_address(input: &[u8]) -> NomResult<(Cow<str>, Cow<str>)> {
     map(separated_pair(atom::<crate::behaviour::Legacy>, tag(";"), _printable_xtext),
-        |(a, b)| (ascii_to_string(a), ascii_to_string(b)))(input)
+        |(a, b)| (decode_ascii(a), Cow::Owned(decode_ascii(&b).into_owned())))(input)
 }
 
 /// The DSN return type desired by the sender.
@@ -120,7 +122,7 @@ pub fn dsn_mail_params<'a>(input: &[Param<'a>]) -> Result<(DSNMailParams, Vec<Pa
                     return Err("ENVID over 100 bytes");
                 }
                 if let Ok((_, parsed)) = exact!(value, _printable_xtext) {
-                    envid_val = Some(ascii_to_string(parsed).into());
+                    envid_val = Some(decode_ascii(&parsed).into());
                 } else {
                     return Err("Invalid ENVID");
                 }

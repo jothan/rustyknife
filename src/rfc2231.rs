@@ -11,10 +11,10 @@ use std::fmt::{self, Display};
 use std::str;
 use std::collections::HashMap;
 
-use encoding::label::encoding_from_whatwg_label;
-use encoding::types::EncodingRef;
-use encoding::DecoderTrap;
-use encoding::all::ASCII;
+use charset::decode_ascii;
+
+use encoding_rs::Encoding;
+use encoding_rs::UTF_8; // TODO: was ASCII
 
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_while1, take_while_m_n};
@@ -160,13 +160,13 @@ enum Segment<'a> {
     Decoded(Cow<'a, str>),
 }
 
-fn decode_segments(mut input: Vec<(u32, Segment)>, encoding: EncodingRef) -> String {
+fn decode_segments(mut input: Vec<(u32, Segment)>, encoding: &'static Encoding) -> String {
     input.sort_by(|a, b| a.0.cmp(&b.0));
     let mut out = String::new();
     let mut encoded = Vec::new();
 
     let decode = |bytes: &mut Vec<_>, out: &mut String| {
-        out.push_str(&encoding.decode(&bytes, DecoderTrap::Replace).unwrap());
+        out.push_str(&encoding.decode_without_bom_handling(bytes).0);
         bytes.clear();
     };
 
@@ -197,10 +197,10 @@ fn decode_parameter_list(input: Vec<Parameter>) -> Vec<(String, String)> {
                     Value::Regular(v) => { simple.insert(name_norm, v.into()); },
                     Value::Extended(ExtendedValue::Initial{value, encoding: encoding_name, ..}) => {
                         let codec = match encoding_name {
-                            Some(encoding_name) => encoding_from_whatwg_label(&ascii_to_string(encoding_name)).unwrap_or(ASCII),
-                            None => ASCII,
+                            Some(encoding_name) => Encoding::for_label(decode_ascii(encoding_name).as_bytes()).unwrap_or(UTF_8),
+                            None => UTF_8,
                         };
-                        simple_encoded.insert(name_norm, codec.decode(&value, DecoderTrap::Replace).unwrap());
+                        simple_encoded.insert(name_norm, codec.decode_without_bom_handling(value.as_slice()).0.to_string()); // TODO: eliminate to_string
                     }
                     Value::Extended(ExtendedValue::Other(..)) => unreachable!(),
                 }
@@ -212,7 +212,7 @@ fn decode_parameter_list(input: Vec<Parameter>) -> Vec<(String, String)> {
                     Value::Regular(v) => ent.push((section, Segment::Decoded(v))),
                     Value::Extended(ExtendedValue::Initial{value, encoding: encoding_name, ..}) => {
                         if let Some(encoding_name) = encoding_name {
-                            if let Some(codec) = encoding_from_whatwg_label(&ascii_to_string(encoding_name)) {
+                            if let Some(codec) = Encoding::for_label(decode_ascii(encoding_name).as_bytes()) {
                                 composite_encoding.insert(name_norm, codec);
                             }
                         }
@@ -226,7 +226,7 @@ fn decode_parameter_list(input: Vec<Parameter>) -> Vec<(String, String)> {
 
     let mut composite_out = Vec::new();
     for (name, segments) in composite {
-        let codec = composite_encoding.get(&name).cloned().unwrap_or(ASCII);
+        let codec = composite_encoding.get(&name).cloned().unwrap_or(UTF_8);
         composite_out.push((name, decode_segments(segments, codec)));
     }
 
@@ -243,7 +243,7 @@ fn decode_parameter_list(input: Vec<Parameter>) -> Vec<(String, String)> {
 pub fn content_type(input: &[u8]) -> NomResult<(String, Vec<(String, String)>)> {
     map(pair(delimited(ofws, _mime_type, ofws),
              _parameter_list),
-        |(mt, p)| (ascii_to_string(mt).to_lowercase(), decode_parameter_list(p)))(input)
+        |(mt, p)| (decode_ascii(mt).to_lowercase(), decode_parameter_list(p)))(input)
 }
 
 fn _x_token(input: &[u8]) -> NomResult<&str> {
