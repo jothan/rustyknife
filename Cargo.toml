@@ -26,7 +26,6 @@ fuzz = ["afl"]
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-# encoding = "0.2"
 nom = "6.0"
 base64 = "0.13"
 idna = "0.2.0"
